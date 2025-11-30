@@ -50,17 +50,38 @@
 
 ## 🚀 Installation
 
-### VS Code Marketplace
-1. VS Code에서 Extensions 열기 (`Ctrl+Shift+X`)
-2. "Vibe Coding Report" 검색
-3. Install 클릭
+### VSIX 파일로 설치 (권장)
 
-### From VSIX
+GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니다.
+
+#### 방법 1: VS Code UI에서 설치
+1. [Releases 페이지](https://github.com/Stankjedi/projectmanager/releases)에서 `vibereport-x.x.x.vsix` 다운로드
+2. VS Code 열기
+3. Extensions 사이드바 열기 (`Ctrl+Shift+X`)
+4. 상단 `...` 메뉴 클릭 → **Install from VSIX...** 선택
+5. 다운로드한 `.vsix` 파일 선택
+6. VS Code 재시작
+
+#### 방법 2: 명령줄에서 설치
 ```bash
+# VSIX 파일 다운로드 후
 code --install-extension vibereport-0.1.0.vsix
 ```
 
-### Development
+#### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
+```powershell
+# GitHub에서 직접 다운로드 (PowerShell)
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.1.0/vibereport-0.1.0.vsix" -OutFile "vibereport-0.1.0.vsix"
+code --install-extension vibereport-0.1.0.vsix
+```
+
+```bash
+# Linux/Mac
+curl -L -o vibereport-0.1.0.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.1.0/vibereport-0.1.0.vsix
+code --install-extension vibereport-0.1.0.vsix
+```
+
+### Development (개발자용)
 ```bash
 cd vibereport-extension
 pnpm install
