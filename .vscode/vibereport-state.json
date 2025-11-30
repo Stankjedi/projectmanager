@@ -1,0 +1,304 @@
+{
+  "lastSnapshot": {
+    "generatedAt": "2025-11-30T15:42:04.770Z",
+    "rootPath": "c:\\Users\\송용준\\Desktop\\Dev\\projectmanager",
+    "projectName": "projectmanager",
+    "filesCount": 38,
+    "dirsCount": 14,
+    "languageStats": {
+      "ts": 24,
+      "md": 4,
+      "json": 3,
+      "yaml": 1,
+      "yml": 1
+    },
+    "mainConfigFiles": {
+      "otherConfigs": []
+    },
+    "importantFiles": [],
+    "structureSummary": [
+      {
+        "name": "devplan",
+        "type": "directory",
+        "children": [
+          {
+            "name": "Project_Evaluation_Report.md",
+            "type": "file",
+            "extension": "md"
+          },
+          {
+            "name": "Project_Improvement_Exploration_Report.md",
+            "type": "file",
+            "extension": "md"
+          },
+          {
+            "name": "Prompt.md",
+            "type": "file",
+            "extension": "md"
+          }
+        ]
+      },
+      {
+        "name": "vibereport-extension",
+        "type": "directory",
+        "children": [
+          {
+            "name": "images",
+            "type": "directory",
+            "children": [
+              {
+                "name": "icon.png",
+                "type": "file",
+                "extension": "png"
+              }
+            ]
+          },
+          {
+            "name": "src",
+            "type": "directory",
+            "children": [
+              {
+                "name": "commands",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "updateReports.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  }
+                ]
+              },
+              {
+                "name": "models",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "constants.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "errors.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "types.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  }
+                ]
+              },
+              {
+                "name": "services",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "__tests__",
+                    "type": "directory"
+                  },
+                  {
+                    "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "reportService.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "snapshotService.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "workspaceScanner.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  }
+                ]
+              },
+              {
+                "name": "utils",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "__tests__",
+                    "type": "directory"
+                  },
+                  {
+                    "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "logger.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "markdownUtils.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "timeUtils.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  }
+                ]
+              },
+              {
+                "name": "views",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "__tests__",
+                    "type": "directory"
+                  },
+                  {
+                    "name": "HistoryViewProvider.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "SummaryViewProvider.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  }
+                ]
+              },
+              {
+                "name": "extension.ts",
+                "type": "file",
+                "extension": "ts"
+              }
+            ]
+          },
+          {
+            "name": "LICENSE",
+            "type": "file"
+          },
+          {
+            "name": "package.json",
+            "type": "file",
+            "extension": "json"
+          },
+          {
+            "name": "pnpm-lock.yaml",
+            "type": "file",
+            "extension": "yaml"
+          },
+          {
+            "name": "README.md",
+            "type": "file",
+            "extension": "md"
+          },
+          {
+            "name": "tsconfig.json",
+            "type": "file",
+            "extension": "json"
+          },
+          {
+            "name": "vibereport-0.1.0.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
+            "name": "vitest.config.ts",
+            "type": "file",
+            "extension": "ts"
+          }
+        ]
+      }
+    ]
+  },
+  "sessions": [
+    {
+      "id": "session_mikgux70_w6uuyn",
+      "timestamp": "2025-11-29T15:48:52.236Z",
+      "userPrompt": "projectmanager 프로젝트 초기 분석",
+      "changesSummary": "초기 보고서 생성",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      },
+      "aiMetadata": {
+        "risksIdentified": 5,
+        "improvementsProposed": 5,
+        "priorityItems": [
+          "테스트 코드 도입 및 커버리지 확보",
+          "기본 보안 설정 및 민감 정보 관리"
+        ],
+        "overallScore": 70,
+        "evaluationScores": {
+          "codeQuality": {
+            "score": 78,
+            "grade": "C+"
+          },
+          "architecture": {
+            "score": 75,
+            "grade": "C"
+          },
+          "security": {
+            "score": 70,
+            "grade": "C-"
+          },
+          "performance": {
+            "score": 76,
+            "grade": "C"
+          },
+          "testCoverage": {
+            "score": 60,
+            "grade": "D-"
+          },
+          "errorHandling": {
+            "score": 68,
+            "grade": "D+"
+          },
+          "documentation": {
+            "score": 65,
+            "grade": "D"
+          },
+          "scalability": {
+            "score": 73,
+            "grade": "C"
+          },
+          "maintainability": {
+            "score": 74,
+            "grade": "C"
+          },
+          "productionReadiness": {
+            "score": 62,
+            "grade": "D-"
+          },
+          "totalAverage": {
+            "score": 70,
+            "grade": "C-"
+          }
+        }
+      }
+    }
+  ],
+  "appliedImprovements": [],
+  "lastUpdated": "2025-11-30T15:42:04.794Z",
+  "version": 1
+}

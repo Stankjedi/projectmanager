@@ -1,0 +1,215 @@
+{
+  "name": "vibereport",
+  "displayName": "Vibe Coding Report",
+  "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
+  "version": "0.1.0",
+  "publisher": "vibe-coding",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "badges": [
+    {
+      "url": "https://img.shields.io/visual-studio-marketplace/v/vibe-coding.vibereport",
+      "href": "https://marketplace.visualstudio.com/items?itemName=vibe-coding.vibereport",
+      "description": "Version"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Stankjedi/projectmanager"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "vibe coding",
+    "project report",
+    "ai",
+    "code review",
+    "documentation"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibereport.updateReports",
+        "title": "Update Project Reports",
+        "category": "VibeCoding",
+        "icon": "$(notebook-render-output)"
+      },
+      {
+        "command": "vibereport.openEvaluationReport",
+        "title": "Open Evaluation Report",
+        "category": "VibeCoding",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "vibereport.openImprovementReport",
+        "title": "Open Improvement Report",
+        "category": "VibeCoding",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "vibereport.showLastRunSummary",
+        "title": "Show Last Run Summary",
+        "category": "VibeCoding",
+        "icon": "$(history)"
+      },
+      {
+        "command": "vibereport.initializeReports",
+        "title": "Initialize Project Reports",
+        "category": "VibeCoding",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "vibereport.openPrompt",
+        "title": "Open Prompt File",
+        "category": "VibeCoding",
+        "icon": "$(hubot)"
+      }
+    ],
+    "configuration": {
+      "title": "Vibe Coding Report",
+      "properties": {
+        "vibereport.reportDirectory": {
+          "type": "string",
+          "default": "devplan",
+          "description": "보고서 파일이 저장될 디렉토리 (워크스페이스 루트 기준 상대 경로)"
+        },
+        "vibereport.snapshotFile": {
+          "type": "string",
+          "default": ".vscode/vibereport-state.json",
+          "description": "스냅샷 상태 파일 경로"
+        },
+        "vibereport.enableGitDiff": {
+          "type": "boolean",
+          "default": true,
+          "description": "Git diff 기반 변경 분석 활성화"
+        },
+        "vibereport.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/out/**",
+            "**/build/**",
+            "**/.git/**",
+            "**/target/**",
+            "**/.next/**",
+            "**/__pycache__/**",
+            "**/.venv/**",
+            "**/coverage/**",
+            "**/*.log",
+            "**/*.lock"
+          ],
+          "description": "스캔에서 제외할 파일/폴더 패턴"
+        },
+        "vibereport.maxFilesToScan": {
+          "type": "number",
+          "default": 5000,
+          "description": "스캔할 최대 파일 수"
+        },
+        "vibereport.autoOpenReports": {
+          "type": "boolean",
+          "default": true,
+          "description": "보고서 업데이트 후 자동으로 파일 열기"
+        },
+        "vibereport.language": {
+          "type": "string",
+          "enum": [
+            "ko",
+            "en"
+          ],
+          "default": "ko",
+          "description": "보고서 언어 설정"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vibereport",
+          "title": "Vibe Report",
+          "icon": "$(graph)"
+        }
+      ]
+    },
+    "views": {
+      "vibereport": [
+        {
+          "id": "vibereport.summary",
+          "name": "Summary",
+          "type": "webview"
+        },
+        {
+          "id": "vibereport.history",
+          "name": "Session History"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "vibereport.updateReports",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vibereport.openEvaluationReport",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vibereport.openImprovementReport",
+          "when": "workspaceFolderCount > 0"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "vibereport.updateReports",
+          "when": "view == vibereport.summary",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile",
+    "lint": "eslint src --ext ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "docs": "typedoc --out docs src/",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^4.0.14",
+    "@vscode/vsce": "^3.0.0",
+    "eslint": "^9.0.0",
+    "typedoc": "^0.28.15",
+    "typescript": "^5.8.0",
+    "vitest": "^4.0.14"
+  },
+  "dependencies": {
+    "simple-git": "^3.27.0"
+  }
+}

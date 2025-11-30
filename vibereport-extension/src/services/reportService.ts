@@ -1,0 +1,848 @@
+/**
+ * Report Service
+ *
+ * @description Handles creation, reading, and marker-based updates for evaluation
+ * and improvement reports so only intended sections are modified.
+ *
+ * @example
+ * const service = new ReportService(outputChannel);
+ * const paths = service.getReportPaths(rootPath, config);
+ * await service.updateEvaluationReport(rootPath, config, snapshot, diff, userPrompt, aiContent);
+ */
+
+import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import type {
+  ProjectSnapshot,
+  SnapshotDiff,
+  ReportPaths,
+  VibeReportConfig,
+  AppliedImprovement,
+  ProjectEvaluationScores,
+  EvaluationScore,
+  EvaluationCategory,
+} from '../models/types.js';
+import { REPORT_FILE_NAMES, EVALUATION_CATEGORY_LABELS } from '../models/types.js';
+import {
+  MARKERS,
+  createSessionLogEntry,
+  appendBetweenMarkers,
+  replaceBetweenMarkers,
+  extractBetweenMarkers,
+  parseImprovementItems,
+  filterAppliedImprovements,
+  formatDateTimeKorean,
+} from '../utils/markdownUtils.js';
+
+export class ReportService {
+  private outputChannel: vscode.OutputChannel;
+
+  constructor(outputChannel: vscode.OutputChannel) {
+    this.outputChannel = outputChannel;
+  }
+
+  /**
+   * 보고서 파일 경로 계산
+   *
+   * @description Resolve absolute report paths based on workspace root and config.
+   * @param rootPath 워크스페이스 루트 경로
+   * @param config Vibe Report 설정
+   * @returns 평가/개선 보고서의 절대 경로
+   */
+  getReportPaths(rootPath: string, config: VibeReportConfig): ReportPaths {
+    const reportDir = path.join(rootPath, config.reportDirectory);
+    return {
+      evaluation: path.join(reportDir, REPORT_FILE_NAMES.evaluation),
+      improvement: path.join(reportDir, REPORT_FILE_NAMES.improvement),
+    };
+  }
+
+  /**
+   * 보고서 디렉토리 확인/생성
+   *
+   * @description Ensure the report directory exists before writing any file.
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   */
+  async ensureReportDirectory(rootPath: string, config: VibeReportConfig): Promise<void> {
+    const reportDir = path.join(rootPath, config.reportDirectory);
+    try {
+      await fs.mkdir(reportDir, { recursive: true });
+    } catch {
+      // 이미 존재
+    }
+  }
+
+  /**
+   * 평가 보고서 읽기
+   *
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   * @returns 내용 문자열 또는 존재하지 않으면 null
+   */
+  async readEvaluationReport(
+    rootPath: string,
+    config: VibeReportConfig
+  ): Promise<string | null> {
+    const paths = this.getReportPaths(rootPath, config);
+    try {
+      return await fs.readFile(paths.evaluation, 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 개선 보고서 읽기
+   *
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   * @returns 내용 문자열 또는 존재하지 않으면 null
+   */
+  async readImprovementReport(
+    rootPath: string,
+    config: VibeReportConfig
+  ): Promise<string | null> {
+    const paths = this.getReportPaths(rootPath, config);
+    try {
+      return await fs.readFile(paths.improvement, 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 평가 보고서 초기 템플릿 생성
+   *
+   * @description Create a localized evaluation report skeleton with marker blocks.
+   * @param snapshot 현재 프로젝트 스냅샷
+   * @param language ko/en
+   */
+  createEvaluationTemplate(snapshot: ProjectSnapshot, language: 'ko' | 'en'): string {
+    const now = formatDateTimeKorean(new Date());
+    const version = snapshot.mainConfigFiles.packageJson?.version || '-';
+    
+    if (language === 'ko') {
+      return `# 📊 프로젝트 종합 평가 보고서
+
+> 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.  
+> 수동 수정 시 확장의 동작에 영향을 줄 수 있습니다.
+
+---
+
+${MARKERS.OVERVIEW_START}
+## 📋 프로젝트 개요
+
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | ${snapshot.projectName} |
+| **버전** | ${version} |
+| **최초 분석일** | ${now} |
+| **최근 분석일** | ${now} |
+| **파일 수** | ${snapshot.filesCount} |
+| **디렉토리 수** | ${snapshot.dirsCount} |
+| **주요 언어** | ${this.getMainLanguage(snapshot)} |
+| **프레임워크** | ${this.getFramework(snapshot)} |
+${MARKERS.OVERVIEW_END}
+
+---
+
+${MARKERS.SCORE_START}
+## 📊 종합 점수 요약
+
+| 항목 | 점수 (100점 만점) | 등급 | 변화 |
+|------|------------------|------|------|
+| **코드 품질** | - | - | - |
+| **아키텍처 설계** | - | - | - |
+| **보안** | - | - | - |
+| **성능** | - | - | - |
+| **테스트 커버리지** | - | - | - |
+| **에러 처리** | - | - | - |
+| **문서화** | - | - | - |
+| **확장성** | - | - | - |
+| **유지보수성** | - | - | - |
+| **프로덕션 준비도** | - | - | - |
+| **총점 평균** | **-** | **-** | - |
+
+*첫 번째 분석 후 점수가 표시됩니다.*
+${MARKERS.SCORE_END}
+
+---
+
+${MARKERS.SUMMARY_START}
+## 📈 현재 상태 요약
+
+*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
+${MARKERS.SUMMARY_END}
+
+---
+
+${MARKERS.SESSION_LOG_START}
+## 📝 세션 기록
+
+*세션 기록이 여기에 추가됩니다.*
+${MARKERS.SESSION_LOG_END}
+`;
+    }
+
+    // English version
+    return `# 📊 Project Evaluation Report
+
+> This document is automatically managed by Vibe Coding Report VS Code extension.  
+> Manual modifications may affect the extension's behavior.
+
+---
+
+${MARKERS.OVERVIEW_START}
+## 📋 Project Overview
+
+| Item | Value |
+|------|-------|
+| **Project Name** | ${snapshot.projectName} |
+| **Version** | ${version} |
+| **First Analyzed** | ${now} |
+| **Last Analyzed** | ${now} |
+| **Files** | ${snapshot.filesCount} |
+| **Directories** | ${snapshot.dirsCount} |
+| **Main Language** | ${this.getMainLanguage(snapshot)} |
+| **Framework** | ${this.getFramework(snapshot)} |
+${MARKERS.OVERVIEW_END}
+
+---
+
+${MARKERS.SCORE_START}
+## 📊 Score Summary
+
+| Category | Score (out of 100) | Grade | Change |
+|----------|-------------------|-------|--------|
+| **Code Quality** | - | - | - |
+| **Architecture Design** | - | - | - |
+| **Security** | - | - | - |
+| **Performance** | - | - | - |
+| **Test Coverage** | - | - | - |
+| **Error Handling** | - | - | - |
+| **Documentation** | - | - | - |
+| **Scalability** | - | - | - |
+| **Maintainability** | - | - | - |
+| **Production Readiness** | - | - | - |
+| **Total Average** | **-** | **-** | - |
+
+*Scores will be displayed after the first analysis.*
+${MARKERS.SCORE_END}
+
+---
+
+${MARKERS.SUMMARY_START}
+## 📈 Current Status Summary
+
+*Not analyzed yet. Please run the first report update.*
+${MARKERS.SUMMARY_END}
+
+---
+
+${MARKERS.SESSION_LOG_START}
+## 📝 Session Log
+
+*Session records will be added here.*
+${MARKERS.SESSION_LOG_END}
+`;
+  }
+
+  /**
+   * 개선 보고서 초기 템플릿 생성
+   *
+   * @description Create a localized improvement report skeleton with marker blocks.
+   * @param snapshot 현재 프로젝트 스냅샷
+   * @param language ko/en
+   */
+  createImprovementTemplate(snapshot: ProjectSnapshot, language: 'ko' | 'en'): string {
+    const now = formatDateTimeKorean(new Date());
+    
+    if (language === 'ko') {
+      return `# 🚀 프로젝트 개선 탐색 보고서
+
+> 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.  
+> **적용된 개선 항목은 자동으로 필터링되어 미적용 항목만 표시됩니다.**
+
+---
+
+## 📋 프로젝트 정보
+
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | ${snapshot.projectName} |
+| **최초 분석일** | ${now} |
+
+---
+
+## 📌 사용 방법
+
+1. 이 보고서의 개선 항목을 검토합니다
+2. 적용하고 싶은 항목을 복사합니다
+3. AI 에이전트(Copilot Chat 등)에 붙여넣어 구현을 요청합니다
+4. 다음 보고서 업데이트 시 적용된 항목은 자동으로 제외됩니다
+
+---
+
+${MARKERS.SUMMARY_START}
+## 📊 개선 현황 요약
+
+| 상태 | 개수 |
+|------|------|
+| 🔴 긴급 (P1) | 0 |
+| 🟡 중요 (P2) | 0 |
+| 🟢 개선 (P3) | 0 |
+| ✅ 적용 완료 | 0 |
+${MARKERS.SUMMARY_END}
+
+---
+
+${MARKERS.IMPROVEMENT_LIST_START}
+## 📝 개선 항목 목록
+
+*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
+${MARKERS.IMPROVEMENT_LIST_END}
+
+---
+
+${MARKERS.SESSION_LOG_START}
+## 📜 분석 이력
+
+*분석 이력이 여기에 추가됩니다.*
+${MARKERS.SESSION_LOG_END}
+`;
+    }
+
+    // English version
+    return `# 🚀 Project Improvement Exploration Report
+
+> This document is automatically managed by Vibe Coding Report VS Code extension.  
+> **Applied improvements are automatically filtered out - only pending items are shown.**
+
+---
+
+## 📋 Project Information
+
+| Item | Value |
+|------|-------|
+| **Project Name** | ${snapshot.projectName} |
+| **First Analyzed** | ${now} |
+
+---
+
+## 📌 How to Use
+
+1. Review improvement items in this report
+2. Copy the item you want to apply
+3. Paste it to AI agent (like Copilot Chat) and request implementation
+4. Applied items will be automatically excluded in the next update
+
+---
+
+${MARKERS.SUMMARY_START}
+## 📊 Improvement Status Summary
+
+| Status | Count |
+|--------|-------|
+| 🔴 Critical (P1) | 0 |
+| 🟡 Important (P2) | 0 |
+| 🟢 Nice to have (P3) | 0 |
+| ✅ Applied | 0 |
+${MARKERS.SUMMARY_END}
+
+---
+
+${MARKERS.IMPROVEMENT_LIST_START}
+## 📝 Improvement Items
+
+*Not analyzed yet. Please run the first report update.*
+${MARKERS.IMPROVEMENT_LIST_END}
+
+---
+
+${MARKERS.SESSION_LOG_START}
+## 📜 Analysis History
+
+*Analysis history will be added here.*
+${MARKERS.SESSION_LOG_END}
+`;
+  }
+
+  /**
+   * 평가 보고서 업데이트
+   *
+   * @description Update overview, score, and session sections for the evaluation report.
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   * @param snapshot 현재 스냅샷
+   * @param diff 이전 스냅샷 대비 변경사항
+   * @param userPrompt 사용자 입력
+   * @param aiContent AI 응답 요약
+   * @param evaluationScores 선택적 평가 점수
+   */
+  async updateEvaluationReport(
+    rootPath: string,
+    config: VibeReportConfig,
+    snapshot: ProjectSnapshot,
+    diff: SnapshotDiff,
+    userPrompt: string,
+    aiContent: string,
+    evaluationScores?: ProjectEvaluationScores
+  ): Promise<void> {
+    await this.ensureReportDirectory(rootPath, config);
+    const paths = this.getReportPaths(rootPath, config);
+
+    let content = await this.readEvaluationReport(rootPath, config);
+
+    // 파일이 없으면 템플릿 생성
+    if (!content) {
+      content = this.createEvaluationTemplate(snapshot, config.language);
+    }
+
+    // 프로젝트 개요 업데이트 (현재 스냅샷 기반)
+    content = this.updateProjectOverview(content, snapshot, config.language);
+
+    // 점수 섹션 업데이트 (점수가 있는 경우)
+    if (evaluationScores) {
+      const { formatScoreTable } = require('../utils/markdownUtils.js');
+      const scoreTableMd = formatScoreTable(evaluationScores, config.language);
+      const scoreSection = `## 📊 ${config.language === 'ko' ? '종합 점수 요약' : 'Score Summary'}\n\n${scoreTableMd}`;
+      content = replaceBetweenMarkers(content, MARKERS.SCORE_START, MARKERS.SCORE_END, scoreSection);
+    }
+
+    // 세션 로그 생성
+    const diffSummary = this.formatDiffSummary(diff);
+    const sessionEntry = createSessionLogEntry(
+      new Date().toISOString(),
+      userPrompt,
+      diffSummary,
+      aiContent
+    );
+
+    // 세션 로그 추가 (새 세션이 위에 오도록)
+    content = this.prependSessionLog(content, sessionEntry);
+
+    // 파일 저장
+    await fs.writeFile(paths.evaluation, content, 'utf-8');
+    this.log(`평가 보고서 업데이트 완료: ${paths.evaluation}`);
+  }
+
+  /**
+   * 프로젝트 개요 업데이트
+   * - 버전, 최근 분석일, 파일 수, 디렉토리 수 등을 현재 스냅샷 기반으로 업데이트
+   */
+  private updateProjectOverview(
+    content: string,
+    snapshot: ProjectSnapshot,
+    language: 'ko' | 'en'
+  ): string {
+    const now = formatDateTimeKorean(new Date());
+    const version = snapshot.mainConfigFiles.packageJson?.version || '-';
+    
+    // 기존 개요에서 최초 분석일 추출
+    const existingOverview = extractBetweenMarkers(content, MARKERS.OVERVIEW_START, MARKERS.OVERVIEW_END);
+    let firstAnalyzedDate = now;
+    
+    if (existingOverview) {
+      // 최초 분석일 패턴 매칭
+      const firstAnalyzedMatch = existingOverview.match(/\*\*(?:최초 분석일|First Analyzed)\*\*\s*\|\s*(.+?)\s*\|/);
+      if (firstAnalyzedMatch) {
+        firstAnalyzedDate = firstAnalyzedMatch[1].trim();
+      }
+    }
+
+    const overviewContent = language === 'ko'
+      ? `## 📋 프로젝트 개요
+
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | ${snapshot.projectName} |
+| **버전** | ${version} |
+| **최초 분석일** | ${firstAnalyzedDate} |
+| **최근 분석일** | ${now} |
+| **파일 수** | ${snapshot.filesCount} |
+| **디렉토리 수** | ${snapshot.dirsCount} |
+| **주요 언어** | ${this.getMainLanguage(snapshot)} |
+| **프레임워크** | ${this.getFramework(snapshot)} |`
+      : `## 📋 Project Overview
+
+| Item | Value |
+|------|-------|
+| **Project Name** | ${snapshot.projectName} |
+| **Version** | ${version} |
+| **First Analyzed** | ${firstAnalyzedDate} |
+| **Last Analyzed** | ${now} |
+| **Files** | ${snapshot.filesCount} |
+| **Directories** | ${snapshot.dirsCount} |
+| **Main Language** | ${this.getMainLanguage(snapshot)} |
+| **Framework** | ${this.getFramework(snapshot)} |`;
+
+    // 마커가 있으면 교체, 없으면 추가
+    if (content.includes(MARKERS.OVERVIEW_START)) {
+      return replaceBetweenMarkers(content, MARKERS.OVERVIEW_START, MARKERS.OVERVIEW_END, overviewContent);
+    } else {
+      // 마커가 없는 기존 보고서 - "## 📋 프로젝트 개요" 섹션을 찾아서 마커로 감싸기
+      const overviewPattern = language === 'ko'
+        ? /## 📋 프로젝트 개요[\s\S]*?(?=\n---|\n##|\n<!-- AUTO)/
+        : /## 📋 Project Overview[\s\S]*?(?=\n---|\n##|\n<!-- AUTO)/;
+      
+      if (overviewPattern.test(content)) {
+        return content.replace(overviewPattern, `${MARKERS.OVERVIEW_START}\n${overviewContent}\n${MARKERS.OVERVIEW_END}`);
+      }
+      
+      return content;
+    }
+  }
+
+  /**
+   * 개선 보고서 업데이트
+   *
+   * @description Filter out applied items, merge new AI suggestions, and rewrite summary/list/session sections.
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   * @param snapshot 현재 스냅샷
+   * @param diff 스냅샷 diff (로그 작성용)
+   * @param userPrompt 사용자 입력
+   * @param aiContent AI 응답 본문
+   * @param appliedImprovements 이미 적용된 개선 항목 목록
+   */
+  async updateImprovementReport(
+    rootPath: string,
+    config: VibeReportConfig,
+    snapshot: ProjectSnapshot,
+    diff: SnapshotDiff,
+    userPrompt: string,
+    aiContent: string,
+    appliedImprovements: AppliedImprovement[]
+  ): Promise<void> {
+    await this.ensureReportDirectory(rootPath, config);
+    const paths = this.getReportPaths(rootPath, config);
+
+    let content = await this.readImprovementReport(rootPath, config);
+
+    // 파일이 없으면 템플릿 생성
+    if (!content) {
+      content = this.createImprovementTemplate(snapshot, config.language);
+    }
+
+    // 적용된 항목 ID 집합
+    const appliedIds = new Set(appliedImprovements.map(i => i.id));
+
+    // AI 응답에서 개선 항목 파싱
+    const newItems = parseImprovementItems(aiContent);
+    
+    // 기존 개선 목록 가져오기
+    const existingContent = extractBetweenMarkers(
+      content,
+      MARKERS.IMPROVEMENT_LIST_START,
+      MARKERS.IMPROVEMENT_LIST_END
+    ) || '';
+
+    const existingItems = parseImprovementItems(existingContent);
+
+    // 기존 항목 중 적용되지 않은 것만 유지
+    const pendingExistingItems = existingItems.filter(
+      item => !appliedIds.has(item.id) && !item.applied
+    );
+
+    // 새 항목 중 중복/적용된 것 제외
+    const existingIds = new Set(existingItems.map(i => i.id));
+    const newUniqueItems = newItems.filter(
+      item => !existingIds.has(item.id) && !appliedIds.has(item.id)
+    );
+
+    // 개선 목록 재구성 (새 항목 + 기존 미적용 항목)
+    const allPendingItems = [...newUniqueItems, ...pendingExistingItems];
+    
+    // 우선순위별 정렬
+    allPendingItems.sort((a, b) => {
+      const priorityOrder = { P1: 0, P2: 1, P3: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+
+    // 개선 목록 마크다운 생성
+    const improvementListMd = this.formatImprovementList(allPendingItems, config.language);
+
+    // 개선 목록 섹션 업데이트
+    content = replaceBetweenMarkers(
+      content,
+      MARKERS.IMPROVEMENT_LIST_START,
+      MARKERS.IMPROVEMENT_LIST_END,
+      improvementListMd
+    );
+
+    // 요약 업데이트
+    const summaryMd = this.formatImprovementSummary(
+      allPendingItems,
+      appliedImprovements.length,
+      config.language
+    );
+    content = replaceBetweenMarkers(
+      content,
+      MARKERS.SUMMARY_START,
+      MARKERS.SUMMARY_END,
+      summaryMd
+    );
+
+    // 세션 로그 추가
+    const sessionEntry = this.createImprovementSessionEntry(
+      userPrompt,
+      newUniqueItems.length,
+      appliedImprovements.length
+    );
+    content = this.prependSessionLog(content, sessionEntry);
+
+    // 파일 저장
+    await fs.writeFile(paths.improvement, content, 'utf-8');
+    this.log(`개선 보고서 업데이트 완료: ${paths.improvement}`);
+  }
+
+  /**
+   * 개선 항목 목록 포맷
+   */
+  private formatImprovementList(
+    items: Array<{ id: string; priority: 'P1' | 'P2' | 'P3'; title: string; description: string }>,
+    language: 'ko' | 'en'
+  ): string {
+    if (items.length === 0) {
+      return language === 'ko' 
+        ? '모든 개선 항목이 적용되었습니다! 🎉\n\n다음 분석에서 새로운 개선점이 발견될 수 있습니다.'
+        : 'All improvements have been applied! 🎉\n\nNew improvements may be found in the next analysis.';
+    }
+
+    const lines: string[] = [];
+    
+    // 우선순위별 그룹
+    const byPriority: Record<string, typeof items> = { P1: [], P2: [], P3: [] };
+    items.forEach(item => byPriority[item.priority].push(item));
+
+    const priorityLabels = {
+      ko: { P1: '🔴 긴급 (P1)', P2: '🟡 중요 (P2)', P3: '🟢 개선 (P3)' },
+      en: { P1: '🔴 Critical (P1)', P2: '🟡 Important (P2)', P3: '🟢 Nice to have (P3)' },
+    };
+
+    for (const priority of ['P1', 'P2', 'P3'] as const) {
+      const priorityItems = byPriority[priority];
+      if (priorityItems.length > 0) {
+        lines.push(`\n### ${priorityLabels[language][priority]}`);
+        lines.push('');
+
+        for (const item of priorityItems) {
+          lines.push(`#### [${priority}] ${item.title}`);
+          lines.push('');
+          lines.push(`> 항목 ID: \`${item.id}\``);
+          lines.push('');
+          lines.push(item.description);
+          lines.push('');
+          lines.push('---');
+          lines.push('');
+        }
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 개선 요약 포맷 - 미적용 항목만 표시
+   */
+  private formatImprovementSummary(
+    pendingItems: Array<{ priority: 'P1' | 'P2' | 'P3' }>,
+    appliedCount: number,
+    language: 'ko' | 'en'
+  ): string {
+    const counts = { P1: 0, P2: 0, P3: 0 };
+    pendingItems.forEach(item => counts[item.priority]++);
+
+    const total = counts.P1 + counts.P2 + counts.P3;
+
+    if (language === 'ko') {
+      return `## 📊 개선 현황 요약
+
+| 우선순위 | 미적용 개수 |
+|----------|------------|
+| 🔴 긴급 (P1) | ${counts.P1} |
+| 🟡 중요 (P2) | ${counts.P2} |
+| 🟢 개선 (P3) | ${counts.P3} |
+| **총 미적용** | **${total}** |`;
+    }
+
+    return `## 📊 Improvement Status Summary
+
+| Priority | Pending Count |
+|----------|---------------|
+| 🔴 Critical (P1) | ${counts.P1} |
+| 🟡 Important (P2) | ${counts.P2} |
+| 🟢 Nice to have (P3) | ${counts.P3} |
+| **Total Pending** | **${total}** |`;
+  }
+
+  /**
+   * 개선 보고서 세션 엔트리 생성
+   */
+  private createImprovementSessionEntry(
+    userPrompt: string,
+    newItemsCount: number,
+    appliedCount: number
+  ): string {
+    const now = formatDateTimeKorean(new Date());
+    return `### [${now}]
+
+- **요청:** ${userPrompt}
+- **새 개선 항목:** ${newItemsCount}개 추가
+- **적용 완료:** ${appliedCount}개
+
+---`;
+  }
+
+  /**
+   * 세션 로그 앞에 추가
+   */
+  private prependSessionLog(content: string, entry: string): string {
+    const existing = extractBetweenMarkers(
+      content,
+      MARKERS.SESSION_LOG_START,
+      MARKERS.SESSION_LOG_END
+    );
+
+    // 기존 로그가 초기 메시지만 있으면 교체
+    if (existing && existing.includes('세션 기록이 여기에 추가됩니다')) {
+      return replaceBetweenMarkers(
+        content,
+        MARKERS.SESSION_LOG_START,
+        MARKERS.SESSION_LOG_END,
+        entry
+      );
+    }
+
+    // 새 세션을 앞에 추가
+    const combined = entry + '\n\n' + (existing || '');
+    return replaceBetweenMarkers(
+      content,
+      MARKERS.SESSION_LOG_START,
+      MARKERS.SESSION_LOG_END,
+      combined
+    );
+  }
+
+  /**
+   * Diff 요약 포맷
+   */
+  private formatDiffSummary(diff: SnapshotDiff): string {
+    if (diff.isInitial) {
+      return '초기 분석 (이전 스냅샷 없음)';
+    }
+
+    const parts: string[] = [];
+
+    if (diff.newFiles.length > 0) {
+      parts.push(`새 파일 ${diff.newFiles.length}개`);
+    }
+    if (diff.removedFiles.length > 0) {
+      parts.push(`삭제된 파일 ${diff.removedFiles.length}개`);
+    }
+    if (diff.changedConfigs.length > 0) {
+      parts.push(`설정 변경: ${diff.changedConfigs.join(', ')}`);
+    }
+    if (diff.gitChanges) {
+      const gc = diff.gitChanges;
+      const total = gc.modified.length + gc.added.length + gc.deleted.length;
+      if (total > 0) {
+        parts.push(`Git 변경 ${total}개`);
+      }
+    }
+
+    return parts.length > 0 ? parts.join(' | ') : '변경사항 없음';
+  }
+
+  /**
+   * 주요 언어 추출
+   */
+  private getMainLanguage(snapshot: ProjectSnapshot): string {
+    const stats = Object.entries(snapshot.languageStats);
+    if (stats.length === 0) return 'Unknown';
+    
+    stats.sort((a, b) => b[1] - a[1]);
+    const top = stats[0][0];
+    
+    const langMap: Record<string, string> = {
+      ts: 'TypeScript',
+      tsx: 'TypeScript (React)',
+      js: 'JavaScript',
+      py: 'Python',
+      rs: 'Rust',
+      go: 'Go',
+    };
+    
+    return langMap[top] || top.toUpperCase();
+  }
+
+  /**
+   * 프레임워크 추출
+   */
+  private getFramework(snapshot: ProjectSnapshot): string {
+    const configs = snapshot.mainConfigFiles;
+    
+    if (configs.tauriConfig) return 'Tauri';
+    if (configs.packageJson) {
+      const deps = [...configs.packageJson.dependencies, ...configs.packageJson.devDependencies];
+      if (deps.includes('next')) return 'Next.js';
+      if (deps.includes('react')) return 'React';
+      if (deps.includes('vue')) return 'Vue';
+      if (deps.includes('express')) return 'Express';
+      if (deps.includes('fastify')) return 'Fastify';
+    }
+    if (configs.cargoToml) return 'Rust/Cargo';
+    
+    return '-';
+  }
+
+  /**
+   * 보고서 파일 열기
+   *
+   * @description Open evaluation or improvement report in VS Code.
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   * @param type 평가/개선 구분
+   */
+  async openReport(
+    rootPath: string,
+    config: VibeReportConfig,
+    type: 'evaluation' | 'improvement'
+  ): Promise<void> {
+    const paths = this.getReportPaths(rootPath, config);
+    const filePath = type === 'evaluation' ? paths.evaluation : paths.improvement;
+
+    try {
+      const uri = vscode.Uri.file(filePath);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(doc);
+    } catch (error) {
+      vscode.window.showErrorMessage(`보고서 파일을 열 수 없습니다: ${error}`);
+    }
+  }
+
+  /**
+   * 보고서 존재 여부 확인
+   *
+   * @param rootPath 워크스페이스 루트
+   * @param config Vibe Report 설정
+   * @returns 두 보고서가 모두 존재하면 true
+   */
+  async reportsExist(rootPath: string, config: VibeReportConfig): Promise<boolean> {
+    const paths = this.getReportPaths(rootPath, config);
+    
+    try {
+      await fs.access(paths.evaluation);
+      await fs.access(paths.improvement);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private log(message: string): void {
+    this.outputChannel.appendLine(`[ReportService] ${message}`);
+  }
+}
