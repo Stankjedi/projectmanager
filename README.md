@@ -50,11 +50,6 @@
 
 ## 🚀 Installation
 
-### VS Code Marketplace
-1. VS Code에서 Extensions 열기 (`Ctrl+Shift+X`)
-2. "Vibe Coding Report" 검색
-3. Install 클릭
-
 ### From VSIX
 ```bash
 code --install-extension vibereport-0.1.0.vsix
