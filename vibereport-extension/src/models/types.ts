@@ -3,6 +3,77 @@
  * 프로젝트 스냅샷, 보고서, AI 응답 관련 타입 정의
  */
 
+// ===== Project Vision & Goals =====
+
+/**
+ * 프로젝트 목표 및 비전 정의
+ * 개선 추천 시 이 정보를 기반으로 관련성 있는 항목만 제안
+ */
+export interface ProjectVision {
+  /** 프로젝트 핵심 목표 (1-3개) */
+  coreGoals: string[];
+  /** 대상 사용자 */
+  targetUsers: string;
+  /** 프로젝트 유형 */
+  projectType: ProjectType;
+  /** 기술 스택 우선순위 (중요한 순서대로) */
+  techStackPriorities: string[];
+  /** 품질 우선순위 (개발 초기/중기/완성 단계) */
+  qualityFocus: QualityFocus;
+  /** 제외할 개선 카테고리 (관심 없는 영역) */
+  excludeCategories: ImprovementCategory[];
+  /** 집중할 개선 카테고리 */
+  focusCategories: ImprovementCategory[];
+  /** 커스텀 제약사항 */
+  constraints?: string[];
+}
+
+/**
+ * 프로젝트 유형
+ */
+export type ProjectType = 
+  | 'vscode-extension'    // VS Code 확장
+  | 'web-frontend'        // 웹 프론트엔드
+  | 'web-backend'         // 웹 백엔드
+  | 'fullstack'           // 풀스택
+  | 'cli-tool'            // CLI 도구
+  | 'library'             // 라이브러리/패키지
+  | 'desktop-app'         // 데스크톱 앱
+  | 'mobile-app'          // 모바일 앱
+  | 'api-server'          // API 서버
+  | 'monorepo'            // 모노레포
+  | 'other';              // 기타
+
+/**
+ * 품질 우선순위 단계
+ */
+export type QualityFocus = 
+  | 'prototype'           // 프로토타입: 빠른 구현 우선, 품질 후순위
+  | 'development'         // 개발 중: 기능 완성도 + 기본 품질
+  | 'stabilization'       // 안정화: 테스트, 에러 처리, 문서화 집중
+  | 'production'          // 프로덕션: 보안, 성능, 모니터링 집중
+  | 'maintenance';        // 유지보수: 리팩토링, 기술 부채 해소
+
+/**
+ * 개선 카테고리
+ */
+export type ImprovementCategory =
+  | 'testing'             // 🧪 테스트
+  | 'security'            // 🔒 보안
+  | 'performance'         // ⚡ 성능
+  | 'documentation'       // 📚 문서화
+  | 'code-quality'        // 🧹 코드 품질
+  | 'architecture'        // 🏗️ 아키텍처
+  | 'error-handling'      // 🛡️ 에러 처리
+  | 'accessibility'       // ♿ 접근성
+  | 'internationalization'// 🌐 국제화
+  | 'devops'              // 🔧 DevOps/CI/CD
+  | 'ux-improvement'      // 🎨 UX 개선
+  | 'new-feature'         // ✨ 새 기능
+  | 'refactoring'         // 🔄 리팩토링
+  | 'dependency-update'   // 📦 의존성 업데이트
+  | 'monitoring';         // 📊 모니터링/로깅
+
 // ===== Project Snapshot Types =====
 
 /**
@@ -344,6 +415,8 @@ export interface VibeReportState {
   lastUpdated: string;
   /** 상태 버전 (마이그레이션용) */
   version: number;
+  /** 프로젝트 목표 및 비전 (개선 추천 필터링용) */
+  projectVision?: ProjectVision;
 }
 
 // ===== Improvement Item Types =====
@@ -373,21 +446,6 @@ export interface ImprovementItem {
   /** 생성 시간 */
   createdAt: string;
 }
-
-/**
- * 개선 카테고리
- */
-export type ImprovementCategory =
-  | 'architecture'
-  | 'code-quality'
-  | 'performance'
-  | 'security'
-  | 'testing'
-  | 'documentation'
-  | 'refactoring'
-  | 'dependency'
-  | 'devops'
-  | 'other';
 
 // ===== Utility Types =====
 

@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { UpdateReportsCommand, MarkImprovementAppliedCommand } from './commands/index.js';
+import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand } from './commands/index.js';
 import { ReportService } from './services/index.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
@@ -20,7 +20,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('='.repeat(50));
-  outputChannel.appendLine('Vibe Coding Report Extension v0.1.0');
+  outputChannel.appendLine('Vibe Coding Report Extension v0.2.0');
   outputChannel.appendLine(`활성화 시간: ${new Date().toISOString()}`);
   outputChannel.appendLine('='.repeat(50));
 
@@ -28,6 +28,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const reportService = new ReportService(outputChannel);
   const updateReportsCommand = new UpdateReportsCommand(outputChannel);
   const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);
+  const setVisionCommand = new SetProjectVisionCommand(outputChannel);
 
   // Status Bar 아이템 생성
   statusBarItem = vscode.window.createStatusBarItem(
@@ -120,6 +121,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.markApplied', async () => {
       await markAppliedCommand.execute();
+    })
+  );
+
+  // 명령 등록: Set Project Vision
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.setProjectVision', async () => {
+      await setVisionCommand.execute();
     })
   );
 

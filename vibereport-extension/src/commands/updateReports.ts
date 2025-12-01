@@ -127,7 +127,7 @@ export class UpdateReportsCommand {
 
     // 5. 프롬프트 생성
     reportProgress('분석 프롬프트 생성 중...', 80);
-    const prompt = this.buildAnalysisPrompt(snapshot, diff, state.appliedImprovements, isFirstRun, config);
+    const prompt = this.buildAnalysisPrompt(snapshot, diff, state.appliedImprovements, isFirstRun, config, state.projectVision);
 
     // 6. 클립보드에 복사
     await vscode.env.clipboard.writeText(prompt);
@@ -171,7 +171,8 @@ export class UpdateReportsCommand {
     diff: SnapshotDiff,
     appliedImprovements: import('../models/types.js').AppliedImprovement[],
     isFirstRun: boolean,
-    config: VibeReportConfig
+    config: VibeReportConfig,
+    projectVision?: import('../models/types.js').ProjectVision
   ): string {
     const lines: string[] = [];
 
@@ -258,6 +259,75 @@ export class UpdateReportsCommand {
       }
     }
     lines.push('');
+
+    // 프로젝트 비전 정보 (설정된 경우)
+    if (projectVision) {
+      lines.push('## 🎯 프로젝트 비전 (개선 방향 지침)');
+      lines.push('');
+      lines.push('> ⚠️ **중요**: 아래 프로젝트 비전에 맞는 개선사항만 제안해야 합니다.');
+      lines.push('> 비전에 명시된 목표, 우선순위, 기술 스택에 부합하지 않는 개선은 제외하세요.');
+      lines.push('');
+      
+      if (projectVision.coreGoals && projectVision.coreGoals.length > 0) {
+        lines.push('### 프로젝트 핵심 목표');
+        projectVision.coreGoals.forEach(goal => {
+          lines.push(`- ${goal}`);
+        });
+        lines.push('');
+      }
+
+      if (projectVision.targetUsers) {
+        lines.push('### 대상 사용자');
+        lines.push(`- ${projectVision.targetUsers}`);
+        lines.push('');
+      }
+
+      if (projectVision.projectType) {
+        lines.push('### 프로젝트 유형');
+        lines.push(`- ${this.formatProjectType(projectVision.projectType)}`);
+        lines.push('');
+      }
+
+      if (projectVision.techStackPriorities && projectVision.techStackPriorities.length > 0) {
+        lines.push('### 기술 스택 우선순위');
+        lines.push(`기술: ${projectVision.techStackPriorities.join(', ')}`);
+        lines.push('');
+      }
+
+      if (projectVision.qualityFocus) {
+        lines.push('### 현재 개발 단계');
+        const focusDescription = this.getQualityFocusDescription(projectVision.qualityFocus);
+        lines.push(`- **${projectVision.qualityFocus}**: ${focusDescription}`);
+        lines.push('');
+      }
+
+      if (projectVision.constraints && projectVision.constraints.length > 0) {
+        lines.push('### 제약 조건');
+        projectVision.constraints.forEach(constraint => {
+          lines.push(`- ⚠️ ${constraint}`);
+        });
+        lines.push('');
+      }
+
+      if (projectVision.focusCategories && projectVision.focusCategories.length > 0) {
+        lines.push('### ✅ 개선 집중 영역 (이 카테고리 우선 제안)');
+        projectVision.focusCategories.forEach(category => {
+          lines.push(`- **${this.formatCategory(category)}**`);
+        });
+        lines.push('');
+      }
+
+      if (projectVision.excludeCategories && projectVision.excludeCategories.length > 0) {
+        lines.push('### ❌ 개선 제외 영역 (이 카테고리는 제안하지 마세요)');
+        projectVision.excludeCategories.forEach(category => {
+          lines.push(`- ~~${this.formatCategory(category)}~~`);
+        });
+        lines.push('');
+      }
+
+      lines.push('---');
+      lines.push('');
+    }
 
     // 변경사항 (업데이트인 경우)
     if (!isFirstRun && !diff.isInitial) {
@@ -559,6 +629,66 @@ export class UpdateReportsCommand {
     lines.push('- [ ] 이미 적용된 개선사항이 제외되었는가?');
 
     return lines.join('\n');
+  }
+
+  /**
+   * 프로젝트 유형 포맷
+   */
+  private formatProjectType(type: import('../models/types.js').ProjectType): string {
+    const typeLabels: Record<string, string> = {
+      'vscode-extension': 'VS Code 확장 프로그램',
+      'web-frontend': '웹 프론트엔드',
+      'web-backend': '웹 백엔드',
+      'fullstack': '풀스택',
+      'cli-tool': 'CLI 도구',
+      'library': '라이브러리/패키지',
+      'desktop-app': '데스크톱 앱',
+      'mobile-app': '모바일 앱',
+      'api-server': 'API 서버',
+      'monorepo': '모노레포',
+      'other': '기타',
+    };
+    return typeLabels[type] || type;
+  }
+
+  /**
+   * 품질 우선순위 설명
+   */
+  private getQualityFocusDescription(focus: import('../models/types.js').QualityFocus): string {
+    const descriptions: Record<string, string> = {
+      'prototype': '빠른 구현 우선, 품질은 후순위',
+      'development': '기능 완성도 + 기본 품질 (개발 중)',
+      'stabilization': '테스트, 에러 처리, 문서화 집중 (안정화)',
+      'production': '보안, 성능, 모니터링 집중 (프로덕션)',
+      'maintenance': '리팩토링, 기술 부채 해소 (유지보수)',
+    };
+    return descriptions[focus] || focus;
+  }
+
+  /**
+   * 카테고리 포맷
+   */
+  private formatCategory(category: import('../models/types.js').ImprovementCategory): string {
+    const categoryLabels: Record<string, string> = {
+      'testing': '🧪 테스트',
+      'security': '🔒 보안',
+      'performance': '⚡ 성능',
+      'documentation': '📚 문서화',
+      'code-quality': '🧹 코드 품질',
+      'architecture': '🏗️ 아키텍처',
+      'error-handling': '🛡️ 에러 처리',
+      'accessibility': '♿ 접근성',
+      'internationalization': '🌐 국제화',
+      'devops': '🔧 DevOps/CI/CD',
+      'ux-improvement': '🎨 UX 개선',
+      'new-feature': '✨ 새 기능',
+      'refactoring': '🔄 리팩토링',
+      'dependency-update': '📦 의존성 업데이트',
+      'monitoring': '📊 모니터링',
+      'dependency': '📦 의존성',
+      'other': '기타',
+    };
+    return categoryLabels[category] || category;
   }
 
   /**
