@@ -347,6 +347,52 @@ export type ScoreGrade =
   | 'F';
 
 /**
+ * 점수-등급 매핑 기준
+ * 점수 범위에 따른 등급 및 색상 정의
+ */
+export const SCORE_GRADE_CRITERIA = {
+  'A+': { min: 97, max: 100, color: '🟢', label: '최우수' },
+  'A':  { min: 93, max: 96,  color: '🟢', label: '우수' },
+  'A-': { min: 90, max: 92,  color: '🟢', label: '우수' },
+  'B+': { min: 87, max: 89,  color: '🔵', label: '양호' },
+  'B':  { min: 83, max: 86,  color: '🔵', label: '양호' },
+  'B-': { min: 80, max: 82,  color: '🔵', label: '양호' },
+  'C+': { min: 77, max: 79,  color: '🟡', label: '보통' },
+  'C':  { min: 73, max: 76,  color: '🟡', label: '보통' },
+  'C-': { min: 70, max: 72,  color: '🟡', label: '보통' },
+  'D+': { min: 67, max: 69,  color: '🟠', label: '미흡' },
+  'D':  { min: 63, max: 66,  color: '🟠', label: '미흡' },
+  'D-': { min: 60, max: 62,  color: '🟠', label: '미흡' },
+  'F':  { min: 0,  max: 59,  color: '🔴', label: '부족' },
+} as const;
+
+/**
+ * 점수를 등급으로 변환
+ */
+export function scoreToGrade(score: number): ScoreGrade {
+  if (score >= 97) return 'A+';
+  if (score >= 93) return 'A';
+  if (score >= 90) return 'A-';
+  if (score >= 87) return 'B+';
+  if (score >= 83) return 'B';
+  if (score >= 80) return 'B-';
+  if (score >= 77) return 'C+';
+  if (score >= 73) return 'C';
+  if (score >= 70) return 'C-';
+  if (score >= 67) return 'D+';
+  if (score >= 63) return 'D';
+  if (score >= 60) return 'D-';
+  return 'F';
+}
+
+/**
+ * 등급에 해당하는 색상 이모지 반환
+ */
+export function gradeToColor(grade: ScoreGrade): string {
+  return SCORE_GRADE_CRITERIA[grade].color;
+}
+
+/**
  * 평가 카테고리 키
  */
 export type EvaluationCategory = keyof Omit<ProjectEvaluationScores, 'totalAverage'>;
