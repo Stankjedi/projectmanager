@@ -253,13 +253,27 @@ export class UpdateReportsCommand {
   ): Promise<string> {
     reportProgress('분석 프롬프트 생성 중...', 80);
 
+    // projectVisionMode에 따라 비전 결정
+    let projectVision: import('../models/types.js').ProjectVision | undefined;
+    
+    if (config.projectVisionMode === 'custom' && state.projectVision) {
+      // 사용자 정의 비전 사용
+      projectVision = state.projectVision;
+      this.log('사용자 정의 프로젝트 비전 사용');
+    } else {
+      // auto 모드: 기본값으로 전체 파일 기반 분석 (비전 없음 = 전체 평가)
+      // 단, 기본 설정값은 참조하여 로그에 표시
+      this.log(`자동 분석 모드 (projectVisionMode: ${config.projectVisionMode})`);
+      projectVision = undefined;
+    }
+
     const prompt = this.buildAnalysisPrompt(
       snapshot,
       diff,
       state.appliedImprovements,
       isFirstRun,
       config,
-      state.projectVision
+      projectVision
     );
 
     try {
@@ -960,6 +974,9 @@ export class UpdateReportsCommand {
       maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
       autoOpenReports: config.get<boolean>('autoOpenReports', true),
       language: config.get<'ko' | 'en'>('language', 'ko'),
+      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
+      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
+      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
     };
   }
 
@@ -1055,6 +1072,9 @@ export class MarkImprovementAppliedCommand {
       maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
       autoOpenReports: config.get<boolean>('autoOpenReports', true),
       language: config.get<'ko' | 'en'>('language', 'ko'),
+      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
+      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
+      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
     };
   }
 

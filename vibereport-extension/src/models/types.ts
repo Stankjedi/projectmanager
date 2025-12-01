@@ -467,6 +467,12 @@ export interface VibeReportConfig {
   maxFilesToScan: number;
   autoOpenReports: boolean;
   language: 'ko' | 'en';
+  /** 프로젝트 비전 모드: 'auto'는 전체 파일 기반 자동 분석, 'custom'은 사용자 설정 비전 사용 */
+  projectVisionMode: 'auto' | 'custom';
+  /** 기본 프로젝트 유형 (auto-detect이면 자동 감지) */
+  defaultProjectType: ProjectType | 'auto-detect';
+  /** 기본 품질 우선순위 단계 */
+  defaultQualityFocus: QualityFocus;
 }
 
 /**

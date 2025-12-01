@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "publisher": "vibe-coding",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -153,6 +153,57 @@
           ],
           "default": "ko",
           "description": "보고서 언어 설정"
+        },
+        "vibereport.projectVisionMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "custom"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "파일 구조 기반 자동 분석 (기본값) - 프로젝트 전체를 분석하여 자동으로 개선점 제안",
+            "사용자 정의 비전 사용 - Set Project Vision 명령으로 설정한 비전 기반 분석"
+          ],
+          "description": "프로젝트 비전 모드 설정. 'auto'는 전체 파일 기반 자동 평가, 'custom'은 사용자가 설정한 비전 사용"
+        },
+        "vibereport.defaultProjectType": {
+          "type": "string",
+          "enum": [
+            "auto-detect",
+            "vscode-extension",
+            "web-frontend",
+            "web-backend",
+            "fullstack",
+            "cli-tool",
+            "library",
+            "desktop-app",
+            "mobile-app",
+            "api-server",
+            "monorepo",
+            "other"
+          ],
+          "default": "auto-detect",
+          "description": "프로젝트 유형 기본값. 'auto-detect'는 package.json 등을 분석하여 자동 감지"
+        },
+        "vibereport.defaultQualityFocus": {
+          "type": "string",
+          "enum": [
+            "prototype",
+            "development",
+            "stabilization",
+            "production",
+            "maintenance"
+          ],
+          "default": "development",
+          "enumDescriptions": [
+            "프로토타입: 빠른 구현 우선, 품질은 후순위",
+            "개발 중: 기능 완성도 + 기본 품질",
+            "안정화: 테스트, 에러 처리, 문서화 집중",
+            "프로덕션: 보안, 성능, 모니터링 집중",
+            "유지보수: 리팩토링, 기술 부채 해소"
+          ],
+          "description": "기본 품질 우선순위 단계"
         }
       }
     },

@@ -286,6 +286,9 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
       maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
       autoOpenReports: config.get<boolean>('autoOpenReports', true),
       language: config.get<'ko' | 'en'>('language', 'ko'),
+      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
+      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
+      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
     };
   }
 }

@@ -61,6 +61,9 @@ describe('WorkspaceScanner', () => {
     maxFilesToScan: 5000,
     autoOpenReports: true,
     language: 'ko',
+    projectVisionMode: 'auto',
+    defaultProjectType: 'auto-detect',
+    defaultQualityFocus: 'development',
   };
 
   beforeEach(() => {

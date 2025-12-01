@@ -95,11 +95,23 @@ export class SetProjectVisionCommand {
       state.projectVision = projectVision;
       await this.snapshotService.saveState(rootPath, config, state);
 
+      // projectVisionMode를 'custom'으로 변경
+      const vsConfig = vscode.workspace.getConfiguration('vibereport');
+      const currentMode = vsConfig.get<string>('projectVisionMode', 'auto');
+      
+      if (currentMode !== 'custom') {
+        await vsConfig.update('projectVisionMode', 'custom', vscode.ConfigurationTarget.Workspace);
+        this.log('projectVisionMode가 custom으로 변경됨');
+      }
+
       this.log('프로젝트 비전 저장 완료');
       
       const summary = this.formatVisionSummary(projectVision);
+      const modeInfo = currentMode !== 'custom' 
+        ? '\n\n💡 프로젝트 비전 모드가 "custom"으로 변경되었습니다.'
+        : '';
       vscode.window.showInformationMessage(
-        `✅ 프로젝트 비전이 설정되었습니다!\n\n${summary}`,
+        `✅ 프로젝트 비전이 설정되었습니다!${modeInfo}\n\n${summary}`,
         '확인'
       );
 
@@ -306,6 +318,9 @@ export class SetProjectVisionCommand {
       maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
       autoOpenReports: config.get<boolean>('autoOpenReports', true),
       language: config.get<'ko' | 'en'>('language', 'ko'),
+      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
+      defaultProjectType: config.get<ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
+      defaultQualityFocus: config.get<QualityFocus>('defaultQualityFocus', 'development'),
     };
   }
 
