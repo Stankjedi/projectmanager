@@ -36,6 +36,14 @@ export const MARKERS = {
   IMPROVEMENT_LIST_START: '<!-- AUTO-IMPROVEMENT-LIST-START -->',
   /** 개선 항목 목록 종료 마커 */
   IMPROVEMENT_LIST_END: '<!-- AUTO-IMPROVEMENT-LIST-END -->',
+  /** 기능 추가 목록 시작 마커 */
+  FEATURE_LIST_START: '<!-- AUTO-FEATURE-LIST-START -->',
+  /** 기능 추가 목록 종료 마커 */
+  FEATURE_LIST_END: '<!-- AUTO-FEATURE-LIST-END -->',
+  /** 최적화 항목 시작 마커 */
+  OPTIMIZATION_START: '<!-- AUTO-OPTIMIZATION-START -->',
+  /** 최적화 항목 종료 마커 */
+  OPTIMIZATION_END: '<!-- AUTO-OPTIMIZATION-END -->',
   /** 점수 섹션 시작 마커 */
   SCORE_START: '<!-- AUTO-SCORE-START -->',
   /** 점수 섹션 종료 마커 */

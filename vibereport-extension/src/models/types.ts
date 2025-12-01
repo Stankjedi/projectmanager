@@ -72,7 +72,9 @@ export type ImprovementCategory =
   | 'new-feature'         // ✨ 새 기능
   | 'refactoring'         // 🔄 리팩토링
   | 'dependency-update'   // 📦 의존성 업데이트
-  | 'monitoring';         // 📊 모니터링/로깅
+  | 'monitoring'          // 📊 모니터링/로깅
+  | 'code-optimization'   // 🚀 코드 최적화 (성능 향상 코드 개선)
+  | 'performance-tuning'; // ⚙️ 성능 튜닝 (런타임 최적화)
 
 // ===== Project Snapshot Types =====
 
@@ -491,6 +493,15 @@ export interface ImprovementItem {
   sessionId: string;
   /** 생성 시간 */
   createdAt: string;
+  /** 예상 성능/품질 영향 */
+  expectedImpact?: {
+    /** 성능 영향 (예: '메모리 사용량 20% 감소', 'API 응답 시간 50% 단축') */
+    performance?: string;
+    /** 코드 품질 영향 (예: '유지보수성 향상', '가독성 개선') */
+    quality?: string;
+    /** 측정 가능한 지표 */
+    metrics?: string[];
+  };
 }
 
 // ===== Utility Types =====

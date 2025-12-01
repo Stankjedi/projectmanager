@@ -284,7 +284,7 @@ export class GeneratePromptCommand {
    * 설명에서 카테고리 추출
    */
   private getCategoryFromDescription(description: string): string {
-    const categoryMatch = description.match(/🧪|🔒|⚡|📚|🧹|🏗️|🛡️|♿|🌐|🔧|🎨|✨|🔄|📦|📊/);
+    const categoryMatch = description.match(/🧪|🔒|⚡|📚|🧹|🏗️|🛡️|♿|🌐|🔧|🎨|✨|🔄|📦|📊|🚀|⚙️/);
     if (categoryMatch) {
       const categoryMap: Record<string, string> = {
         '🧪': '테스트',
@@ -302,6 +302,8 @@ export class GeneratePromptCommand {
         '🔄': '리팩토링',
         '📦': '의존성',
         '📊': '모니터링',
+        '🚀': '코드 최적화',
+        '⚙️': '성능 튜닝',
       };
       return categoryMap[categoryMatch[0]] || '';
     }

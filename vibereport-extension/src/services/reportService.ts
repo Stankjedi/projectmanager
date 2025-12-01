@@ -290,6 +290,7 @@ ${MARKERS.SUMMARY_START}
 | 🔴 긴급 (P1) | 0 |
 | 🟡 중요 (P2) | 0 |
 | 🟢 개선 (P3) | 0 |
+| 🚀 최적화 | 0 |
 | ✅ 적용 완료 | 0 |
 ${MARKERS.SUMMARY_END}
 
@@ -300,6 +301,16 @@ ${MARKERS.IMPROVEMENT_LIST_START}
 
 *아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
 ${MARKERS.IMPROVEMENT_LIST_END}
+
+---
+
+${MARKERS.OPTIMIZATION_START}
+## 🚀 코드 품질 및 성능 최적화
+
+> 기존 기능을 해치지 않으면서 코드 품질과 성능을 향상시킬 수 있는 개선점입니다.
+
+*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
+${MARKERS.OPTIMIZATION_END}
 
 ---
 
@@ -343,6 +354,7 @@ ${MARKERS.SUMMARY_START}
 | 🔴 Critical (P1) | 0 |
 | 🟡 Important (P2) | 0 |
 | 🟢 Nice to have (P3) | 0 |
+| 🚀 Optimization | 0 |
 | ✅ Applied | 0 |
 ${MARKERS.SUMMARY_END}
 
@@ -353,6 +365,16 @@ ${MARKERS.IMPROVEMENT_LIST_START}
 
 *Not analyzed yet. Please run the first report update.*
 ${MARKERS.IMPROVEMENT_LIST_END}
+
+---
+
+${MARKERS.OPTIMIZATION_START}
+## 🚀 Code Quality & Performance Optimization
+
+> Improvements that enhance code quality and performance without breaking existing functionality.
+
+*Not analyzed yet. Please run the first report update.*
+${MARKERS.OPTIMIZATION_END}
 
 ---
 
