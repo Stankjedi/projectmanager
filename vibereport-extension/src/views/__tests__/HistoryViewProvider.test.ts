@@ -7,13 +7,19 @@ vi.mock('../../services/index.js', () => {
       {
         id: 'session_1',
         timestamp: new Date().toISOString(),
-        userPrompt: 'Test session',
-        changesSummary: 'Updated files',
+        userPrompt: 'Test session prompt',
+        changesSummary: 'Updated files and configurations',
         diffSummary: {
-          newFilesCount: 1,
-          removedFilesCount: 0,
-          changedConfigsCount: 0,
-          totalChanges: 1,
+          newFilesCount: 2,
+          removedFilesCount: 1,
+          changedConfigsCount: 1,
+          totalChanges: 4,
+        },
+        aiMetadata: {
+          risksIdentified: 2,
+          improvementsProposed: 5,
+          priorityItems: ['Fix security issue', 'Add tests'],
+          overallScore: 75,
         },
       },
     ],
@@ -65,7 +71,18 @@ vi.mock('vscode', () => ({
     dispose = vi.fn();
   },
   ThemeIcon: class {
-    constructor(public id: string) {}
+    id: string;
+    color?: any;
+    constructor(id: string, color?: any) {
+      this.id = id;
+      this.color = color;
+    }
+  },
+  ThemeColor: class {
+    id: string;
+    constructor(id: string) {
+      this.id = id;
+    }
   },
 }));
 
@@ -84,23 +101,47 @@ describe('HistoryViewProvider', () => {
     const children = await provider.getChildren();
 
     expect(Array.isArray(children)).toBe(true);
-    expect(children?.[0]?.label).toContain('Test session'.substring(0, 4));
+    expect(children.length).toBe(1);
+    // Session label should contain part of the userPrompt
+    expect(children[0]?.label).toContain('Test session');
   });
 
-  it('returns detail items when expanding a session node', async () => {
+  it('returns section items when expanding a session node', async () => {
     const { HistoryViewProvider } = await import('../HistoryViewProvider.js');
     const provider = new HistoryViewProvider(mockExtensionUri, mockOutput);
 
     const rootItems = await provider.getChildren();
-    const detailItems = await provider.getChildren(rootItems[0]);
+    const sectionItems = await provider.getChildren(rootItems[0]);
 
-    expect(detailItems.length).toBeGreaterThan(0);
-    // Check that detail items include session info (timestamp or changes summary)
-    expect(detailItems.some((item) => 
-      String(item.label).includes('📅') || 
-      String(item.label).includes('📝') || 
-      String(item.description).includes('변경')
-    )).toBe(true);
+    expect(sectionItems.length).toBeGreaterThan(0);
+    // Should have timestamp, changes section, improvements section, risks section
+    expect(sectionItems.length).toBeGreaterThanOrEqual(3);
+    
+    // Check descriptions include expected sections
+    const descriptions = sectionItems.map(item => item.description);
+    expect(descriptions).toContain('시간');
+    expect(descriptions).toContain('변경사항');
+  });
+
+  it('returns detail items when expanding a section node', async () => {
+    const { HistoryViewProvider } = await import('../HistoryViewProvider.js');
+    const provider = new HistoryViewProvider(mockExtensionUri, mockOutput);
+
+    const rootItems = await provider.getChildren();
+    const sectionItems = await provider.getChildren(rootItems[0]);
+    
+    // Find the changes section (type='section', sectionType='changes')
+    const changesSection = sectionItems.find(
+      item => (item as any).itemType === 'section' && (item as any).sectionType === 'changes'
+    );
+    
+    if (changesSection) {
+      const detailItems = await provider.getChildren(changesSection);
+      expect(detailItems.length).toBeGreaterThan(0);
+      // Should show file change details
+      const labels = detailItems.map(item => String(item.label));
+      expect(labels.some(l => l.includes('파일') || l.includes('변경'))).toBe(true);
+    }
   });
 
   it('refresh triggers change event without throwing', async () => {
@@ -116,5 +157,17 @@ describe('HistoryViewProvider', () => {
     const sample = { label: 'node' } as any;
 
     expect(provider.getTreeItem(sample)).toBe(sample);
+  });
+
+  it('session items have history icon and command', async () => {
+    const { HistoryViewProvider } = await import('../HistoryViewProvider.js');
+    const provider = new HistoryViewProvider(mockExtensionUri, mockOutput);
+
+    const children = await provider.getChildren();
+    const sessionItem = children[0];
+
+    expect(sessionItem.iconPath).toBeDefined();
+    expect(sessionItem.command?.command).toBe('vibereport.showSessionDetail');
+    expect((sessionItem as any).itemType).toBe('session');
   });
 });

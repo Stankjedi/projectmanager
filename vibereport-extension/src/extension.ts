@@ -219,29 +219,51 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider('vibereport.summary', summaryViewProvider)
   );
 
-  // ===== File System Watcher for Auto-Refresh =====
-  const config = loadConfig();
-  const reportDir = require('path').join(
-    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
-    config.reportDirectory
+  // 명령 등록: Refresh Views (수동 또는 자동 호출용)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.refreshViews', () => {
+      summaryViewProvider.refresh();
+      historyViewProvider.refresh();
+      outputChannel.appendLine('[RefreshViews] Views refreshed manually');
+    })
   );
 
+  // ===== File System Watcher for Auto-Refresh =====
+  const config = loadConfig();
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+  const reportDir = require('path').join(workspaceRoot, config.reportDirectory);
+  const stateFile = require('path').join(workspaceRoot, config.snapshotFile);
+
+  // 보고서 파일 감시 (.md)
   const reportWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(reportDir, '*.md')
+  );
+
+  // 상태 파일 감시 (.json)
+  const stateWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(
+      require('path').dirname(stateFile), 
+      require('path').basename(stateFile)
+    )
   );
 
   const refreshViews = () => {
     summaryViewProvider.refresh();
     historyViewProvider.refresh();
-    outputChannel.appendLine('[FileWatcher] Report files changed, refreshing views...');
+    outputChannel.appendLine('[FileWatcher] Files changed, refreshing views...');
   };
 
   reportWatcher.onDidChange(refreshViews);
   reportWatcher.onDidCreate(refreshViews);
   reportWatcher.onDidDelete(refreshViews);
 
+  stateWatcher.onDidChange(refreshViews);
+  stateWatcher.onDidCreate(refreshViews);
+
   context.subscriptions.push(reportWatcher);
+  context.subscriptions.push(stateWatcher);
   outputChannel.appendLine(`[FileWatcher] Watching for changes in: ${reportDir}/*.md`);
+  outputChannel.appendLine(`[FileWatcher] Watching state file: ${stateFile}`);
 
   // 명령 등록: Show Session Detail
   context.subscriptions.push(

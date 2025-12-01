@@ -1,316 +1,214 @@
-# 🤖 Improvement Prompts for AI Agent
+# 🤖 AI Agent Improvement Prompts
 
-## 🚨 MANDATORY: FILE MODIFICATION REQUIRED
-
-⛔ DO NOT respond with text or code blocks only  
-⛔ DO NOT say "modify like this" without actually modifying  
-✅ YOU MUST use file editing tools (create_file, replace_string_in_file, etc.)  
-✅ Confirm "I have modified the file(s)" after each action
+> **Action Required:** Use your file editing tools to apply the following prompts sequentially. Confirm completion after each step.
 
 ---
 
-## 📋 Execution Checklist
+## 📋 Execution Checklist & Summary
 
-| # | Priority | Prompt | Status |
-|---|----------|--------|--------|
-| 1 | 🟡 P2 | Add focused unit tests for ReportService | ⬜ |
-| 2 | 🟡 P2 | Sync README and configuration docs | ⬜ |
-| 3 | 🟢 P3 | Add Export Reports command for team sharing | ⬜ |
-| 4 | 🟢 P3 | Make evaluation scoring configurable | ⬜ |
+| Priority | ID | Task | Status |
+|---|---|---|---|
+| 🟡 **P2** | `report-test-001` | Add focused unit tests for `ReportService` | ⬜️ |
+| 🟡 **P2** | `docs-sync-001` | Sync `README.md` and configuration docs | ⬜️ |
+| 🟢 **P3** | `share-export-001` | Add `Export Reports` command for team sharing | ⬜️ |
+| 🟢 **P3** | `scoring-config-001`| Make evaluation scoring configurable | ⬜️ |
 
 ---
 
 ## 🟡 [P2] Important Improvements
 
-### 1. Add focused unit tests for `ReportService`
+### 1. Task: Add focused unit tests for `ReportService`
 
-**⏱️ Execute this prompt now, then proceed to PROMPT-002**
+**ID:** `report-test-001`
 
 ```
 Please perform the following tasks:
 
-1. Create a new test file `src/services/__tests__/reportService.test.ts`.
-2. Write Vitest unit tests for `ReportService.updateEvaluationReport` and
-   `ReportService.updateImprovementReport`.
-3. Mock `fs/promises` and `vscode` so tests do not touch the real filesystem or UI.
-4. Verify the following behaviors:
-   - The overview section between `<!-- AUTO-OVERVIEW-START -->` and
-     `<!-- AUTO-OVERVIEW-END -->` is updated with the latest snapshot
-     (project name, version, files, directories, main language, framework).
-   - The score table between `<!-- AUTO-SCORE-START -->` and
-     `<!-- AUTO-SCORE-END -->` is replaced when `evaluationScores` is provided.
-   - The improvement report keeps only non-applied items and updates the summary
-     between `<!-- AUTO-SUMMARY-START -->` and `<!-- AUTO-SUMMARY-END -->`.
-   - New session log entries are prepended inside the
-     `<!-- AUTO-SESSION-LOG-START -->` / `<!-- AUTO-SESSION-LOG-END -->` block.
+1. Create a new test file: `vibereport-extension/src/services/__tests__/reportService.test.ts`.
+2. Write Vitest unit tests for the `ReportService`.
+3. **Mock `fs/promises` and `vscode`** to ensure the tests are isolated from the file system and VS Code UI.
+4. Verify the following core behaviors:
+    - `updateEvaluationReport` correctly replaces content within the `<!-- AUTO-SCORE-START -->` and `<!-- AUTO-SUMMARY-START -->` markers.
+    - `updateImprovementReport` correctly filters out already-applied improvements and updates the `<!-- AUTO-SUMMARY-START -->` section.
+    - New session logs are **prepended** inside the `<!-- AUTO-SESSION-LOG-START -->` block.
+    - The correct language template (`ko` or `en`) is used based on the configuration.
 
 Target files:
-- vibereport-extension/src/services/reportService.ts
-- vibereport-extension/src/services/__tests__/reportService.test.ts
+- `vibereport-extension/src/services/reportService.ts`
+- `vibereport-extension/src/services/__tests__/reportService.test.ts` (new)
 
-Example test skeleton (adapt as needed):
-
+Use this skeleton to start:
 ```ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'fs/promises';
+import * as vscode from 'vscode';
 
-vi.mock('fs/promises', () => ({
+// Mock dependencies
+vi.mock('fs/promises', async () => ({
+  ...(await vi.importActual<typeof fs>('fs/promises')),
   readFile: vi.fn(),
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock('vscode', async () => {
+    const actualVscode = await vi.importActual<typeof vscode>('vscode');
+    return {
+        ...actualVscode,
+        Uri: { file: (p: string) => ({ fsPath: p }) },
+        workspace: { 
+            getConfiguration: () => ({
+                get: (key: string) => {
+                    if (key === 'language') return 'ko';
+                    if (key === 'reportDirectory') return 'devplan';
+                    // Add other config mocks as needed
+                    return undefined;
+                }
+            })
+        },
+        window: { 
+            ...actualVscode.window,
+            createOutputChannel: () => ({ appendLine: vi.fn(), dispose: vi.fn(), show: vi.fn() })
+        },
+    };
+});
 
-vi.mock('vscode', () => ({
-  Uri: { file: (p: string) => ({ fsPath: p }) },
-  workspace: {
-    openTextDocument: vi.fn(),
-    showTextDocument: vi.fn(),
-  },
-  window: {
-    createOutputChannel: () => ({ appendLine: vi.fn(), dispose: vi.fn() }),
-  },
-}));
 
-import { ReportService } from '../reportService.js';
-import type {
-  ProjectSnapshot,
-  SnapshotDiff,
-  VibeReportConfig,
-} from '../../models/types.js';
+import { ReportService } from '../reportService';
+import type { VibeReportConfig } from '../../models/types';
 
 describe('ReportService', () => {
   let service: ReportService;
   const output = { appendLine: vi.fn() } as any;
-  const config: VibeReportConfig = {
-    reportDirectory: 'devplan',
-    snapshotFile: '.vscode/vibereport-state.json',
-    enableGitDiff: false,
-    excludePatterns: [],
-    maxFilesToScan: 5000,
-    autoOpenReports: true,
-    language: 'ko',
-  };
-
+  
   beforeEach(() => {
     vi.clearAllMocks();
     service = new ReportService(output);
   });
 
-  it('updates evaluation report overview and score sections', async () => {
-    const snapshot = {
-      projectName: 'projectmanager',
-      filesCount: 38,
-      dirsCount: 14,
-      languageStats: { ts: 24 },
-      mainConfigFiles: { packageJson: { version: '0.1.0' } },
-    } as ProjectSnapshot;
+  it('should update the score and summary sections of the evaluation report', async () => {
+    // Arrange: Mock readFile to return a template with markers
+    const mockReadFile = vi.mocked(fs.readFile);
+    mockReadFile.mockResolvedValue(`<!-- AUTO-SCORE-START -->old score<!-- AUTO-SCORE-END --><!-- AUTO-SUMMARY-START -->old summary<!-- AUTO-SUMMARY-END -->`);
+    const mockWriteFile = vi.mocked(fs.writeFile);
 
-    const diff = { isInitial: false } as SnapshotDiff;
-
-    // TODO: mock readFile/writeFile to assert updated content
-    // and ensure markers are preserved.
+    // Act
     await service.updateEvaluationReport(
-      '/workspace',
-      config,
-      snapshot,
-      diff,
-      'Test prompt',
-      'AI summary',
+        '/fake/ws', 
+        { reportDirectory: 'devplan', language: 'ko' } as VibeReportConfig,
+        {} as any,
+        {} as any,
+        'test prompt',
+        'test summary'
     );
+
+    // Assert
+    const writtenContent = mockWriteFile.mock.calls[0][1] as string;
+    expect(writtenContent).toContain('<!-- AUTO-SCORE-START -->');
+    expect(writtenContent).toContain('<!-- AUTO-SUMMARY-START -->');
+    expect(writtenContent).not.toContain('old score');
+    expect(writtenContent).not.toContain('old summary');
   });
 });
 ```
 
-Verification:
-- Run: `pnpm test`
-- Expected: All tests pass including new reportService tests
-
-**✅ After completing this prompt, proceed to [PROMPT-002]**
+**Verification:**
+- Run `pnpm test` and ensure all new and existing tests pass.
+```
 
 ---
 
-### 2. Sync README and configuration docs with the current extension behavior
+### 2. Task: Sync README and configuration docs
 
-**⏱️ Execute this prompt now, then proceed to PROMPT-003**
+**ID:** `docs-sync-001`
 
 ```
 Please perform the following tasks:
 
-1. Update the architecture section of `README.md` so it matches the actual `src/`
-   layout:
-   - Remove references to `aiClient.ts` (the file no longer exists).
-   - Ensure services, views, tests, and utils match the current folder structure.
-2. Regenerate the "Configuration" table in `README.md` from the
-   `contributes.configuration` block in `package.json`:
-   - Document keys like `vibereport.reportDirectory`,
-     `vibereport.snapshotFile`, `vibereport.enableGitDiff`,
-     `vibereport.maxFilesToScan`, `vibereport.autoOpenReports`,
-     `vibereport.language`, etc.
-   - Keep descriptions short and action-focused.
-3. Add usage examples for the newer commands:
-   - `vibereport.openPrompt`
-   - `vibereport.showSessionDetail`
-   - Auto-refresh behavior when `devplan/*.md` changes.
-4. Ensure that any TypeDoc-generated docs (from `pnpm run docs`) are mentioned:
-   - Either link to the generated `docs/` folder from the README, or
-   - Add a short "API Docs" section pointing to TypeDoc output.
+1.  **Update Architecture Diagram:** In `vibereport-extension/README.md`, modify the architecture section to accurately reflect the `src/` directory structure. Remove any mention of obsolete files like `aiClient.ts`.
+2.  **Sync Configuration Table:** In the same `README.md`, regenerate the "Configuration" table to match the properties defined in `vibereport-extension/package.json` under `contributes.configuration`.
+3.  **Add New Command Usage:** Add examples for new commands like `vibereport.openPrompt` and `vibereport.showSessionDetail`.
+4.  **Mention API Docs:** Add a brief note about the TypeDoc-generated API documentation, instructing users to run `pnpm run docs` and check the `docs/` folder.
 
 Target files:
-- vibereport-extension/README.md
-- vibereport-extension/package.json
+- `vibereport-extension/README.md`
+- `vibereport-extension/package.json` (for reference)
 
-Example snippet for aligning configuration docs:
-
+Example of an up-to-date configuration row in `README.md`:
 ```md
 | Setting | Description | Default |
-|--------|-------------|---------|
-| `vibereport.reportDirectory` | Relative path where devplan reports are stored. | `devplan` |
-| `vibereport.snapshotFile` | Path to the snapshot state JSON file. | `.vscode/vibereport-state.json` |
-| `vibereport.enableGitDiff` | Enable Git-based change analysis for snapshots. | `true` |
-| `vibereport.maxFilesToScan` | Maximum number of files to scan in the workspace. | `5000` |
-| `vibereport.autoOpenReports` | Automatically open reports after updating. | `true` |
-| `vibereport.language` | Default language for generated reports (`ko` or `en`). | `ko` |
+|---|---|---|
+| `vibereport.language` | The language for generated reports (`ko` or `en`). | `ko` |
 ```
 
-Verification:
-- Manually review README.md matches current codebase
-- Run: `pnpm run docs` to verify TypeDoc generates without errors
-
-**✅ After completing this prompt, proceed to [PROMPT-003]**
+**Verification:**
+- Manually review `README.md` to confirm it matches the current codebase.
+- Run `pnpm run docs` to ensure it completes without errors.
+```
 
 ---
 
 ## 🟢 [P3] Nice-to-have Improvements
 
-### 3. Add an `Export Reports` command for team sharing
+### 3. Task: Add 'Export Reports' command
 
-**⏱️ Execute this prompt now, then proceed to PROMPT-004**
+**ID:** `share-export-001`
 
 ```
 Please perform the following tasks:
 
-1. Add a new command contribution to `package.json`:
-   - Command ID: `vibereport.exportReports`
-   - Title: `Export Project Reports`
-   - Category: `VibeCoding`
-
-2. Implement a command handler that:
-   - Asks the user for an export directory
-     (using `vscode.window.showOpenDialog` or a similar API).
-   - Copies the entire `devplan/` folder (evaluation, improvement, Prompt)
-     into the chosen location.
-   - Optionally compresses the folder into a single ZIP or generates a single
-     combined Markdown file.
-
-3. Register the command in `extension.ts` after the existing report commands,
-   and log progress to the shared output channel (`Vibe Report`).
-
-4. Update `README.md` with a short "Team Sharing" section describing how to
-   use the export command.
+1.  **Add Command:** In `vibereport-extension/package.json`, add a new command contribution:
+    - ID: `vibereport.exportReports`
+    - Title: `Vibe Report: Export Reports for Sharing`
+    - Category: `Vibe Report`
+2.  **Implement Handler:** In `vibereport-extension/src/extension.ts` (or a new command file), create the handler for `vibereport.exportReports`.
+3.  **Functionality:** The handler should:
+    - Prompt the user to select a destination folder using `vscode.window.showSaveDialog`.
+    - Copy the entire `devplan` directory to the selected location as a ZIP archive. You can use a library like `jszip`.
+    - Show an information message upon successful export.
+4.  **Update Docs:** Add a small section to `vibereport-extension/README.md` explaining how to use the new export feature.
 
 Target files:
-- vibereport-extension/package.json
-- vibereport-extension/src/extension.ts
-- vibereport-extension/README.md
+- `vibereport-extension/package.json`
+- `vibereport-extension/src/extension.ts`
+- `vibereport-extension/README.md`
 
-Example command registration stub:
-
-```ts
-context.subscriptions.push(
-  vscode.commands.registerCommand('vibereport.exportReports', async () => {
-    const rootPath = getRootPath();
-    if (!rootPath) return;
-
-    // TODO: ask for target directory and copy devplan/ there
-    outputChannel.appendLine(
-      '[ExportReports] Exporting devplan reports for sharing...',
-    );
-  }),
-  );
+**Verification:**
+- Compile the extension (`pnpm run compile`).
+- Test the `Vibe Report: Export Reports for Sharing` command in the Extension Development Host.
 ```
-
-Verification:
-- Run: `pnpm run compile`
-- Test the command manually in Extension Development Host
-
-**✅ After completing this prompt, proceed to [PROMPT-004]**
 
 ---
 
-### 4. Make evaluation scoring configurable via settings
+### 4. Task: Make evaluation scoring configurable
 
-**⏱️ Execute this prompt now**
+**ID:** `scoring-config-001`
 
 ```
-Please perform the following tasks:1. Extend `VibeReportConfig` in `src/models/types.ts` to add an optional
-   `scoring` field that allows per-category weights or enabled flags, for example:
+Please perform the following tasks:
 
-   ```ts
-   export interface VibeReportConfig {
-     reportDirectory: string;
-     snapshotFile: string;
-     enableGitDiff: boolean;
-     excludePatterns: string[];
-     maxFilesToScan: number;
-     autoOpenReports: boolean;
-     language: 'ko' | 'en';
-     scoring?: {
-       enabledCategories?: EvaluationCategory[];
-       weights?: Partial<Record<EvaluationCategory, number>>;
-     };
-   }
-   ```
-
-2. Add a new configuration entry in `package.json` under
-   `contributes.configuration.properties` for scoring, for example:
-   - `vibereport.scoring.enabledCategories`
-   - `vibereport.scoring.weights`
-
-   Each key should be documented so users understand how to enable/disable
-   categories and set weights.
-
-3. Update `formatScoreTable` (and any related helpers) in
-   `src/utils/markdownUtils.ts` so it:
-   - Reads the scoring config from `VibeReportConfig`.
-   - Filters out disabled categories.
-   - Applies weights when computing the total average.
-
-4. Optionally, update the evaluation report text
-   (`devplan/Project_Evaluation_Report.md`) to briefly explain that scoring can
-   be customized via settings.
+1.  **Extend Config Type:** In `vibereport-extension/src/models/types.ts`, add an optional `scoring` property to the `VibeReportConfig` interface. This should allow specifying category weights.
+    ```ts
+    scoring?: {
+      weights?: Partial<Record<EvaluationCategory, number>>;
+    };
+    ```
+2.  **Add Setting:** In `vibereport-extension/package.json`, add a new configuration setting `vibereport.scoring.weights` with a description that explains how users can assign custom weights to evaluation categories.
+3.  **Update Logic:** In `vibereport-extension/src/utils/markdownUtils.ts`, refactor `formatScoreTable` to:
+    - Read the `scoring.weights` from the configuration.
+    - Apply these weights when calculating the total average score.
+    - If no weights are provided, default to equal weighting for all categories.
+4.  **Update Tests:** Adjust any relevant unit tests in `markdownUtils.test.ts` to cover the new weighting logic.
 
 Target files:
-- vibereport-extension/src/models/types.ts
-- vibereport-extension/src/utils/markdownUtils.ts
-- vibereport-extension/package.json
-- devplan/Project_Evaluation_Report.md (optional explanatory text)
+- `vibereport-extension/src/models/types.ts`
+- `vibereport-extension/src/utils/markdownUtils.ts`
+- `vibereport-extension/package.json`
+- `vibereport-extension/src/utils/__tests__/markdownUtils.test.ts`
 
-Example adjustment in `formatScoreTable`:
-
-```ts
-const categories: EvaluationCategory[] =
-  config.scoring?.enabledCategories ?? [
-    'codeQuality',
-    'architecture',
-    'security',
-    'performance',
-    'testCoverage',
-    'errorHandling',
-    'documentation',
-    'scalability',
-    'maintainability',
-    'productionReadiness',
-  ];
+**Verification:**
+- Run `pnpm test` to ensure all tests pass.
+- Manually test in the Extension Development Host by setting custom weights in `settings.json` and verifying the change in the generated report.
 ```
-
-Verification:
-- Run: `pnpm run compile`
-- Run: `pnpm test`
-- Test with custom settings in Extension Development Host
-
-**🎉 ALL PROMPTS COMPLETED! Run final verification with `pnpm test`.**
-
 ---
 
-*Last Updated*: 2025-12-01 09:42  
-*Generated for*: projectmanager (vibereport-extension)
-
+*Last Updated: 2025-12-01 17:16 (v0.2.1)*

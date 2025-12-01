@@ -1,13 +1,13 @@
 {
   "lastSnapshot": {
-    "generatedAt": "2025-11-30T15:42:04.770Z",
+    "generatedAt": "2025-12-01T08:31:59.376Z",
     "rootPath": "c:\\Users\\송용준\\Desktop\\Dev\\projectmanager",
     "projectName": "projectmanager",
-    "filesCount": 38,
-    "dirsCount": 14,
+    "filesCount": 43,
+    "dirsCount": 15,
     "languageStats": {
-      "ts": 24,
-      "md": 4,
+      "ts": 25,
+      "md": 5,
       "json": 3,
       "yaml": 1,
       "yml": 1
@@ -63,6 +63,11 @@
                 "children": [
                   {
                     "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "setProjectVision.ts",
                     "type": "file",
                     "extension": "ts"
                   },
@@ -221,11 +226,30 @@
             "extension": "vsix"
           },
           {
+            "name": "vibereport-0.2.0.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
+            "name": "vibereport-0.2.1.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
             "name": "vitest.config.ts",
             "type": "file",
             "extension": "ts"
           }
         ]
+      },
+      {
+        "name": "LICENSE",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "type": "file",
+        "extension": "md"
       }
     ]
   },
@@ -299,6 +323,6 @@
     }
   ],
   "appliedImprovements": [],
-  "lastUpdated": "2025-11-30T15:42:04.794Z",
+  "lastUpdated": "2025-12-01T08:31:59.412Z",
   "version": 1
 }
