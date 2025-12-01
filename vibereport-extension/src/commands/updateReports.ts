@@ -14,6 +14,8 @@ import type {
   VibeReportConfig,
   ProjectSnapshot,
   SnapshotDiff,
+  VibeReportState,
+  SessionRecord,
 } from '../models/types.js';
 import {
   WorkspaceScanner,
@@ -21,6 +23,20 @@ import {
   ReportService,
 } from '../services/index.js';
 import { generateImprovementId } from '../utils/markdownUtils.js';
+import {
+  VibeReportError,
+  WorkspaceScanError,
+  FileOperationError,
+} from '../models/errors.js';
+
+/**
+ * 워크스페이스 스캔 결과
+ */
+interface WorkspaceScanResult {
+  snapshot: ProjectSnapshot;
+  state: VibeReportState;
+  diff: SnapshotDiff;
+}
 
 export class UpdateReportsCommand {
   private workspaceScanner: WorkspaceScanner;
@@ -66,20 +82,15 @@ export class UpdateReportsCommand {
         cancellable: false,
       },
       async (progress) => {
-        try {
-          await this.generatePromptAndCreateReports(rootPath, config, projectName, progress, isFirstRun);
-        } catch (error) {
-          this.log(`오류 발생: ${error}`);
-          vscode.window.showErrorMessage(`보고서 업데이트 실패: ${error}`);
-        }
+        await this._executeWithProgress(rootPath, config, projectName, progress, isFirstRun);
       }
     );
   }
 
   /**
-   * 프롬프트 생성 및 보고서 템플릿 생성
+   * 진행 표시와 함께 전체 워크플로우 실행
    */
-  private async generatePromptAndCreateReports(
+  private async _executeWithProgress(
     rootPath: string,
     config: VibeReportConfig,
     projectName: string,
@@ -91,50 +102,192 @@ export class UpdateReportsCommand {
       this.log(message);
     };
 
-    // 1. 프로젝트 스캔
-    reportProgress('프로젝트 구조 스캔 중...', 20);
-    const snapshot = await this.workspaceScanner.scan(config, reportProgress);
+    // Step 1: 워크스페이스 스캔
+    let scanResult: WorkspaceScanResult;
+    try {
+      scanResult = await this._performWorkspaceScan(rootPath, config, reportProgress);
+    } catch (error) {
+      this._handleError(error, '프로젝트 스캔');
+      return;
+    }
 
-    // 2. 이전 상태 로드
+    const { snapshot, state, diff } = scanResult;
+
+    // Step 2: 보고서 템플릿 준비
+    try {
+      await this._prepareReportTemplates(rootPath, config, snapshot, isFirstRun, reportProgress);
+    } catch (error) {
+      this._handleError(error, '보고서 템플릿 준비');
+      return;
+    }
+
+    // Step 3: 프롬프트 생성 및 클립보드 복사
+    let prompt: string;
+    try {
+      prompt = await this._generateAndCopyPrompt(snapshot, diff, state, isFirstRun, config, reportProgress);
+    } catch (error) {
+      this._handleError(error, '프롬프트 생성');
+      return;
+    }
+
+    // Step 4: 세션 기록 저장
+    let updatedState: VibeReportState;
+    try {
+      updatedState = await this._saveSessionRecord(rootPath, config, state, snapshot, diff, isFirstRun, reportProgress);
+    } catch (error) {
+      this._handleError(error, '세션 기록 저장');
+      return;
+    }
+
+    reportProgress('완료!', 100);
+
+    // Step 5: 결과 알림
+    await this._showCompletionNotification(rootPath, config, projectName, isFirstRun);
+  }
+
+  /**
+   * Step 1: 워크스페이스 스캔 및 상태 비교
+   * 
+   * @throws {WorkspaceScanError} 스캔 실패 시
+   */
+  private async _performWorkspaceScan(
+    rootPath: string,
+    config: VibeReportConfig,
+    reportProgress: (message: string, increment?: number) => void
+  ): Promise<WorkspaceScanResult> {
+    // 프로젝트 스캔
+    reportProgress('프로젝트 구조 스캔 중...', 20);
+    let snapshot: ProjectSnapshot;
+    try {
+      snapshot = await this.workspaceScanner.scan(config, reportProgress);
+    } catch (error) {
+      throw new WorkspaceScanError(
+        '프로젝트 구조 스캔 실패',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+
+    // 이전 상태 로드
     reportProgress('상태 분석 중...', 40);
-    let state = await this.snapshotService.loadState(rootPath, config);
-    if (!state) {
+    let state: VibeReportState;
+    try {
+      const loadedState = await this.snapshotService.loadState(rootPath, config);
+      state = loadedState ?? this.snapshotService.createInitialState();
+    } catch (error) {
+      this.log(`이전 상태 로드 실패, 초기 상태로 시작: ${error}`);
       state = this.snapshotService.createInitialState();
     }
 
-    // 3. 스냅샷 비교
-    const diff = await this.snapshotService.compareSnapshots(
-      state.lastSnapshot,
-      snapshot,
-      rootPath,
-      config
-    );
-
-    // 4. 보고서 디렉토리 및 템플릿 생성
-    reportProgress('보고서 준비 중...', 60);
-    await this.reportService.ensureReportDirectory(rootPath, config);
-    
-    const paths = this.reportService.getReportPaths(rootPath, config);
-    const fs = await import('fs/promises');
-    
-    // 기존 보고서가 없으면 템플릿 생성
-    if (isFirstRun) {
-      const evalTemplate = this.reportService.createEvaluationTemplate(snapshot, config.language);
-      const improvTemplate = this.reportService.createImprovementTemplate(snapshot, config.language);
-      await fs.writeFile(paths.evaluation, evalTemplate, 'utf-8');
-      await fs.writeFile(paths.improvement, improvTemplate, 'utf-8');
+    // 스냅샷 비교
+    let diff: SnapshotDiff;
+    try {
+      diff = await this.snapshotService.compareSnapshots(
+        state.lastSnapshot,
+        snapshot,
+        rootPath,
+        config
+      );
+    } catch (error) {
+      throw new WorkspaceScanError(
+        '스냅샷 비교 실패',
+        error instanceof Error ? error.message : String(error)
+      );
     }
 
-    // 5. 프롬프트 생성
+    return { snapshot, state, diff };
+  }
+
+  /**
+   * Step 2: 보고서 디렉토리 및 템플릿 준비
+   * 
+   * @throws {FileOperationError} 파일 작업 실패 시
+   */
+  private async _prepareReportTemplates(
+    rootPath: string,
+    config: VibeReportConfig,
+    snapshot: ProjectSnapshot,
+    isFirstRun: boolean,
+    reportProgress: (message: string, increment?: number) => void
+  ): Promise<void> {
+    reportProgress('보고서 준비 중...', 60);
+
+    try {
+      await this.reportService.ensureReportDirectory(rootPath, config);
+    } catch (error) {
+      throw new FileOperationError(
+        '보고서 디렉토리 생성 실패',
+        `${rootPath}/${config.reportDirectory}`
+      );
+    }
+
+    if (isFirstRun) {
+      const paths = this.reportService.getReportPaths(rootPath, config);
+      const fs = await import('fs/promises');
+
+      try {
+        const evalTemplate = this.reportService.createEvaluationTemplate(snapshot, config.language);
+        await fs.writeFile(paths.evaluation, evalTemplate, 'utf-8');
+      } catch (error) {
+        throw new FileOperationError('평가 보고서 템플릿 생성 실패', paths.evaluation);
+      }
+
+      try {
+        const improvTemplate = this.reportService.createImprovementTemplate(snapshot, config.language);
+        await fs.writeFile(paths.improvement, improvTemplate, 'utf-8');
+      } catch (error) {
+        throw new FileOperationError('개선 보고서 템플릿 생성 실패', paths.improvement);
+      }
+    }
+  }
+
+  /**
+   * Step 3: 프롬프트 생성 및 클립보드 복사
+   */
+  private async _generateAndCopyPrompt(
+    snapshot: ProjectSnapshot,
+    diff: SnapshotDiff,
+    state: VibeReportState,
+    isFirstRun: boolean,
+    config: VibeReportConfig,
+    reportProgress: (message: string, increment?: number) => void
+  ): Promise<string> {
     reportProgress('분석 프롬프트 생성 중...', 80);
-    const prompt = this.buildAnalysisPrompt(snapshot, diff, state.appliedImprovements, isFirstRun, config, state.projectVision);
 
-    // 6. 클립보드에 복사
-    await vscode.env.clipboard.writeText(prompt);
+    const prompt = this.buildAnalysisPrompt(
+      snapshot,
+      diff,
+      state.appliedImprovements,
+      isFirstRun,
+      config,
+      state.projectVision
+    );
 
-    // 7. 세션 기록 생성 및 저장
+    try {
+      await vscode.env.clipboard.writeText(prompt);
+    } catch (error) {
+      this.log(`클립보드 복사 실패: ${error}`);
+      vscode.window.showWarningMessage('클립보드 복사에 실패했습니다. 프롬프트가 생성되었지만 수동으로 복사해야 합니다.');
+    }
+
+    return prompt;
+  }
+
+  /**
+   * Step 4: 세션 기록 생성 및 저장
+   * 
+   * @throws {FileOperationError} 저장 실패 시
+   */
+  private async _saveSessionRecord(
+    rootPath: string,
+    config: VibeReportConfig,
+    state: VibeReportState,
+    snapshot: ProjectSnapshot,
+    diff: SnapshotDiff,
+    isFirstRun: boolean,
+    reportProgress: (message: string, increment?: number) => void
+  ): Promise<VibeReportState> {
     const sessionId = SnapshotService.generateSessionId();
-    const sessionRecord: import('../models/types.js').SessionRecord = {
+    const sessionRecord: SessionRecord = {
       id: sessionId,
       timestamp: new Date().toISOString(),
       userPrompt: isFirstRun ? '프로젝트 초기 분석' : '보고서 업데이트',
@@ -148,21 +301,48 @@ export class UpdateReportsCommand {
     };
 
     // 스냅샷 업데이트
-    state = this.snapshotService.updateSnapshot(state, snapshot);
+    let updatedState = this.snapshotService.updateSnapshot(state, snapshot);
     // 세션 기록 추가
-    state = this.snapshotService.addSession(state, sessionRecord);
-    await this.snapshotService.saveState(rootPath, config, state);
+    updatedState = this.snapshotService.addSession(updatedState, sessionRecord);
 
-    // 8. 세션 히스토리 파일 업데이트
-    await this.reportService.updateSessionHistoryFile(rootPath, config, sessionRecord, state.sessions.length, state.appliedImprovements.length);
+    try {
+      await this.snapshotService.saveState(rootPath, config, updatedState);
+    } catch (error) {
+      throw new FileOperationError(
+        '상태 파일 저장 실패',
+        `${rootPath}/${config.snapshotFile}`
+      );
+    }
 
-    reportProgress('완료!', 100);
+    // 세션 히스토리 파일 업데이트 (실패해도 계속 진행)
+    try {
+      await this.reportService.updateSessionHistoryFile(
+        rootPath,
+        config,
+        sessionRecord,
+        updatedState.sessions.length,
+        updatedState.appliedImprovements.length
+      );
+    } catch (error) {
+      this.log(`세션 히스토리 파일 업데이트 실패: ${error}`);
+    }
 
-    // 9. 결과 알림
+    return updatedState;
+  }
+
+  /**
+   * Step 5: 완료 알림 표시
+   */
+  private async _showCompletionNotification(
+    rootPath: string,
+    config: VibeReportConfig,
+    projectName: string,
+    isFirstRun: boolean
+  ): Promise<void> {
     const openChat = 'Copilot Chat 열기';
     const openEval = '평가 보고서 열기';
     const openImprove = '개선 보고서 열기';
-    
+
     const message = isFirstRun
       ? `✅ [${projectName}] 초기 분석 프롬프트가 클립보드에 복사되었습니다!`
       : `✅ [${projectName}] 업데이트 프롬프트가 클립보드에 복사되었습니다!`;
@@ -180,6 +360,22 @@ export class UpdateReportsCommand {
       await this.reportService.openReport(rootPath, config, 'evaluation');
     } else if (result === openImprove) {
       await this.reportService.openReport(rootPath, config, 'improvement');
+    }
+  }
+
+  /**
+   * 에러 처리 및 사용자 알림
+   */
+  private _handleError(error: unknown, context: string): void {
+    if (error instanceof VibeReportError) {
+      this.log(`[${context}] ${error.code}: ${error.message}`);
+      vscode.window.showErrorMessage(`${context} 실패: ${error.userMessage}`);
+    } else if (error instanceof Error) {
+      this.log(`[${context}] ${error.name}: ${error.message}`);
+      vscode.window.showErrorMessage(`${context} 중 오류 발생: ${error.message}`);
+    } else {
+      this.log(`[${context}] Unknown error: ${error}`);
+      vscode.window.showErrorMessage(`${context} 중 알 수 없는 오류가 발생했습니다.`);
     }
   }
 
@@ -215,19 +411,23 @@ export class UpdateReportsCommand {
     lines.push('> - 채팅으로 코드나 보고서 내용을 텍스트로 보여주는 것');
     lines.push('> - "다음과 같이 수정하세요" 라고 말만 하는 것');
     lines.push('> - 코드 블록으로 변경사항을 표시만 하는 것');
+    lines.push('> - **평가 보고서만 작성하고 개선 보고서/프롬프트 파일을 건너뛰는 것**');
     lines.push('> ');
     lines.push('> **✅ 반드시 해야 하는 것:**');
     lines.push('> - `replace_string_in_file` 또는 `create_file` 도구를 사용하여 **직접 파일 수정**');
+    lines.push('> - **세 파일 모두 반드시 수정** (평가 보고서 → 개선 보고서 → 프롬프트 파일 순서)');
     lines.push('> - 모든 변경사항을 **실제 파일에 반영**');
     lines.push('> - 파일 수정 후 "파일을 수정했습니다" 라고 확인');
     lines.push('');
-    lines.push('### 수정할 파일 목록:');
+    lines.push('### 🚨 중요: 세 파일 모두 필수 수정');
     lines.push('');
-    lines.push(`1. **평가 보고서**: \`${evaluationPath}\``);
-    lines.push(`2. **개선 보고서**: \`${improvementPath}\``);
-    lines.push(`3. **프롬프트 파일**: \`${promptPath}\``);
+    lines.push('| # | 파일 | 설명 | 상태 |');
+    lines.push('|:---:|:---|:---|:---:|');
+    lines.push(`| 1 | \`${evaluationPath}\` | 종합 평가 보고서 (한국어) | ⬜ 필수 |`);
+    lines.push(`| 2 | \`${improvementPath}\` | 개선 제안 보고서 (한국어) | ⬜ 필수 |`);
+    lines.push(`| 3 | \`${promptPath}\` | AI 실행 프롬프트 (영어) | ⬜ 필수 |`);
     lines.push('');
-    lines.push('**❗ 이 프롬프트를 받으면 즉시 파일 수정 도구를 호출하세요. 설명만 하지 마세요.**');
+    lines.push('**❗ 이 프롬프트를 받으면 세 파일 모두 순서대로 수정하세요. 하나라도 건너뛰면 안 됩니다.**');
     lines.push('');
     lines.push('## 📝 대용량 파일 수정 지침');
     lines.push('');
@@ -456,7 +656,14 @@ export class UpdateReportsCommand {
     lines.push('#### 1. 전체 개선 현황 요약');
     lines.push('`<!-- AUTO-SUMMARY-START -->` 마커 사이에:');
     lines.push('- 현황 개요 테이블 (P1/P2/P3 **미적용** 개수만)');
-    lines.push('- 카테고리별 분포');
+    lines.push('- **항목별 분포 테이블** (아래 형식 필수):');
+    lines.push('```');
+    lines.push('| # | 항목명 | 우선순위 | 카테고리 |');
+    lines.push('|:---:|:---|:---:|:---|');
+    lines.push('| 1 | loadConfig 리팩토링 | P2 | 🧹 코드 품질 |');
+    lines.push('| 2 | 명령 레이어 테스트 | P2 | 🧪 테스트 |');
+    lines.push('| 3 | AI 직접 연동 | P3 | ✨ 기능 추가 |');
+    lines.push('```');
     lines.push('- 우선순위별 한줄 요약');
     lines.push('- **적용 완료 항목 개수는 세션 로그에만 기록** (요약에서는 총 개수만 언급)');
     lines.push('');
@@ -632,17 +839,36 @@ export class UpdateReportsCommand {
     lines.push('');
     lines.push('## ✅ 작성 완료 체크리스트');
     lines.push('');
-    lines.push(`- [ ] \`${evaluationPath}\` - 프로젝트 목표, 기능 테이블, 점수, 상세 평가 (한국어)`);
-    lines.push(`- [ ] \`${improvementPath}\` - 전체 요약, 기능 개선/추가 분리, 코드 제외 (한국어)`);
-    lines.push(`- [ ] \`${promptPath}\` - Sequential AI prompts with COMPLETE code (English)`);
+    lines.push('### 🚨 필수: 세 파일 모두 수정 확인');
     lines.push('');
-    lines.push('### Prompt.md 필수 검증:');
-    lines.push('- [ ] 모든 프롬프트에 "Execute this prompt now, then proceed to PROMPT-XXX" 헤더가 있는가?');
-    lines.push('- [ ] 모든 프롬프트에 "After completing this prompt, proceed to [PROMPT-XXX]" 푸터가 있는가?');
-    lines.push('- [ ] Execution Checklist 테이블이 모든 프롬프트를 포함하는가?');
-    lines.push('- [ ] 모든 코드가 완전하고 축약 없이 작성되었는가?');
-    lines.push('- [ ] 마지막 프롬프트가 "ALL PROMPTS COMPLETED"로 끝나는가?');
-    lines.push('- [ ] 이미 적용된 개선사항이 제외되었는가?');
+    lines.push(`| # | 파일 | 완료 확인 |`);
+    lines.push(`|:---:|:---|:---:|`);
+    lines.push(`| 1 | \`${evaluationPath}\` | [ ] 평가 보고서 수정 완료 |`);
+    lines.push(`| 2 | \`${improvementPath}\` | [ ] 개선 보고서 수정 완료 |`);
+    lines.push(`| 3 | \`${promptPath}\` | [ ] 프롬프트 파일 수정 완료 |`);
+    lines.push('');
+    lines.push('**⚠️ 세 파일 모두 수정해야 작업이 완료됩니다. 평가 보고서만 수정하고 끝내지 마세요!**');
+    lines.push('');
+    lines.push('### 각 파일 검증 항목:');
+    lines.push('');
+    lines.push('**평가 보고서:**');
+    lines.push('- [ ] 프로젝트 목표 및 비전 작성');
+    lines.push('- [ ] 기능 테이블 작성');
+    lines.push('- [ ] 종합 점수 테이블 작성');
+    lines.push('- [ ] 기능별 상세 평가 작성');
+    lines.push('- [ ] 현재 상태 요약 작성');
+    lines.push('');
+    lines.push('**개선 보고서:**');
+    lines.push('- [ ] 개선 현황 요약 (항목별 분포 테이블 포함)');
+    lines.push('- [ ] 기능 개선 항목 (P1/P2)');
+    lines.push('- [ ] 기능 추가 항목 (P3)');
+    lines.push('- [ ] 미적용 항목만 표시 (적용 완료 항목 제외)');
+    lines.push('');
+    lines.push('**프롬프트 파일:**');
+    lines.push('- [ ] Execution Checklist 테이블');
+    lines.push('- [ ] 각 프롬프트에 순차 실행 헤더/푸터');
+    lines.push('- [ ] 완전한 구현 코드 (축약 없음)');
+    lines.push('- [ ] 마지막에 "ALL PROMPTS COMPLETED"');
 
     return lines.join('\n');
   }

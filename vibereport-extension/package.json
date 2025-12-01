@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.2.3",
+  "version": "0.2.7",
   "publisher": "vibe-coding",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -88,6 +88,12 @@
         "title": "Open Session History",
         "category": "VibeCoding",
         "icon": "$(history)"
+      },
+      {
+        "command": "vibereport.generatePrompt",
+        "title": "Generate Improvement Prompt",
+        "category": "VibeCoding",
+        "icon": "$(sparkle)"
       }
     ],
     "configuration": {
@@ -169,6 +175,11 @@
         {
           "id": "vibereport.history",
           "name": "Session History"
+        },
+        {
+          "id": "vibereport.settings",
+          "name": "Settings",
+          "type": "webview"
         }
       ]
     },
@@ -217,6 +228,8 @@
     "@vitest/coverage-v8": "^4.0.14",
     "@vscode/vsce": "^3.0.0",
     "eslint": "^9.0.0",
+    "memfs": "^4.9.2",
+    "mock-fs": "^5.2.0",
     "typedoc": "^0.28.15",
     "typescript": "^5.8.0",
     "vitest": "^4.0.14"

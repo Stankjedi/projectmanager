@@ -60,6 +60,9 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
         case 'openSessionHistory':
           await vscode.commands.executeCommand('vibereport.openSessionHistory');
           break;
+        case 'generatePrompt':
+          await vscode.commands.executeCommand('vibereport.generatePrompt');
+          break;
       }
     });
 
@@ -208,7 +211,10 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
 
   <div class="actions">
     <button class="action-btn" id="btn-update">
-      🔄 보고서 업데이트
+      📝 보고서 업데이트 (분석 프롬프트)
+    </button>
+    <button class="action-btn" id="btn-generate" style="background: var(--vscode-statusBarItem-prominentBackground);">
+      🔧 개선 프롬프트 생성 (선택)
     </button>
     <button class="action-btn secondary" id="btn-evaluation">
       📋 평가 보고서 열기
@@ -229,6 +235,10 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     
     document.getElementById('btn-update').addEventListener('click', function() {
       vscode.postMessage({ command: 'updateReports' });
+    });
+
+    document.getElementById('btn-generate').addEventListener('click', function() {
+      vscode.postMessage({ command: 'generatePrompt' });
     });
     
     document.getElementById('btn-evaluation').addEventListener('click', function() {

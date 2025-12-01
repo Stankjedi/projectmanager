@@ -4,10 +4,11 @@
  */
 
 import * as vscode from 'vscode';
-import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand } from './commands/index.js';
+import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand } from './commands/index.js';
 import { ReportService } from './services/index.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
+import { SettingsViewProvider } from './views/SettingsViewProvider.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -29,6 +30,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const updateReportsCommand = new UpdateReportsCommand(outputChannel);
   const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);
   const setVisionCommand = new SetProjectVisionCommand(outputChannel);
+  const generatePromptCommand = new GeneratePromptCommand(outputChannel);
 
   // Status Bar 아이템 생성
   statusBarItem = vscode.window.createStatusBarItem(
@@ -157,6 +159,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
+  // 명령 등록: Generate Prompt (개선 항목 선택하여 프롬프트 생성)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.generatePrompt', async () => {
+      await generatePromptCommand.execute();
+    })
+  );
+
   // 명령 등록: Show Last Run Summary
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.showLastRunSummary', async () => {
@@ -214,6 +223,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // View Providers 등록
   const historyViewProvider = new HistoryViewProvider(context.extensionUri, outputChannel);
   const summaryViewProvider = new SummaryViewProvider(context.extensionUri, outputChannel);
+  const settingsViewProvider = new SettingsViewProvider(context.extensionUri, outputChannel);
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('vibereport.history', historyViewProvider)
@@ -223,11 +233,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider('vibereport.summary', summaryViewProvider)
   );
 
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('vibereport.settings', settingsViewProvider)
+  );
+
   // 명령 등록: Refresh Views (수동 또는 자동 호출용)
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.refreshViews', () => {
       summaryViewProvider.refresh();
       historyViewProvider.refresh();
+      settingsViewProvider.refresh();
       outputChannel.appendLine('[RefreshViews] Views refreshed manually');
     })
   );
