@@ -63,6 +63,9 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
         case 'resetToDefaults':
           await this.resetToDefaults();
           break;
+        case 'openSetVision':
+          await vscode.commands.executeCommand('vibereport.setProjectVision');
+          break;
       }
     });
 
@@ -103,6 +106,9 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
       autoOpenReports: config.get<boolean>('autoOpenReports', true),
       language: config.get<string>('language', 'ko'),
+      projectVisionMode: config.get<string>('projectVisionMode', 'auto'),
+      defaultProjectType: config.get<string>('defaultProjectType', 'auto-detect'),
+      defaultQualityFocus: config.get<string>('defaultQualityFocus', 'development'),
     };
 
     await this._view.webview.postMessage({
@@ -131,6 +137,9 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       maxFilesToScan: 5000,
       autoOpenReports: true,
       language: 'ko',
+      projectVisionMode: 'auto',
+      defaultProjectType: 'auto-detect',
+      defaultQualityFocus: 'development',
     };
 
     for (const [key, value] of Object.entries(defaults)) {
@@ -358,6 +367,56 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     </select>
   </div>
 
+  <!-- 프로젝트 비전 설정 -->
+  <div class="section-title">🎯 프로젝트 비전 설정</div>
+
+  <div class="setting-group">
+    <div class="setting-label">비전 모드</div>
+    <div class="setting-description">프로젝트 분석 방식을 선택합니다</div>
+    <select class="setting-select" id="projectVisionMode">
+      <option value="auto">🔍 자동 분석 (전체 파일 평가)</option>
+      <option value="custom">✨ 사용자 정의 비전 사용</option>
+    </select>
+  </div>
+
+  <div class="setting-group">
+    <div class="setting-label">기본 프로젝트 유형</div>
+    <div class="setting-description">프로젝트 유형 기본값 (auto-detect: 자동 감지)</div>
+    <select class="setting-select" id="defaultProjectType">
+      <option value="auto-detect">🔍 자동 감지</option>
+      <option value="vscode-extension">📦 VS Code Extension</option>
+      <option value="web-frontend">🌐 Web Frontend</option>
+      <option value="web-backend">⚙️ Web Backend</option>
+      <option value="fullstack">🔄 Full Stack</option>
+      <option value="cli-tool">💻 CLI Tool</option>
+      <option value="library">📚 Library</option>
+      <option value="desktop-app">🖥️ Desktop App</option>
+      <option value="mobile-app">📱 Mobile App</option>
+      <option value="api-server">🔌 API Server</option>
+      <option value="monorepo">📁 Monorepo</option>
+      <option value="other">❓ 기타</option>
+    </select>
+  </div>
+
+  <div class="setting-group">
+    <div class="setting-label">기본 개발 단계</div>
+    <div class="setting-description">현재 프로젝트의 개발 단계 (품질 우선순위에 영향)</div>
+    <select class="setting-select" id="defaultQualityFocus">
+      <option value="prototype">⚡ 프로토타입 (빠른 구현 우선)</option>
+      <option value="development">🔨 개발 중 (기능 + 기본 품질)</option>
+      <option value="stabilization">🛡️ 안정화 (테스트/문서화 집중)</option>
+      <option value="production">🚀 프로덕션 (보안/성능 집중)</option>
+      <option value="maintenance">🔧 유지보수 (리팩토링/기술부채)</option>
+    </select>
+  </div>
+
+  <div class="setting-group">
+    <button class="btn btn-secondary" id="btn-set-vision" style="width: 100%;">
+      🎯 상세 프로젝트 비전 설정...
+    </button>
+    <div class="setting-description">프로젝트 목표, 집중 영역, 제외 영역 등 상세 설정</div>
+  </div>
+
   <!-- 액션 버튼 -->
   <div class="actions">
     <button class="btn btn-primary" id="btn-save">💾 설정 저장</button>
@@ -376,6 +435,9 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       enableGitDiff: document.getElementById('enableGitDiff'),
       autoOpenReports: document.getElementById('autoOpenReports'),
       language: document.getElementById('language'),
+      projectVisionMode: document.getElementById('projectVisionMode'),
+      defaultProjectType: document.getElementById('defaultProjectType'),
+      defaultQualityFocus: document.getElementById('defaultQualityFocus'),
     };
 
     // 설정 로드
@@ -387,6 +449,9 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       elements.enableGitDiff.checked = settings.enableGitDiff !== false;
       elements.autoOpenReports.checked = settings.autoOpenReports !== false;
       elements.language.value = settings.language || 'ko';
+      elements.projectVisionMode.value = settings.projectVisionMode || 'auto';
+      elements.defaultProjectType.value = settings.defaultProjectType || 'auto-detect';
+      elements.defaultQualityFocus.value = settings.defaultQualityFocus || 'development';
     }
 
     // 모든 설정 저장
@@ -399,6 +464,9 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
         enableGitDiff: elements.enableGitDiff.checked,
         autoOpenReports: elements.autoOpenReports.checked,
         language: elements.language.value,
+        projectVisionMode: elements.projectVisionMode.value,
+        defaultProjectType: elements.defaultProjectType.value,
+        defaultQualityFocus: elements.defaultQualityFocus.value,
       };
 
       for (const [key, value] of Object.entries(settings)) {
@@ -411,6 +479,10 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 
     document.getElementById('btn-reset').addEventListener('click', function() {
       vscode.postMessage({ command: 'resetToDefaults' });
+    });
+
+    document.getElementById('btn-set-vision').addEventListener('click', function() {
+      vscode.postMessage({ command: 'openSetVision' });
     });
 
     // 메시지 수신

@@ -30,12 +30,12 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (Vibe Coding Report 확장) |
-| **버전** | 0.2.6 |
+| **버전** | 0.2.7 |
 | **최초 분석일** | 2025-11-29 15:48 |
-| **최근 분석일** | 2025-12-01 20:21 |
-| **파일 수** | 53 |
+| **최근 분석일** | 2025-12-01 20:30 |
+| **파일 수** | 54 |
 | **디렉토리 수** | 15 |
-| **주요 언어** | TypeScript(28), Markdown(6), JSON(4), YAML(2) |
+| **주요 언어** | TypeScript(28), Markdown(6), JSON(4), YAML(1), YML(1) |
 | **프레임워크** | VS Code Extension (Node.js / TypeScript) |
 | **테스트** | 74개 통과 (Vitest) |
 <!-- AUTO-OVERVIEW-END -->
@@ -62,8 +62,8 @@
 <!-- AUTO-SCORE-START -->
 ## 📊 종합 점수 요약
 
-> 아래 점수는 v0.2.6 기준 **3차 평가 결과**입니다.  
-> PROMPT-001~004 적용으로 코드 품질, 테스트, 문서화, UI 측면에서 큰 향상이 있었습니다.
+> 아래 점수는 v0.2.7 기준 **4차 평가 결과**입니다.  
+> v0.2.6에서 적용된 리팩토링·테스트·문서화·UI 개선을 유지한 상태에서, v0.2.7 패키징까지 반영한 결과입니다.
 
 | 항목 | 점수 (100점 만점) | 등급 | 변화 |
 |------|------------------|------|------|
@@ -165,12 +165,13 @@
 <!-- AUTO-SUMMARY-START -->
 ## 📈 현재 상태 요약
 
-### v0.2.6 핵심 개선사항 (PROMPT-001~004 적용 완료)
+### v0.2.7 핵심 개선사항 (v0.2.6 기반 유지 보수 릴리즈)
 
 - ✅ **PROMPT-001**: `updateReports.ts` 리팩토링 완료 - `execute()` 메소드를 `_performWorkspaceScan`, `_loadAndCompareState`, `_prepareReports`, `_generatePromptAndNotify` 등 4개의 private 메소드로 분리하고, 각 단계별 구체적인 에러 처리 추가
 - ✅ **PROMPT-002**: `ReportService` 단위 테스트 23개 추가 - 템플릿 생성, 마커 기반 업데이트, 경로 계산 로직에 대한 포괄적인 테스트 (총 74개 테스트 통과)
 - ✅ **PROMPT-003**: `markdownUtils.ts` 전체 JSDoc 문서화 - 모든 export 함수에 `@param`, `@returns`, `@example` 태그 추가
 - ✅ **PROMPT-004**: Settings UI (Webview) 개발 완료 - `SettingsViewProvider.ts` 350+ lines, 동적 폼 생성, 저장/초기화 기능
+- 📦 **v0.2.7**: 기능·테스트 구성은 v0.2.6과 동일하지만, 패키지 메타데이터와 VSIX가 최신 상태로 정리되었습니다.
 
 ### 품질 현황
 
