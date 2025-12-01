@@ -45,6 +45,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.updateReports', async () => {
       await updateReportsCommand.execute();
+      // 업데이트 후 View 새로고침 (약간의 지연 후 실행)
+      setTimeout(() => {
+        vscode.commands.executeCommand('vibereport.refreshViews');
+      }, 500);
     })
   );
 

@@ -207,19 +207,19 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
   `}
 
   <div class="actions">
-    <button class="action-btn" onclick="updateReports()">
+    <button class="action-btn" id="btn-update">
       🔄 보고서 업데이트
     </button>
-    <button class="action-btn secondary" onclick="openEvaluation()">
+    <button class="action-btn secondary" id="btn-evaluation">
       📋 평가 보고서 열기
     </button>
-    <button class="action-btn secondary" onclick="openImprovement()">
+    <button class="action-btn secondary" id="btn-improvement">
       💡 개선 보고서 열기
     </button>
-    <button class="action-btn secondary" onclick="openPrompt()">
+    <button class="action-btn secondary" id="btn-prompt">
       🤖 프롬프트 열기
     </button>
-    <button class="action-btn secondary" onclick="openSessionHistory()">
+    <button class="action-btn secondary" id="btn-history">
       📜 세션 히스토리
     </button>
   </div>
@@ -227,25 +227,25 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     
-    function updateReports() {
+    document.getElementById('btn-update').addEventListener('click', function() {
       vscode.postMessage({ command: 'updateReports' });
-    }
+    });
     
-    function openEvaluation() {
+    document.getElementById('btn-evaluation').addEventListener('click', function() {
       vscode.postMessage({ command: 'openEvaluation' });
-    }
+    });
     
-    function openImprovement() {
+    document.getElementById('btn-improvement').addEventListener('click', function() {
       vscode.postMessage({ command: 'openImprovement' });
-    }
+    });
     
-    function openPrompt() {
+    document.getElementById('btn-prompt').addEventListener('click', function() {
       vscode.postMessage({ command: 'openPrompt' });
-    }
+    });
 
-    function openSessionHistory() {
+    document.getElementById('btn-history').addEventListener('click', function() {
       vscode.postMessage({ command: 'openSessionHistory' });
-    }
+    });
   </script>
 </body>
 </html>`;
