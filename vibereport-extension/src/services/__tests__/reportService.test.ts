@@ -149,8 +149,8 @@ describe('ReportService', () => {
       expect(template).toContain(MARKERS.SCORE_END);
       expect(template).toContain(MARKERS.SUMMARY_START);
       expect(template).toContain(MARKERS.SUMMARY_END);
-      expect(template).toContain(MARKERS.SESSION_LOG_START);
-      expect(template).toContain(MARKERS.SESSION_LOG_END);
+      // 세션 로그는 Session_History.md를 참조하도록 변경됨
+      expect(template).toContain('Session_History.md');
     });
 
     it('should create English template when language is en', () => {
@@ -190,8 +190,8 @@ describe('ReportService', () => {
       expect(template).toContain(MARKERS.SUMMARY_END);
       expect(template).toContain(MARKERS.IMPROVEMENT_LIST_START);
       expect(template).toContain(MARKERS.IMPROVEMENT_LIST_END);
-      expect(template).toContain(MARKERS.SESSION_LOG_START);
-      expect(template).toContain(MARKERS.SESSION_LOG_END);
+      // 세션 로그는 Session_History.md를 참조하도록 변경됨
+      expect(template).toContain('Session_History.md');
     });
 
     it('should create English template when language is en', () => {

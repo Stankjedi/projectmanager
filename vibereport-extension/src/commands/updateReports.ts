@@ -22,7 +22,7 @@ import {
   SnapshotService,
   ReportService,
 } from '../services/index.js';
-import { generateImprovementId } from '../utils/markdownUtils.js';
+import { generateImprovementId, loadConfig } from '../utils/index.js';
 import {
   VibeReportError,
   WorkspaceScanError,
@@ -68,7 +68,7 @@ export class UpdateReportsCommand {
     const projectName = workspaceFolders[0].name;
 
     // 설정 로드
-    const config = this.loadConfig();
+    const config = loadConfig();
 
     // 기존 보고서 확인
     const reportsExist = await this.reportService.reportsExist(rootPath, config);
@@ -1047,37 +1047,9 @@ export class UpdateReportsCommand {
   }
 
   /**
-   * 설정 로드
+   * 설정 로드 - 중앙화된 유틸리티 사용
+   * @deprecated loadConfig from utils/configUtils.js를 사용하세요
    */
-  private loadConfig(): VibeReportConfig {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    
-    return {
-      reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-      snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-      enableGitDiff: config.get<boolean>('enableGitDiff', true),
-      excludePatterns: config.get<string[]>('excludePatterns', [
-        '**/node_modules/**',
-        '**/dist/**',
-        '**/out/**',
-        '**/build/**',
-        '**/.git/**',
-        '**/target/**',
-        '**/.next/**',
-        '**/__pycache__/**',
-        '**/.venv/**',
-        '**/coverage/**',
-        '**/*.log',
-        '**/*.lock',
-      ]),
-      maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-      autoOpenReports: config.get<boolean>('autoOpenReports', true),
-      language: config.get<'ko' | 'en'>('language', 'ko'),
-      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
-      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
-      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
-    };
-  }
 
   private log(message: string): void {
     this.outputChannel.appendLine(`[UpdateReports] ${message}`);
@@ -1135,7 +1107,7 @@ export class MarkImprovementAppliedCommand {
     }
 
     const rootPath = workspaceFolders[0].uri.fsPath;
-    const config = this.loadConfig();
+    const config = loadConfig();
 
     // 상태 로드
     let state = await this.snapshotService.loadState(rootPath, config);
@@ -1159,22 +1131,6 @@ export class MarkImprovementAppliedCommand {
     );
 
     this.log(`적용 완료 마킹: ${id} - ${title}`);
-  }
-
-  private loadConfig(): VibeReportConfig {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    return {
-      reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-      snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-      enableGitDiff: config.get<boolean>('enableGitDiff', true),
-      excludePatterns: config.get<string[]>('excludePatterns', []),
-      maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-      autoOpenReports: config.get<boolean>('autoOpenReports', true),
-      language: config.get<'ko' | 'en'>('language', 'ko'),
-      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
-      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
-      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
-    };
   }
 
   private log(message: string): void {

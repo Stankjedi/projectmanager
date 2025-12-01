@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { VibeReportConfig } from '../models/types.js';
-import { parseImprovementItems, type ParsedImprovementItem } from '../utils/markdownUtils.js';
+import { parseImprovementItems, loadConfig, type ParsedImprovementItem } from '../utils/index.js';
 
 /**
  * 개선 항목 선택 및 프롬프트 생성 명령
@@ -31,7 +31,7 @@ export class GeneratePromptCommand {
     }
 
     const rootPath = workspaceFolders[0].uri.fsPath;
-    const config = this.loadConfig();
+    const config = loadConfig();
 
     // 개선 보고서 읽기
     const improvementPath = path.join(
@@ -306,22 +306,6 @@ export class GeneratePromptCommand {
       return categoryMap[categoryMatch[0]] || '';
     }
     return '';
-  }
-
-  private loadConfig(): VibeReportConfig {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    return {
-      reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-      snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-      enableGitDiff: config.get<boolean>('enableGitDiff', true),
-      excludePatterns: config.get<string[]>('excludePatterns', []),
-      maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-      autoOpenReports: config.get<boolean>('autoOpenReports', true),
-      language: config.get<'ko' | 'en'>('language', 'ko'),
-      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
-      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
-      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
-    };
   }
 
   private log(message: string): void {

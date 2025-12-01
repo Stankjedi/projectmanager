@@ -30,12 +30,12 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (Vibe Coding Report 확장) |
-| **버전** | 0.2.7 |
+| **버전** | 0.3.1 |
 | **최초 분석일** | 2025-11-29 15:48 |
-| **최근 분석일** | 2025-12-01 20:30 |
-| **파일 수** | 54 |
+| **최근 분석일** | 2025-12-02 01:33 |
+| **파일 수** | 52 |
 | **디렉토리 수** | 15 |
-| **주요 언어** | TypeScript(28), Markdown(6), JSON(4), YAML(1), YML(1) |
+| **주요 언어** | TypeScript(28), Markdown(7), JSON(4), HTML(1), YAML(1) |
 | **프레임워크** | VS Code Extension (Node.js / TypeScript) |
 | **테스트** | 74개 통과 (Vitest) |
 <!-- AUTO-OVERVIEW-END -->
@@ -48,36 +48,56 @@
 |------|------|------|------|
 | 삼중 보고서 시스템 (Evaluation/Improvement/Prompt) | ✅ 완료 | devplan 디렉토리에 평가·개선·프롬프트 파일을 생성하고, 마커 기반으로 섹션별 갱신을 수행합니다. | 🟢 우수 |
 | 워크스페이스 스캔 및 스냅샷 수집 | ✅ 완료 | WorkspaceScanner가 언어 통계, 주요 설정 파일, 디렉토리 구조, Git 정보(옵션)를 수집해 ProjectSnapshot을 구성합니다. | 🟢 우수 |
-| Git 기반 변경 분석 (diff) | ✅ 완료 | SnapshotService가 이전 스냅샷과 비교하여 새 파일/삭제 파일/설정 변경/Git 변경 목록을 요약합니다. | 🟡 양호 |
-| AI 연동을 통한 보고서 업데이트 | 🔄 부분 | 워크스페이스를 스캔해 Prompt.md에 붙여넣기용 프롬프트를 생성하고 Copilot Chat을 자동으로 열어주지만, 아직 Language Model API를 통한 직접 호출은 구현되어 있지 않습니다. | 🟡 양호 |
-| 개선 항목 추출 및 미적용 필터링 | ✅ 완료 | 마크다운에서 우선순위(P1/P2/P3)가 포함된 개선 항목을 파싱하고, appliedImprovements와 Session_History 상태를 기반으로 이미 적용된 항목을 제외합니다. | 🟡 양호 |
-| 세션 히스토리 및 통계 관리 | ✅ 완료 | .vscode/vibereport-state.json과 devplan/Session_History.md 에 세션 목록과 통계를 기록하고, 사이드바 History/Summary 뷰에서 통계를 시각화합니다. | 🟢 우수 |
-| VS Code 사이드바 Summary/History/Settings 뷰 | ✅ 완료 | Summary(요약) Webview, History TreeView, Settings Webview를 통해 보고서 상태, 세션 히스토리, 확장 설정을 한 곳에서 관리할 수 있습니다. | 🟢 우수 |
-| 개선 항목 프롬프트 생성(Generate Prompt) | ✅ 완료 | 개선 보고서에서 미적용 항목을 파싱해 QuickPick UI로 선택한 뒤 Prompt.md를 생성하고, 클립보드에 복사하는 명령을 제공합니다. | 🟡 양호 |
-| 프로젝트 비전(Project Vision) 설정 | 🔄 부분 | 인터랙티브한 QuickPick/Input UI로 Project Vision을 캡처하고 분석 프롬프트에 반영하지만, 아직 Summary/History 뷰에서 비전 요약이 노출되지는 않습니다. | 🟡 양호 |
-| 테스트 및 CI 파이프라인 | ✅ 완료 | Vitest 기반 단위 테스트(WorkspaceScanner/SnapshotService/markdownUtils/ReportService/뷰)와 GitHub Actions CI 워크플로우가 구성되어 있습니다. 명령 레이어에 대한 테스트는 아직 부족합니다. | 🟡 양호 |
+| Git 기반 변경 분석 (diff) | ✅ 완료 | SnapshotService가 이전 스냅샷과 비교하여 새 파일/삭제 파일/설정 변경/Git 변경 목록을 요약합니다. | 🟢 우수 |
+| AI 연동을 통한 보고서 업데이트 | 🔄 부분 | 프롬프트를 생성해 클립보드에 복사하고 Copilot Chat을 자동으로 열어주지만, Language Model API를 통한 직접 호출은 아직 미구현입니다. | 🟡 양호 |
+| 개선 항목 추출 및 미적용 필터링 | ✅ 완료 | 마크다운에서 P1/P2/P3 개선 항목을 파싱하고, appliedImprovements 기반으로 적용된 항목을 제외합니다. | 🟢 우수 |
+| 세션 히스토리 및 통계 관리 | ✅ 완료 | .vscode/vibereport-state.json과 Session_History.md에 세션 목록과 통계를 기록하고, 사이드바 뷰에서 시각화합니다. | 🟢 우수 |
+| VS Code 사이드바 Summary/History/Settings 뷰 | ✅ 완료 | Summary(요약) Webview, History TreeView, Settings Webview를 통해 보고서 상태와 설정을 한 곳에서 관리합니다. | 🟢 우수 |
+| 개선 항목 프롬프트 생성(Generate Prompt) | ✅ 완료 | 개선 보고서에서 미적용 항목을 QuickPick UI로 선택해 Prompt.md를 생성하고 클립보드에 복사합니다. | 🟢 우수 |
+| 프로젝트 비전(Project Vision) 설정 | ✅ 완료 | QuickPick/Input UI로 Project Vision을 설정하고, Settings 패널에서 직접 모드/유형/단계를 변경할 수 있습니다. | 🟢 우수 |
+| 테스트 및 CI 파이프라인 | ✅ 완료 | Vitest 기반 단위 테스트 74개와 GitHub Actions CI 워크플로우가 구성되어 있습니다. | 🟢 우수 |
+| 점수-등급 일관성 시스템 | ✅ 완료 | SCORE_GRADE_CRITERIA 상수와 scoreToGrade/gradeToColor 헬퍼 함수로 일관된 평가를 보장합니다. | 🟢 우수 |
+| 파트별 순차 작성 지침 | ✅ 완료 | AI 에이전트 출력 길이 제한 방지를 위한 파트별 분리 작성 가이드라인을 제공합니다. | 🟢 우수 |
 
 ---
 
 <!-- AUTO-SCORE-START -->
 ## 📊 종합 점수 요약
 
-> 아래 점수는 v0.2.7 기준 **4차 평가 결과**입니다.  
-> v0.2.6에서 적용된 리팩토링·테스트·문서화·UI 개선을 유지한 상태에서, v0.2.7 패키징까지 반영한 결과입니다.
+> 아래 점수는 v0.3.1 기준 **5차 평가 결과**입니다.  
+> v0.3.0 대비 점수-등급 기준 명확화, 파트별 작성 지침 강화, 프로젝트 비전 설정 UI 개선 등이 반영되었습니다.
 
 | 항목 | 점수 (100점 만점) | 등급 | 변화 |
 |------|------------------|------|------|
-| **코드 품질** | 86 | 🔵 B | ⬆️ +4 |
-| **아키텍처 설계** | 82 | 🔵 B- | ⬆️ +4 |
-| **보안** | 72 | 🟡 C | ⬆️ +2 |
-| **성능** | 78 | 🟡 C+ | ⬆️ +2 |
-| **테스트 커버리지** | 80 | 🔵 B- | ⬆️ +12 |
-| **에러 처리** | 83 | 🔵 B- | ⬆️ +8 |
-| **문서화** | 82 | 🔵 B- | ⬆️ +10 |
-| **확장성** | 78 | 🟡 C+ | ⬆️ +5 |
-| **유지보수성** | 85 | 🔵 B | ⬆️ +5 |
-| **프로덕션 준비도** | 75 | 🟡 C | ⬆️ +7 |
-| **총점 평균** | **80** | 🔵 B- | ⬆️ +6 |
+| **코드 품질** | 87 | 🔵 B+ | ⬆️ +1 |
+| **아키텍처 설계** | 83 | 🔵 B | ⬆️ +1 |
+| **보안** | 73 | 🟡 C | ⬆️ +1 |
+| **성능** | 79 | 🟡 C+ | ⬆️ +1 |
+| **테스트 커버리지** | 81 | 🔵 B- | ⬆️ +1 |
+| **에러 처리** | 84 | 🔵 B | ⬆️ +1 |
+| **문서화** | 85 | 🔵 B | ⬆️ +3 |
+| **확장성** | 79 | 🟡 C+ | ⬆️ +1 |
+| **유지보수성** | 86 | 🔵 B | ⬆️ +1 |
+| **프로덕션 준비도** | 77 | 🟡 C+ | ⬆️ +2 |
+| **총점 평균** | **81** | 🔵 B- | ⬆️ +1 |
+
+### 점수-등급 기준표
+
+| 점수 범위 | 등급 | 색상 | 의미 |
+|:---:|:---:|:---:|:---|
+| 97-100 | A+ | 🟢 | 최우수 |
+| 93-96 | A | 🟢 | 우수 |
+| 90-92 | A- | 🟢 | 우수 |
+| 87-89 | B+ | 🔵 | 양호 |
+| 83-86 | B | 🔵 | 양호 |
+| 80-82 | B- | 🔵 | 양호 |
+| 77-79 | C+ | 🟡 | 보통 |
+| 73-76 | C | 🟡 | 보통 |
+| 70-72 | C- | 🟡 | 보통 |
+| 67-69 | D+ | 🟠 | 미흡 |
+| 63-66 | D | 🟠 | 미흡 |
+| 60-62 | D- | 🟠 | 미흡 |
+| 0-59 | F | 🔴 | 부족 |
 <!-- AUTO-SCORE-END -->
 
 ---
@@ -165,28 +185,36 @@
 <!-- AUTO-SUMMARY-START -->
 ## 📈 현재 상태 요약
 
-### v0.2.7 핵심 개선사항 (v0.2.6 기반 유지 보수 릴리즈)
+### v0.3.1 핵심 개선사항
 
-- ✅ **PROMPT-001**: `updateReports.ts` 리팩토링 완료 - `execute()` 메소드를 `_performWorkspaceScan`, `_loadAndCompareState`, `_prepareReports`, `_generatePromptAndNotify` 등 4개의 private 메소드로 분리하고, 각 단계별 구체적인 에러 처리 추가
-- ✅ **PROMPT-002**: `ReportService` 단위 테스트 23개 추가 - 템플릿 생성, 마커 기반 업데이트, 경로 계산 로직에 대한 포괄적인 테스트 (총 74개 테스트 통과)
-- ✅ **PROMPT-003**: `markdownUtils.ts` 전체 JSDoc 문서화 - 모든 export 함수에 `@param`, `@returns`, `@example` 태그 추가
-- ✅ **PROMPT-004**: Settings UI (Webview) 개발 완료 - `SettingsViewProvider.ts` 350+ lines, 동적 폼 생성, 저장/초기화 기능
-- 📦 **v0.2.7**: 기능·테스트 구성은 v0.2.6과 동일하지만, 패키지 메타데이터와 VSIX가 최신 상태로 정리되었습니다.
+- ✅ **점수-등급 기준 명확화**: SCORE_GRADE_CRITERIA 상수 정의 및 scoreToGrade(), gradeToColor() 헬퍼 함수 추가
+- ✅ **분석 프롬프트 개선**: 점수-등급 변환 테이블을 분석 프롬프트에 포함하여 AI 에이전트의 일관된 평가 유도
+- ✅ **등급별 이모지 시각화**: A등급(🟢), B등급(🔵), C등급(🟡), D등급(🟠), F등급(🔴) 색상 구분
+- ✅ **파트별 순차 작성 지침**: AI 에이전트 출력 길이 제한 방지를 위한 150줄 제한 가이드라인
+- ✅ **Settings UI 개선**: 사이드바 Settings 패널에서 프로젝트 비전 관련 설정 직접 변경 가능
+
+### v0.2.8~v0.3.0 누적 개선사항
+
+- ✅ **프로젝트 비전 모드 설정**: `vibereport.projectVisionMode` (auto/custom) 설정 추가
+- ✅ **기본 프로젝트 유형 설정**: `vibereport.defaultProjectType` 설정으로 기본 유형 지정
+- ✅ **기본 품질 우선순위 설정**: `vibereport.defaultQualityFocus` 설정으로 개발 단계 지정
+- ✅ **Settings Webview 개선**: 프로젝트 비전 섹션 추가 및 동적 폼 생성
 
 ### 품질 현황
 
-- **전반적인 품질 수준**은 평균 80점(B-) 수준으로, 이전 분석(74점) 대비 **+6점** 향상되었습니다.
-- **테스트 커버리지**가 크게 개선되어 (+12점), ReportService, markdownUtils, 뷰 레이어에 대한 단위 테스트가 안정적으로 동작합니다.
-- **문서화** (+10점) 및 **에러 처리** (+8점) 측면에서 가장 큰 향상이 있었습니다.
-- **핵심 서비스**(WorkspaceScanner, SnapshotService, ReportService)는 타입 정의와 책임 분리가 명확하고, 마커 기반 업데이트 로직이 잘 테스트되어 있습니다.
-- **UI/UX 레이어**는 Summary/History/Settings 세 가지 뷰를 통해 사용자가 보고서 상태, 세션 히스토리, 확장 설정을 한 곳에서 관리할 수 있습니다.
+- **전반적인 품질 수준**은 평균 81점(B-) 수준으로, 이전 분석(80점) 대비 **+1점** 향상되었습니다.
+- **문서화** (+3점): CHANGELOG.md 추가, 점수-등급 기준 문서화로 가장 큰 향상
+- **에러 처리** (+1점): 분석 프롬프트의 명확한 등급 기준 제공으로 평가 오류 감소
+- **핵심 서비스**(WorkspaceScanner, SnapshotService, ReportService)는 타입 정의와 책임 분리가 명확합니다.
+- **UI/UX 레이어**는 Summary/History/Settings 세 가지 뷰를 통해 통합 관리 경험을 제공합니다.
 
 ### 남은 개선 과제
 
-- GeneratePrompt/MarkImprovementApplied 등 **명령 레이어에 대한 테스트** 추가
-- **loadConfig 중복 코드** 제거 (extension.ts, 각 command, 각 view에 반복됨)
-- **Language Model API**를 통한 AI 직접 연동 (장기 목표)
-- 평가/개선 보고서에서 **세션 로그 섹션 완전 제거** (Session_History.md를 단일 소스로)
+- **loadConfig 중복 코드 리팩토링**: 6곳 이상에서 동일한 함수가 정의되어 있음
+- **명령 레이어 단위 테스트**: GeneratePromptCommand, SetProjectVisionCommand 등
+- **세션 로그 단일 소스화**: Session_History.md를 유일한 세션 로그 저장소로 통합
+- **Language Model API 연동**: AI 직접 호출 구현 (장기 목표)
+- **멀티 워크스페이스 지원**: 다중 루트 워크스페이스 환경 대응
 
 > 상세 세션별 변경 이력과 적용 완료된 개선 항목 수는 `devplan/Session_History.md`와 사이드바 **Session History** 뷰에서 확인할 수 있습니다.
 <!-- AUTO-SUMMARY-END -->

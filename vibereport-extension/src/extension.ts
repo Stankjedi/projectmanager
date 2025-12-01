@@ -9,6 +9,7 @@ import { ReportService } from './services/index.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
+import { loadConfig } from './utils/index.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -406,22 +407,6 @@ function getRootPath(): string | null {
     return null;
   }
   return workspaceFolders[0].uri.fsPath;
-}
-
-function loadConfig() {
-  const config = vscode.workspace.getConfiguration('vibereport');
-  return {
-    reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-    snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-    enableGitDiff: config.get<boolean>('enableGitDiff', true),
-    excludePatterns: config.get<string[]>('excludePatterns', []),
-    maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-    autoOpenReports: config.get<boolean>('autoOpenReports', true),
-    language: config.get<'ko' | 'en'>('language', 'ko'),
-    projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
-    defaultProjectType: config.get<import('./models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
-    defaultQualityFocus: config.get<import('./models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
-  };
 }
 
 function formatAsPrompt(selectedText: string): string {

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import type { SessionRecord, VibeReportConfig } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { formatRelativeTime } from '../utils/markdownUtils.js';
+import { formatRelativeTime, loadConfig } from '../utils/index.js';
 
 /**
  * 히스토리 아이템 타입
@@ -67,7 +67,7 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
     const rootPath = this.getRootPath();
     if (!rootPath) return [];
 
-    const config = this.loadConfig();
+    const config = loadConfig();
     const state = await this.snapshotService.loadState(rootPath, config);
 
     if (!state) return [];
@@ -274,22 +274,6 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
       return null;
     }
     return workspaceFolders[0].uri.fsPath;
-  }
-
-  private loadConfig(): VibeReportConfig {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    return {
-      reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-      snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-      enableGitDiff: config.get<boolean>('enableGitDiff', true),
-      excludePatterns: config.get<string[]>('excludePatterns', []),
-      maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-      autoOpenReports: config.get<boolean>('autoOpenReports', true),
-      language: config.get<'ko' | 'en'>('language', 'ko'),
-      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
-      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
-      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
-    };
   }
 }
 

@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { VibeReportConfig, VibeReportState } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
+import { loadConfig } from '../utils/index.js';
 
 export class SummaryViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'vibereport.summary';
@@ -86,7 +87,7 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     const rootPath = this.getRootPath();
     if (!rootPath) return null;
 
-    const config = this.loadConfig();
+    const config = loadConfig();
     return await this.snapshotService.loadState(rootPath, config);
   }
 
@@ -267,21 +268,5 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
       return null;
     }
     return workspaceFolders[0].uri.fsPath;
-  }
-
-  private loadConfig(): VibeReportConfig {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    return {
-      reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-      snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-      enableGitDiff: config.get<boolean>('enableGitDiff', true),
-      excludePatterns: config.get<string[]>('excludePatterns', []),
-      maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-      autoOpenReports: config.get<boolean>('autoOpenReports', true),
-      language: config.get<'ko' | 'en'>('language', 'ko'),
-      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', 'auto'),
-      defaultProjectType: config.get<import('../models/types.js').ProjectType | 'auto-detect'>('defaultProjectType', 'auto-detect'),
-      defaultQualityFocus: config.get<import('../models/types.js').QualityFocus>('defaultQualityFocus', 'development'),
-    };
   }
 }

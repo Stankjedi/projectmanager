@@ -27,7 +27,6 @@ import { REPORT_FILE_NAMES, EVALUATION_CATEGORY_LABELS } from '../models/types.j
 import type { SessionRecord } from '../models/types.js';
 import {
   MARKERS,
-  createSessionLogEntry,
   appendBetweenMarkers,
   replaceBetweenMarkers,
   extractBetweenMarkers,
@@ -180,11 +179,9 @@ ${MARKERS.SUMMARY_END}
 
 ---
 
-${MARKERS.SESSION_LOG_START}
 ## 📝 세션 기록
 
-*세션 기록이 여기에 추가됩니다.*
-${MARKERS.SESSION_LOG_END}
+> 📌 상세 세션 기록은 [\`Session_History.md\`](./Session_History.md) 파일을 참조하세요.
 `;
     }
 
@@ -243,11 +240,9 @@ ${MARKERS.SUMMARY_END}
 
 ---
 
-${MARKERS.SESSION_LOG_START}
 ## 📝 Session Log
 
-*Session records will be added here.*
-${MARKERS.SESSION_LOG_END}
+> 📌 For detailed session history, please refer to [\`Session_History.md\`](./Session_History.md).
 `;
   }
 
@@ -308,11 +303,9 @@ ${MARKERS.IMPROVEMENT_LIST_END}
 
 ---
 
-${MARKERS.SESSION_LOG_START}
 ## 📜 분석 이력
 
-*분석 이력이 여기에 추가됩니다.*
-${MARKERS.SESSION_LOG_END}
+> 📌 상세 분석 이력은 [\`Session_History.md\`](./Session_History.md) 파일을 참조하세요.
 `;
     }
 
@@ -363,11 +356,9 @@ ${MARKERS.IMPROVEMENT_LIST_END}
 
 ---
 
-${MARKERS.SESSION_LOG_START}
 ## 📜 Analysis History
 
-*Analysis history will be added here.*
-${MARKERS.SESSION_LOG_END}
+> 📌 For detailed analysis history, please refer to [\`Session_History.md\`](./Session_History.md).
 `;
   }
 
@@ -413,19 +404,7 @@ ${MARKERS.SESSION_LOG_END}
       content = replaceBetweenMarkers(content, MARKERS.SCORE_START, MARKERS.SCORE_END, scoreSection);
     }
 
-    // 세션 로그 생성
-    const diffSummary = this.formatDiffSummary(diff);
-    const sessionEntry = createSessionLogEntry(
-      new Date().toISOString(),
-      userPrompt,
-      diffSummary,
-      aiContent
-    );
-
-    // 세션 로그 추가 (새 세션이 위에 오도록)
-    content = this.prependSessionLog(content, sessionEntry);
-
-    // 파일 저장
+    // 파일 저장 (세션 로그는 Session_History.md에서 관리)
     await fs.writeFile(paths.evaluation, content, 'utf-8');
     this.log(`평가 보고서 업데이트 완료: ${paths.evaluation}`);
   }
@@ -587,15 +566,7 @@ ${MARKERS.SESSION_LOG_END}
       summaryMd
     );
 
-    // 세션 로그 추가
-    const sessionEntry = this.createImprovementSessionEntry(
-      userPrompt,
-      newUniqueItems.length,
-      appliedImprovements.length
-    );
-    content = this.prependSessionLog(content, sessionEntry);
-
-    // 파일 저장
+    // 파일 저장 (세션 로그는 Session_History.md에서 관리)
     await fs.writeFile(paths.improvement, content, 'utf-8');
     this.log(`개선 보고서 업데이트 완료: ${paths.improvement}`);
   }
@@ -678,54 +649,6 @@ ${MARKERS.SESSION_LOG_END}
 | 🟡 Important (P2) | ${counts.P2} |
 | 🟢 Nice to have (P3) | ${counts.P3} |
 | **Total Pending** | **${total}** |`;
-  }
-
-  /**
-   * 개선 보고서 세션 엔트리 생성
-   */
-  private createImprovementSessionEntry(
-    userPrompt: string,
-    newItemsCount: number,
-    appliedCount: number
-  ): string {
-    const now = formatDateTimeKorean(new Date());
-    return `### [${now}]
-
-- **요청:** ${userPrompt}
-- **새 개선 항목:** ${newItemsCount}개 추가
-- **적용 완료:** ${appliedCount}개
-
----`;
-  }
-
-  /**
-   * 세션 로그 앞에 추가
-   */
-  private prependSessionLog(content: string, entry: string): string {
-    const existing = extractBetweenMarkers(
-      content,
-      MARKERS.SESSION_LOG_START,
-      MARKERS.SESSION_LOG_END
-    );
-
-    // 기존 로그가 초기 메시지만 있으면 교체
-    if (existing && existing.includes('세션 기록이 여기에 추가됩니다')) {
-      return replaceBetweenMarkers(
-        content,
-        MARKERS.SESSION_LOG_START,
-        MARKERS.SESSION_LOG_END,
-        entry
-      );
-    }
-
-    // 새 세션을 앞에 추가
-    const combined = entry + '\n\n' + (existing || '');
-    return replaceBetweenMarkers(
-      content,
-      MARKERS.SESSION_LOG_START,
-      MARKERS.SESSION_LOG_END,
-      combined
-    );
   }
 
   /**
