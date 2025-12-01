@@ -24,6 +24,7 @@ import type {
   EvaluationCategory,
 } from '../models/types.js';
 import { REPORT_FILE_NAMES, EVALUATION_CATEGORY_LABELS } from '../models/types.js';
+import type { SessionRecord } from '../models/types.js';
 import {
   MARKERS,
   createSessionLogEntry,
@@ -50,11 +51,12 @@ export class ReportService {
    * @param config Vibe Report 설정
    * @returns 평가/개선 보고서의 절대 경로
    */
-  getReportPaths(rootPath: string, config: VibeReportConfig): ReportPaths {
+  getReportPaths(rootPath: string, config: VibeReportConfig): ReportPaths & { sessionHistory: string } {
     const reportDir = path.join(rootPath, config.reportDirectory);
     return {
       evaluation: path.join(reportDir, REPORT_FILE_NAMES.evaluation),
       improvement: path.join(reportDir, REPORT_FILE_NAMES.improvement),
+      sessionHistory: path.join(reportDir, 'Session_History.md'),
     };
   }
 
@@ -844,5 +846,177 @@ ${MARKERS.SESSION_LOG_END}
 
   private log(message: string): void {
     this.outputChannel.appendLine(`[ReportService] ${message}`);
+  }
+
+  /**
+   * 세션 히스토리 파일 업데이트
+   * 
+   * @description 세션 기록을 Session_History.md 파일에 저장합니다.
+   * 이 파일은 평가 보고서의 세션 로그를 대체하여 보고서 크기를 줄입니다.
+   */
+  async updateSessionHistoryFile(
+    rootPath: string,
+    config: VibeReportConfig,
+    session: SessionRecord,
+    totalSessions: number,
+    appliedCount: number
+  ): Promise<void> {
+    await this.ensureReportDirectory(rootPath, config);
+    const paths = this.getReportPaths(rootPath, config);
+
+    let content: string;
+    try {
+      content = await fs.readFile(paths.sessionHistory, 'utf-8');
+    } catch {
+      // 파일이 없으면 헤더 생성
+      content = this.createSessionHistoryTemplate();
+    }
+
+    // 통계 업데이트
+    content = this.updateSessionHistoryStats(content, totalSessions, appliedCount);
+
+    // 새 세션 로그 추가 (맨 위에)
+    const sessionEntry = this.formatSessionEntry(session);
+    content = this.prependSessionToHistory(content, sessionEntry);
+
+    await fs.writeFile(paths.sessionHistory, content, 'utf-8');
+    this.log(`세션 히스토리 업데이트 완료: ${paths.sessionHistory}`);
+  }
+
+  /**
+   * 세션 히스토리 템플릿 생성
+   */
+  private createSessionHistoryTemplate(): string {
+    return `# 📜 세션 히스토리
+
+> 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.
+> 모든 분석 세션 기록이 이 파일에 저장됩니다.
+
+---
+
+<!-- STATS-START -->
+## 📊 통계 요약
+
+| 항목 | 값 |
+|------|-----|
+| **총 세션 수** | 0 |
+| **적용 완료** | 0 |
+| **마지막 업데이트** | - |
+<!-- STATS-END -->
+
+---
+
+<!-- SESSION-LIST-START -->
+## 📝 세션 기록
+
+*세션 기록이 여기에 추가됩니다.*
+<!-- SESSION-LIST-END -->
+`;
+  }
+
+  /**
+   * 세션 히스토리 통계 업데이트
+   */
+  private updateSessionHistoryStats(
+    content: string,
+    totalSessions: number,
+    appliedCount: number
+  ): string {
+    const now = formatDateTimeKorean(new Date());
+    const statsContent = `## 📊 통계 요약
+
+| 항목 | 값 |
+|------|-----|
+| **총 세션 수** | ${totalSessions} |
+| **적용 완료** | ${appliedCount} |
+| **마지막 업데이트** | ${now} |`;
+
+    if (content.includes('<!-- STATS-START -->')) {
+      return content.replace(
+        /<!-- STATS-START -->[\s\S]*?<!-- STATS-END -->/,
+        `<!-- STATS-START -->\n${statsContent}\n<!-- STATS-END -->`
+      );
+    }
+
+    return content;
+  }
+
+  /**
+   * 세션 엔트리 포맷
+   */
+  private formatSessionEntry(session: SessionRecord): string {
+    const date = new Date(session.timestamp);
+    const formattedDate = formatDateTimeKorean(date);
+
+    let entry = `### 📅 ${formattedDate}
+
+| 항목 | 값 |
+|------|-----|
+| **세션 ID** | \`${session.id}\` |
+| **작업** | ${session.userPrompt} |
+| **새 파일** | ${session.diffSummary.newFilesCount}개 |
+| **삭제 파일** | ${session.diffSummary.removedFilesCount}개 |
+| **설정 변경** | ${session.diffSummary.changedConfigsCount}개 |
+| **총 변경** | ${session.diffSummary.totalChanges}개 |`;
+
+    if (session.aiMetadata) {
+      entry += `
+| **개선 제안** | ${session.aiMetadata.improvementsProposed || 0}개 |
+| **리스크 감지** | ${session.aiMetadata.risksIdentified || 0}개 |`;
+      
+      if (session.aiMetadata.overallScore) {
+        entry += `
+| **품질 점수** | ${session.aiMetadata.overallScore}/100 |`;
+      }
+    }
+
+    entry += '\n\n---\n';
+
+    return entry;
+  }
+
+  /**
+   * 세션을 히스토리 맨 앞에 추가
+   */
+  private prependSessionToHistory(content: string, entry: string): string {
+    const sessionListStart = '<!-- SESSION-LIST-START -->';
+    const sessionListEnd = '<!-- SESSION-LIST-END -->';
+
+    if (!content.includes(sessionListStart)) {
+      return content;
+    }
+
+    const existing = content.match(/<!-- SESSION-LIST-START -->\s*([\s\S]*?)\s*<!-- SESSION-LIST-END -->/);
+    let existingContent = existing ? existing[1].trim() : '';
+
+    // 초기 메시지 제거
+    if (existingContent.includes('세션 기록이 여기에 추가됩니다')) {
+      existingContent = '';
+    }
+
+    // 제목 처리
+    const headerLine = '## 📝 세션 기록\n\n';
+    if (existingContent.startsWith('## 📝')) {
+      existingContent = existingContent.replace(/^## 📝 세션 기록\n*/, '');
+    }
+
+    const newContent = `${headerLine}${entry}\n${existingContent}`.trim();
+
+    return content.replace(
+      /<!-- SESSION-LIST-START -->[\s\S]*?<!-- SESSION-LIST-END -->/,
+      `${sessionListStart}\n${newContent}\n${sessionListEnd}`
+    );
+  }
+
+  /**
+   * 세션 히스토리 파일 읽기
+   */
+  async readSessionHistory(rootPath: string, config: VibeReportConfig): Promise<string | null> {
+    const paths = this.getReportPaths(rootPath, config);
+    try {
+      return await fs.readFile(paths.sessionHistory, 'utf-8');
+    } catch {
+      return null;
+    }
   }
 }

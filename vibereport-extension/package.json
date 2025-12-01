@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "vibe-coding",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -82,6 +82,12 @@
         "title": "Set Project Vision",
         "category": "VibeCoding",
         "icon": "$(compass)"
+      },
+      {
+        "command": "vibereport.openSessionHistory",
+        "title": "Open Session History",
+        "category": "VibeCoding",
+        "icon": "$(history)"
       }
     ],
     "configuration": {

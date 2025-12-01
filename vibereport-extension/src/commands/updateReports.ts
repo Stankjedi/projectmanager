@@ -132,13 +132,33 @@ export class UpdateReportsCommand {
     // 6. 클립보드에 복사
     await vscode.env.clipboard.writeText(prompt);
 
-    // 7. 스냅샷 저장
+    // 7. 세션 기록 생성 및 저장
+    const sessionId = SnapshotService.generateSessionId();
+    const sessionRecord: import('../models/types.js').SessionRecord = {
+      id: sessionId,
+      timestamp: new Date().toISOString(),
+      userPrompt: isFirstRun ? '프로젝트 초기 분석' : '보고서 업데이트',
+      changesSummary: SnapshotService.diffToSummary(diff),
+      diffSummary: {
+        newFilesCount: diff.newFiles.length,
+        removedFilesCount: diff.removedFiles.length,
+        changedConfigsCount: diff.changedConfigs.length,
+        totalChanges: diff.totalChanges,
+      },
+    };
+
+    // 스냅샷 업데이트
     state = this.snapshotService.updateSnapshot(state, snapshot);
+    // 세션 기록 추가
+    state = this.snapshotService.addSession(state, sessionRecord);
     await this.snapshotService.saveState(rootPath, config, state);
+
+    // 8. 세션 히스토리 파일 업데이트
+    await this.reportService.updateSessionHistoryFile(rootPath, config, sessionRecord, state.sessions.length, state.appliedImprovements.length);
 
     reportProgress('완료!', 100);
 
-    // 8. 결과 알림
+    // 9. 결과 알림
     const openChat = 'Copilot Chat 열기';
     const openEval = '평가 보고서 열기';
     const openImprove = '개선 보고서 열기';
@@ -408,10 +428,8 @@ export class UpdateReportsCommand {
     lines.push('#### 5. 현재 상태 요약');
     lines.push('`<!-- AUTO-SUMMARY-START -->` 와 `<!-- AUTO-SUMMARY-END -->` 마커 사이에 작성');
     lines.push('');
-    lines.push('#### 6. 세션 로그 업데이트');
-    lines.push('`<!-- AUTO-SESSION-LOG-START -->` 마커 사이에:');
-    lines.push('- 현재 세션 정보를 **맨 앞에** 추가 (기존 로그 유지)');
-    lines.push('- 날짜, 분석 내용, 주요 변경사항 기록');
+    lines.push('> ⚠️ **세션 로그는 `Session_History.md` 파일에서 자동 관리됩니다.**');
+    lines.push('> 평가 보고서에는 세션 로그를 작성하지 마세요.');
     lines.push('');
 
     // ===== 개선 보고서 작성 요청 =====
@@ -466,10 +484,8 @@ export class UpdateReportsCommand {
     lines.push('`<!-- AUTO-FEATURE-LIST-START -->` 마커 사이에:');
     lines.push('- 위와 동일한 형식으로 새 기능 제안 (**미적용 항목만**)');
     lines.push('');
-    lines.push('#### 4. 세션 로그 업데이트');
-    lines.push('`<!-- AUTO-SESSION-LOG-START -->` 마커 사이에:');
-    lines.push('- 현재 세션 정보 **맨 앞에** 추가');
-    lines.push('- 날짜, 분석 내용, 새로 발견된 항목 수, 적용 완료된 항목 수 기록');
+    lines.push('> ⚠️ **세션 로그는 `Session_History.md` 파일에서 자동 관리됩니다.**');
+    lines.push('> 개선 보고서에는 세션 로그를 작성하지 마세요.');
     lines.push('');
 
     // ===== 프롬프트 파일 작성 요청 (영어) =====

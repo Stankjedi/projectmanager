@@ -57,6 +57,9 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
         case 'openPrompt':
           await vscode.commands.executeCommand('vibereport.openPrompt');
           break;
+        case 'openSessionHistory':
+          await vscode.commands.executeCommand('vibereport.openSessionHistory');
+          break;
       }
     });
 
@@ -216,6 +219,9 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     <button class="action-btn secondary" onclick="openPrompt()">
       🤖 프롬프트 열기
     </button>
+    <button class="action-btn secondary" onclick="openSessionHistory()">
+      📜 세션 히스토리
+    </button>
   </div>
 
   <script nonce="${nonce}">
@@ -235,6 +241,10 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     
     function openPrompt() {
       vscode.postMessage({ command: 'openPrompt' });
+    }
+
+    function openSessionHistory() {
+      vscode.postMessage({ command: 'openSessionHistory' });
     }
   </script>
 </body>

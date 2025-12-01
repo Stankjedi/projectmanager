@@ -92,6 +92,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
+  // 명령 등록: Open Session History
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openSessionHistory', async () => {
+      const rootPath = getRootPath();
+      if (!rootPath) return;
+
+      const config = loadConfig();
+      const historyPath = vscode.Uri.file(
+        require('path').join(rootPath, config.reportDirectory, 'Session_History.md')
+      );
+
+      try {
+        const doc = await vscode.workspace.openTextDocument(historyPath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showWarningMessage(
+          'Session_History.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
+        );
+      }
+    })
+  );
+
   // 명령 등록: Initialize Reports
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.initializeReports', async () => {
