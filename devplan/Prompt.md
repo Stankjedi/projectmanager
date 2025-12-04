@@ -22,8 +22,10 @@
 | 1 | PROMPT-001 | Expand command layer unit tests | P2 | ⬜ Pending |
 | 2 | PROMPT-002 | Add AI direct integration service | P3 | ⬜ Pending |
 | 3 | PROMPT-003 | Enable multi-workspace report workflow | P3 | ⬜ Pending |
+| 4 | OPT-001 | Refactor markdownUtils for SRP | OPT | ⬜ Pending |
+| 5 | OPT-002 | Add snapshot caching and Git line metrics | OPT | ⬜ Pending |
 
-**Total: 3 prompts** | **Completed: 0** | **Remaining: 3**
+**Total: 5 prompts** | **Completed: 0** | **Remaining: 5**
 
 ---
 
@@ -249,5 +251,58 @@
 - Open a multi-root workspace and verify that:
   - `VibeCoding: Update Project Reports` prompts for a workspace root selection.
   - Reports and `Session_History.md` are written under the selected workspace.
+
+**✅ After completing this prompt, proceed to [OPT-001]**
+
+---
+
+## 🔧 Optimization Items (OPT)
+
+> Code quality and performance optimization suggestions from the Improvement Report.
+> These are optional but recommended for maintaining code health.
+
+### [OPT-001] Refactor markdownUtils for Single Responsibility Principle
+
+| Field | Value |
+|:---|:---|
+| **ID** | `opt-markdown-parse-001` |
+| **Category** | 🚀 Code Optimization |
+| **Impact** | Quality |
+| **Target Files** | `src/utils/markdownUtils.ts` |
+| **Status** | ⬜ Pending |
+
+**Current State:** `markdownUtils` handles marker-based section extraction/replacement, improvement item parsing, and score table generation all in one module. While functional, having diverse responsibilities in a single utility module makes it harder to understand boundaries for testing and increases maintenance difficulty as parser logic grows more complex.
+
+**Optimization:** Separate marker processing (append/prepend/replaceBetweenMarkers) and domain logic (improvement parsing, score table formatting) internally. For example, create sub-modules like `markerUtils.ts` (marker handling), `improvementParser.ts` (improvement item parsing), `scoreTableFormatter.ts` (score table generation), while re-exporting from `markdownUtils` to maintain existing call sites.
+
+**Expected Effect:**
+- Performance: Logic performance won't change significantly, but applying SRP makes it easier to replace/optimize specific features.
+- Quality: Separated responsibilities clarify test targets, making it easier to write granular unit tests for parsing/formatting logic.
+
+**Measurable Metrics:** File line count reduction after module separation, average lines per function reduction, improvement in test coverage (line/branch basis) for improvement parser and score table generation logic.
+
+**✅ After completing this prompt, proceed to [OPT-002]**
+
+---
+
+### [OPT-002] Add Snapshot Caching and Git Line Metrics
+
+| Field | Value |
+|:---|:---|
+| **ID** | `opt-snapshot-diff-001` |
+| **Category** | ⚙️ Performance Tuning |
+| **Impact** | Performance / Quality |
+| **Target Files** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts` |
+| **Status** | ⬜ Pending |
+
+**Current State:** WorkspaceScanner and SnapshotService use `maxFilesToScan` and `excludePatterns` for basic performance, but frequently running in large monorepos means repeatedly scanning the same file lists and config files. Git diff summaries also lack line-based metrics, making it hard to quantify "change magnitude."
+
+**Optimization:** Memoize or introduce a simple cache structure for last scan results (file list, key config files, Git status summary) to reuse during consecutive runs within a short time. Also include changed line counts (added/removed/total) in Git diff summaries and expose this info in SnapshotDiff and Summary for at-a-glance identification of large changes.
+
+**Expected Effect:**
+- Performance: Noticeable reduction in scan time for consecutive runs in large projects, fewer unnecessary filesystem accesses.
+- Quality: Expressing change volume as numbers allows quick identification of sessions with "large changes" in Session History.
+
+**Measurable Metrics:** Reduction ratio of scan time and filesystem calls on second consecutive run in same workspace, utilization frequency of line count metrics included in Git diff summary.
 
 **🎉 ALL PROMPTS COMPLETED!**
