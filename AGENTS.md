@@ -6,6 +6,26 @@ The goal is simple: **every explicit instruction from the user must be followed 
 
 ---
 
+## 🚨 CRITICAL: Anti-Stalling Rules (MUST READ FIRST)
+
+> **⛔ FORBIDDEN BEHAVIORS - These will cause task failure:**
+> 
+> 1. **DO NOT** say "I'll review..." or "I'll analyze..." and then stop responding
+> 2. **DO NOT** provide a plan or summary without executing it
+> 3. **DO NOT** respond with only text when file modifications are required
+> 4. **DO NOT** complete partial work and wait for approval
+> 5. **DO NOT** ask clarification questions when instructions are clear
+> 
+> **✅ REQUIRED BEHAVIORS:**
+> 
+> 1. **IMMEDIATELY START** executing TODO items when given a task list
+> 2. **USE FILE EDITING TOOLS** (`replace_string_in_file`, `create_file`) to make changes
+> 3. **COMPLETE ALL ITEMS** in the TODO list sequentially
+> 4. **REPORT PROGRESS** after each TODO completion, then continue to next
+> 5. **NEVER STOP** until all TODO items are marked complete
+
+---
+
 ## 1. Scope
 
 These rules apply to:
@@ -20,7 +40,7 @@ If an agent cannot read or respect this file, it **must not** be used on this pr
 
 ## 2. Instruction obedience (MUST FOLLOW)
 
-1. **The user’s explicit instructions are mandatory.**  
+1. **The user's explicit instructions are mandatory.**  
    When the user gives a clear instruction, the agent must:
    - Follow it exactly, or  
    - Clearly explain why it cannot follow it (e.g. impossible, unsafe, missing context).
@@ -28,13 +48,15 @@ If an agent cannot read or respect this file, it **must not** be used on this pr
 2. **No silent ignoring of instructions.**  
    An agent must not:
    - Silently skip parts of the request.
-   - Replace requested behavior with a different one “for convenience”.
+   - Replace requested behavior with a different one "for convenience".
    - Simplify or truncate requested functionality without saying so.
+   - **Say "I'll do X" and then not do X.**
+   - **Respond with analysis/review without taking action.**
 
 3. **If something is unclear, ask or state assumptions.**  
    - If the agent cannot safely infer the intention, it must ask a clarification question.  
    - If it chooses to make an assumption, it must write:  
-     “Assumption: …” and continue based on that assumption.
+     "Assumption: …" and continue based on that assumption.
 
 4. **Do not self-censor functionality without reason.**  
    - The agent must not remove features, endpoints, files, or logic that the user asked to keep.  
@@ -64,7 +86,7 @@ Rules:
 When modifying files, the agent must:
 
 1. **Stay within the requested scope.**  
-   - Only touch files that are clearly related to the user’s request.  
+   - Only touch files that are clearly related to the user's request.  
    - Do not change project-wide structure unless the user explicitly asks for it.
 
 2. **Keep things working.**  
@@ -81,7 +103,7 @@ When modifying files, the agent must:
 1. **No guessing APIs or behavior as facts.**  
    - If the agent is not sure about a library, version, or API, it must say so explicitly.
 2. **Separate facts from assumptions.**  
-   - Use clear wording like: “Fact: …”, “Assumption: …”, “Suggestion: …”.
+   - Use clear wording like: "Fact: …", "Assumption: …", "Suggestion: …".
 
 ---
 
@@ -91,7 +113,7 @@ Before doing work, every agent must:
 
 1. Read this `agents.md`.  
 2. Read any directly relevant project docs (e.g. README, architecture, or feature spec).  
-3. Confirm it understands the user’s latest instructions.  
+3. Confirm it understands the user's latest instructions.  
 4. Execute the work while obeying all rules above.  
 5. Summarize:
    - What was changed.  
@@ -157,3 +179,44 @@ When working with `devplan/` reports:
 4. **Definition of Done for each Improvement Item**
    - Every improvement item should have clear, measurable completion criteria.
    - These criteria should be reflected in the corresponding Prompt's DoD section.
+
+---
+
+## 9. Report Update Task Execution (CRITICAL)
+
+When receiving a "프로젝트 분석 및 보고서 작성 요청" (Project Analysis and Report Writing Request):
+
+### 🚨 MANDATORY EXECUTION FLOW
+
+1. **DO NOT** just acknowledge or analyze the request
+2. **IMMEDIATELY START** with TODO-1 (first file modification)
+3. **EXECUTE EACH TODO** by calling file editing tools
+4. **REPORT COMPLETION** after each TODO, then continue
+5. **NEVER STOP** until all 10 TODOs are complete
+
+### 📋 Expected Execution Pattern
+
+```
+[Receive prompt] → [Start TODO-1] → [Edit file] → [Report: "TODO-1 완료"] 
+→ [Start TODO-2] → [Edit file] → [Report: "TODO-2 완료"]
+→ ... continue until TODO-10 ...
+→ [Report: "모든 TODO 완료. 최종 요약:"]
+```
+
+### ❌ WRONG Execution Pattern (DO NOT DO THIS)
+
+```
+[Receive prompt] → [Say "I'll review the reports..."] → [STOP]
+```
+
+### ✅ Correct First Response Example
+
+```
+TODO-1 시작: 평가 보고서 파트1 - 프로젝트 개요 섹션 수정
+
+[replace_string_in_file 호출...]
+
+TODO-1 완료: Project_Evaluation_Report.md의 AUTO-OVERVIEW 섹션 수정됨.
+TODO-2 시작: 평가 보고서 파트2 - 종합 점수 테이블 수정
+...
+```
