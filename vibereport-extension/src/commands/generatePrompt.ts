@@ -143,34 +143,43 @@ export class GeneratePromptCommand {
     const selected = await vscode.window.showQuickPick(
       quickPickItems.filter(item => item.kind !== vscode.QuickPickItemKind.Separator),
       {
-        canPickMany: false,
-        placeHolder: '복사할 프롬프트 또는 OPT 항목을 선택하세요',
+        canPickMany: true,
+        placeHolder: '복사할 프롬프트 또는 OPT 항목을 선택하세요 (여러 개 선택 가능)',
         title: '📋 프롬프트 / 최적화 항목 선택',
       }
     );
 
-    if (!selected) return;
+    if (!selected || selected.length === 0) return;
 
-    const selectedItem = selected._item;
-    let content: string;
-    let itemId: string;
+    // 선택된 모든 항목의 내용을 합침
+    const contents: string[] = [];
+    const itemIds: string[] = [];
 
-    if (selectedItem.type === 'prompt') {
-      content = selectedItem.item.fullContent;
-      itemId = selectedItem.item.promptId;
-    } else {
-      content = this.formatOptAsPrompt(selectedItem.item);
-      itemId = selectedItem.item.optId;
+    for (const sel of selected) {
+      const selectedItem = sel._item;
+      
+      if (selectedItem.type === 'prompt') {
+        contents.push(selectedItem.item.fullContent);
+        itemIds.push(selectedItem.item.promptId);
+      } else {
+        contents.push(this.formatOptAsPrompt(selectedItem.item));
+        itemIds.push(selectedItem.item.optId);
+      }
     }
     
-    // 선택된 내용을 클립보드에 복사
-    await vscode.env.clipboard.writeText(content);
+    // 선택된 내용을 클립보드에 복사 (구분선으로 분리)
+    const combinedContent = contents.join('\n\n---\n\n');
+    await vscode.env.clipboard.writeText(combinedContent);
 
     const openChat = 'Copilot Chat 열기';
     const openFile = '프롬프트 파일 열기';
     
+    const itemsText = itemIds.length === 1 
+      ? `[${itemIds[0]}] 항목이` 
+      : `${itemIds.length}개 항목(${itemIds.slice(0, 3).join(', ')}${itemIds.length > 3 ? '...' : ''})이`;
+    
     const result = await vscode.window.showInformationMessage(
-      `✅ [${itemId}] 항목이 클립보드에 복사되었습니다!\nCtrl+V로 AI 챗에 붙여넣기하세요.`,
+      `✅ ${itemsText} 클립보드에 복사되었습니다!\nCtrl+V로 AI 챗에 붙여넣기하세요.`,
       openChat,
       openFile
     );
@@ -182,7 +191,7 @@ export class GeneratePromptCommand {
       await vscode.window.showTextDocument(doc);
     }
 
-    this.log(`항목 [${itemId}] 클립보드에 복사됨`);
+    this.log(`항목 [${itemIds.join(', ')}] 클립보드에 복사됨`);
   }
 
   /**

@@ -240,8 +240,8 @@ describe('GeneratePromptCommand', () => {
       const fs = await import('fs/promises');
       vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
       
-      // Simulate user selecting a prompt (single selection)
-      vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
+      // Simulate user selecting a prompt (returns array for canPickMany: true)
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValue([{
         label: '⬜ [PROMPT-001] Code Quality Improvement',
         description: 'P2',
         detail: '📋 프롬프트 | 상태: 대기 중',
@@ -255,7 +255,7 @@ describe('GeneratePromptCommand', () => {
             fullContent: '### [PROMPT-001] Code Quality Improvement\n\n**⏱️ Execute this prompt now.**',
           },
         },
-      } as any);
+      }] as any);
 
       vi.mocked(vscode.window.showInformationMessage).mockResolvedValue(undefined);
 
@@ -291,7 +291,7 @@ Content
       const fs = await import('fs/promises');
       vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
       
-      vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValue([{
         label: '⬜ [PROMPT-001] Test',
         description: 'P2',
         detail: '📋 프롬프트 | 상태: 대기 중',
@@ -305,7 +305,7 @@ Content
             fullContent: '### [PROMPT-001] Test\n\nContent',
           },
         },
-      } as any);
+      }] as any);
 
       vi.mocked(vscode.window.showInformationMessage).mockResolvedValue('Copilot Chat 열기' as any);
 
@@ -340,7 +340,7 @@ Content
       const fs = await import('fs/promises');
       vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
       
-      vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValue([{
         label: '⬜ [PROMPT-001] Test',
         description: 'P2',
         detail: '📋 프롬프트 | 상태: 대기 중',
@@ -354,7 +354,7 @@ Content
             fullContent: '### [PROMPT-001] Test\n\nContent',
           },
         },
-      } as any);
+      }] as any);
 
       const mockDocument = { uri: { fsPath: '/test/workspace/devplan/Prompt.md' } };
       vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(mockDocument as any);
