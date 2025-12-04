@@ -132,6 +132,21 @@ export class ReportService {
 
 ---
 
+<!-- AUTO-TLDR-START -->
+## 🎯 TL;DR (한눈에 보기)
+
+| 항목 | 값 |
+|------|-----|
+| **전체 등급** | - |
+| **전체 점수** | -/100 |
+| **가장 큰 리스크** | 첫 분석 후 표시됩니다 |
+| **권장 최우선 작업** | 첫 분석 후 표시됩니다 |
+
+*첫 번째 분석 후 요약이 표시됩니다.*
+<!-- AUTO-TLDR-END -->
+
+---
+
 ${MARKERS.OVERVIEW_START}
 ## 📋 프로젝트 개요
 
@@ -171,6 +186,42 @@ ${MARKERS.SCORE_END}
 
 ---
 
+<!-- AUTO-RISK-SUMMARY-START -->
+## ⚠️ 리스크 요약
+
+| 리스크 레벨 | 항목 | 관련 개선 ID |
+|------------|------|-------------|
+| - | 첫 분석 후 표시됩니다 | - |
+
+*첫 번째 분석 후 리스크가 표시됩니다.*
+<!-- AUTO-RISK-SUMMARY-END -->
+
+---
+
+<!-- AUTO-SCORE-MAPPING-START -->
+## 🎯 점수 ↔ 개선 항목 매핑
+
+| 카테고리 | 현재 점수 | 주요 리스크 | 관련 개선 항목 ID |
+|----------|----------|------------|------------------|
+| - | - | 첫 분석 후 표시됩니다 | - |
+
+*첫 번째 분석 후 매핑이 표시됩니다.*
+<!-- AUTO-SCORE-MAPPING-END -->
+
+---
+
+<!-- AUTO-TREND-START -->
+## 📈 평가 트렌드 (최근 5회)
+
+| 회차 | 날짜 | 총점 | 코드품질 | 테스트 | 보안 |
+|------|------|------|---------|--------|------|
+| - | - | - | - | - | - |
+
+*평가 이력이 쌓이면 트렌드가 표시됩니다.*
+<!-- AUTO-TREND-END -->
+
+---
+
 ${MARKERS.SUMMARY_START}
 ## 📈 현재 상태 요약
 
@@ -190,6 +241,21 @@ ${MARKERS.SUMMARY_END}
 
 > This document is automatically managed by Vibe Coding Report VS Code extension.  
 > Manual modifications may affect the extension's behavior.
+
+---
+
+<!-- AUTO-TLDR-START -->
+## 🎯 TL;DR (At a Glance)
+
+| Item | Value |
+|------|-------|
+| **Overall Grade** | - |
+| **Overall Score** | -/100 |
+| **Top Risk** | Will be displayed after first analysis |
+| **Recommended Priority Action** | Will be displayed after first analysis |
+
+*Summary will be displayed after the first analysis.*
+<!-- AUTO-TLDR-END -->
 
 ---
 
@@ -232,6 +298,42 @@ ${MARKERS.SCORE_END}
 
 ---
 
+<!-- AUTO-RISK-SUMMARY-START -->
+## ⚠️ Risk Summary
+
+| Risk Level | Item | Related Improvement ID |
+|------------|------|------------------------|
+| - | Will be displayed after first analysis | - |
+
+*Risks will be displayed after the first analysis.*
+<!-- AUTO-RISK-SUMMARY-END -->
+
+---
+
+<!-- AUTO-SCORE-MAPPING-START -->
+## 🎯 Score ↔ Improvement Mapping
+
+| Category | Current Score | Main Risk | Related Improvement IDs |
+|----------|--------------|-----------|------------------------|
+| - | - | Will be displayed after first analysis | - |
+
+*Mapping will be displayed after the first analysis.*
+<!-- AUTO-SCORE-MAPPING-END -->
+
+---
+
+<!-- AUTO-TREND-START -->
+## 📈 Evaluation Trend (Last 5)
+
+| # | Date | Total | Code Quality | Test | Security |
+|---|------|-------|--------------|------|----------|
+| - | - | - | - | - | - |
+
+*Trends will be displayed as evaluation history accumulates.*
+<!-- AUTO-TREND-END -->
+
+---
+
 ${MARKERS.SUMMARY_START}
 ## 📈 Current Status Summary
 
@@ -261,6 +363,8 @@ ${MARKERS.SUMMARY_END}
 
 > 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.  
 > **적용된 개선 항목은 자동으로 필터링되어 미적용 항목만 표시됩니다.**
+>
+> 💡 **구체적인 구현 코드는 \`Prompt.md\` 파일을 참조하세요.**
 
 ---
 
@@ -273,10 +377,40 @@ ${MARKERS.SUMMARY_END}
 
 ---
 
+<!-- AUTO-ERROR-EXPLORATION-START -->
+## 🔍 오류 및 리스크 탐색 절차
+
+> 이 섹션은 개선 항목이 어떤 기준으로 도출되었는지를 설명합니다.
+
+### 1. 데이터 수집
+- 최근 빌드/테스트/런타임 로그 분석
+- VS Code 문제 패널(Problems) 확인
+- Git diff 및 커밋 메시지 검토
+- TODO/FIXME 주석 스캔
+
+### 2. 자동 분석
+- 테스트 실패/스킵 케이스 분류
+- 빌드 오류/경고 메시지 그룹화
+- 빈번하게 수정되는 파일/모듈 탐지
+- 정적 분석(lint, type-check) 결과 검토
+
+### 3. 개선 후보 도출
+- 동일 원인의 오류/경고를 하나의 "개선 항목 후보"로 묶기
+- 영향도(테스트 실패, 빌드 실패, 성능 저하)에 따라 우선순위 부여
+- 프로젝트 비전과의 일치 여부 검토
+
+### 4. 최종 백로그 정제
+- 복잡도/리스크 대비 효용 검토
+- Definition of Done 명시
+- 관련 평가 점수 카테고리 매핑
+<!-- AUTO-ERROR-EXPLORATION-END -->
+
+---
+
 ## 📌 사용 방법
 
 1. 이 보고서의 개선 항목을 검토합니다
-2. 적용하고 싶은 항목을 복사합니다
+2. 적용하고 싶은 항목을 선택하여 \`Prompt.md\`를 생성합니다
 3. AI 에이전트(Copilot Chat 등)에 붙여넣어 구현을 요청합니다
 4. 다음 보고서 업데이트 시 적용된 항목은 자동으로 제외됩니다
 
@@ -325,6 +459,8 @@ ${MARKERS.OPTIMIZATION_END}
 
 > This document is automatically managed by Vibe Coding Report VS Code extension.  
 > **Applied improvements are automatically filtered out - only pending items are shown.**
+>
+> 💡 **For concrete implementation code, refer to the \`Prompt.md\` file.**
 
 ---
 
@@ -337,11 +473,41 @@ ${MARKERS.OPTIMIZATION_END}
 
 ---
 
+<!-- AUTO-ERROR-EXPLORATION-START -->
+## 🔍 Error and Risk Exploration Process
+
+> This section explains how improvement items were derived.
+
+### 1. Data Collection
+- Recent build/test/runtime log analysis
+- VS Code Problems panel review
+- Git diff and commit message inspection
+- TODO/FIXME comment scanning
+
+### 2. Automated Analysis
+- Test failure/skip case classification
+- Build error/warning message grouping
+- Frequently modified file/module detection
+- Static analysis (lint, type-check) result review
+
+### 3. Improvement Candidate Derivation
+- Group errors/warnings with same root cause into one "improvement candidate"
+- Assign priority based on impact (test failure, build failure, performance degradation)
+- Review alignment with project vision
+
+### 4. Final Backlog Refinement
+- Evaluate complexity/risk vs. benefit
+- Specify Definition of Done
+- Map to related evaluation score categories
+<!-- AUTO-ERROR-EXPLORATION-END -->
+
+---
+
 ## 📌 How to Use
 
 1. Review improvement items in this report
-2. Copy the item you want to apply
-3. Paste it to AI agent (like Copilot Chat) and request implementation
+2. Select items you want to apply and generate \`Prompt.md\`
+3. Paste to AI agent (like Copilot Chat) and request implementation
 4. Applied items will be automatically excluded in the next update
 
 ---
@@ -560,8 +726,8 @@ ${MARKERS.OPTIMIZATION_END}
     
     // 우선순위별 정렬
     allPendingItems.sort((a, b) => {
-      const priorityOrder = { P1: 0, P2: 1, P3: 2 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
+      const priorityOrder: Record<string, number> = { P1: 0, P2: 1, P3: 2, OPT: 3 };
+      return (priorityOrder[a.priority] ?? 4) - (priorityOrder[b.priority] ?? 4);
     });
 
     // 개선 목록 마크다운 생성
@@ -597,7 +763,7 @@ ${MARKERS.OPTIMIZATION_END}
    * 개선 항목 목록 포맷
    */
   private formatImprovementList(
-    items: Array<{ id: string; priority: 'P1' | 'P2' | 'P3'; title: string; description: string }>,
+    items: Array<{ id: string; priority: 'P1' | 'P2' | 'P3' | 'OPT'; title: string; description: string }>,
     language: 'ko' | 'en'
   ): string {
     if (items.length === 0) {
@@ -609,17 +775,21 @@ ${MARKERS.OPTIMIZATION_END}
     const lines: string[] = [];
     
     // 우선순위별 그룹
-    const byPriority: Record<string, typeof items> = { P1: [], P2: [], P3: [] };
-    items.forEach(item => byPriority[item.priority].push(item));
+    const byPriority: Record<string, typeof items> = { P1: [], P2: [], P3: [], OPT: [] };
+    items.forEach(item => {
+      if (byPriority[item.priority]) {
+        byPriority[item.priority].push(item);
+      }
+    });
 
     const priorityLabels = {
-      ko: { P1: '🔴 긴급 (P1)', P2: '🟡 중요 (P2)', P3: '🟢 개선 (P3)' },
-      en: { P1: '🔴 Critical (P1)', P2: '🟡 Important (P2)', P3: '🟢 Nice to have (P3)' },
+      ko: { P1: '🔴 긴급 (P1)', P2: '🟡 중요 (P2)', P3: '🟢 개선 (P3)', OPT: '🚀 최적화 (OPT)' },
+      en: { P1: '🔴 Critical (P1)', P2: '🟡 Important (P2)', P3: '🟢 Nice to have (P3)', OPT: '🚀 Optimization (OPT)' },
     };
 
-    for (const priority of ['P1', 'P2', 'P3'] as const) {
+    for (const priority of ['P1', 'P2', 'P3', 'OPT'] as const) {
       const priorityItems = byPriority[priority];
-      if (priorityItems.length > 0) {
+      if (priorityItems && priorityItems.length > 0) {
         lines.push(`\n### ${priorityLabels[language][priority]}`);
         lines.push('');
 
@@ -643,14 +813,18 @@ ${MARKERS.OPTIMIZATION_END}
    * 개선 요약 포맷 - 미적용 항목만 표시
    */
   private formatImprovementSummary(
-    pendingItems: Array<{ priority: 'P1' | 'P2' | 'P3' }>,
+    pendingItems: Array<{ priority: 'P1' | 'P2' | 'P3' | 'OPT' }>,
     appliedCount: number,
     language: 'ko' | 'en'
   ): string {
-    const counts = { P1: 0, P2: 0, P3: 0 };
-    pendingItems.forEach(item => counts[item.priority]++);
+    const counts: Record<string, number> = { P1: 0, P2: 0, P3: 0, OPT: 0 };
+    pendingItems.forEach(item => {
+      if (counts[item.priority] !== undefined) {
+        counts[item.priority]++;
+      }
+    });
 
-    const total = counts.P1 + counts.P2 + counts.P3;
+    const total = counts.P1 + counts.P2 + counts.P3 + counts.OPT;
 
     if (language === 'ko') {
       return `## 📊 개선 현황 요약
@@ -660,6 +834,7 @@ ${MARKERS.OPTIMIZATION_END}
 | 🔴 긴급 (P1) | ${counts.P1} |
 | 🟡 중요 (P2) | ${counts.P2} |
 | 🟢 개선 (P3) | ${counts.P3} |
+| 🚀 최적화 (OPT) | ${counts.OPT} |
 | **총 미적용** | **${total}** |`;
     }
 
@@ -670,6 +845,7 @@ ${MARKERS.OPTIMIZATION_END}
 | 🔴 Critical (P1) | ${counts.P1} |
 | 🟡 Important (P2) | ${counts.P2} |
 | 🟢 Nice to have (P3) | ${counts.P3} |
+| 🚀 Optimization (OPT) | ${counts.OPT} |
 | **Total Pending** | **${total}** |`;
   }
 

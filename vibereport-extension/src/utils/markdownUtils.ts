@@ -54,6 +54,26 @@ export const MARKERS = {
   OVERVIEW_END: '<!-- AUTO-OVERVIEW-END -->',
   /** 적용 완료된 항목 표시 마커 */
   APPLIED_MARKER: '<!-- APPLIED -->',
+  /** TL;DR 섹션 시작 마커 */
+  TLDR_START: '<!-- AUTO-TLDR-START -->',
+  /** TL;DR 섹션 종료 마커 */
+  TLDR_END: '<!-- AUTO-TLDR-END -->',
+  /** 리스크 요약 섹션 시작 마커 */
+  RISK_SUMMARY_START: '<!-- AUTO-RISK-SUMMARY-START -->',
+  /** 리스크 요약 섹션 종료 마커 */
+  RISK_SUMMARY_END: '<!-- AUTO-RISK-SUMMARY-END -->',
+  /** 점수-개선항목 매핑 시작 마커 */
+  SCORE_MAPPING_START: '<!-- AUTO-SCORE-MAPPING-START -->',
+  /** 점수-개선항목 매핑 종료 마커 */
+  SCORE_MAPPING_END: '<!-- AUTO-SCORE-MAPPING-END -->',
+  /** 평가 트렌드 시작 마커 */
+  TREND_START: '<!-- AUTO-TREND-START -->',
+  /** 평가 트렌드 종료 마커 */
+  TREND_END: '<!-- AUTO-TREND-END -->',
+  /** 오류 탐색 절차 시작 마커 */
+  ERROR_EXPLORATION_START: '<!-- AUTO-ERROR-EXPLORATION-START -->',
+  /** 오류 탐색 절차 종료 마커 */
+  ERROR_EXPLORATION_END: '<!-- AUTO-ERROR-EXPLORATION-END -->',
 } as const;
 
 /**
@@ -277,8 +297,8 @@ export function generateImprovementId(title: string, description: string): strin
 export interface ParsedImprovementItem {
   /** 항목의 고유 ID (내용 기반 해시) */
   id: string;
-  /** 우선순위 (P1: 긴급, P2: 중요, P3: 개선) */
-  priority: 'P1' | 'P2' | 'P3';
+  /** 우선순위 (P1: 긴급, P2: 중요, P3: 개선, OPT: 최적화) */
+  priority: 'P1' | 'P2' | 'P3' | 'OPT';
   /** 항목 제목 */
   title: string;
   /** 항목 상세 설명 */
@@ -312,11 +332,11 @@ export interface ParsedImprovementItem {
 export function parseImprovementItems(content: string): ParsedImprovementItem[] {
   const items: ParsedImprovementItem[] = [];
   
-  // 패턴: ### [P1] 제목 또는 - [P1] 제목
-  const itemPattern = /(?:###|-)\s*\[?(P[123])\]?\s*([^\n]+)\n([\s\S]*?)(?=(?:###|-)\s*\[?P[123]\]?|$)/gi;
+  // 패턴 1: ### [P1-1] 제목 또는 #### [P2-1] 제목 (P1/P2/P3 개선 항목)
+  const priorityPattern = /(?:#{2,4})\s*\[?(P[123])(?:-\d+)?\]?\s*([^\n]+)\n([\s\S]*?)(?=(?:#{2,4})\s*\[?(?:P[123]|OPT)(?:-\d+)?\]?|(?:#{2,4})\s*[🚀⚙️]|---\s*\n\s*(?:#{2,4})|$)/gi;
   
   let match;
-  while ((match = itemPattern.exec(content)) !== null) {
+  while ((match = priorityPattern.exec(content)) !== null) {
     const priority = match[1].toUpperCase() as 'P1' | 'P2' | 'P3';
     const title = match[2].trim();
     const description = match[3].trim();
@@ -333,6 +353,36 @@ export function parseImprovementItems(content: string): ParsedImprovementItem[] 
     items.push({
       id,
       priority,
+      title,
+      description,
+      applied,
+      rawContent,
+    });
+  }
+  
+  // 패턴 2: ### 🚀 코드 최적화 (OPT-1) 또는 ### ⚙️ 성능 튜닝 (OPT-2)
+  const optPattern = /(?:#{2,4})\s*[🚀⚙️]\s*[^\n]*\(OPT-(\d+)\)[^\n]*\n([\s\S]*?)(?=(?:#{2,4})\s*[🚀⚙️][^\n]*\(OPT-|---\s*\n|$)/gi;
+  
+  while ((match = optPattern.exec(content)) !== null) {
+    const optNumber = match[1];
+    const description = match[2].trim();
+    const rawContent = match[0];
+    
+    // 제목 추출: 첫 번째 줄에서 이모지와 (OPT-X) 사이의 텍스트
+    const titleMatch = rawContent.match(/[🚀⚙️]\s*([^\n(]+)/);
+    const title = titleMatch ? titleMatch[1].trim() : `Optimization ${optNumber}`;
+    
+    // 적용됨 마커 확인
+    const applied = rawContent.includes(MARKERS.APPLIED_MARKER) || 
+                   rawContent.includes('✅') ||
+                   rawContent.toLowerCase().includes('[완료]') ||
+                   rawContent.toLowerCase().includes('[적용됨]');
+    
+    const id = generateImprovementId(title, description);
+    
+    items.push({
+      id,
+      priority: 'OPT',
       title,
       description,
       applied,
@@ -377,15 +427,18 @@ export function filterAppliedImprovements(
     P1: [],
     P2: [],
     P3: [],
+    OPT: [],
   };
 
   for (const item of pendingItems) {
-    byPriority[item.priority].push(item);
+    if (byPriority[item.priority]) {
+      byPriority[item.priority].push(item);
+    }
   }
 
   const lines: string[] = [];
   
-  for (const priority of ['P1', 'P2', 'P3'] as const) {
+  for (const priority of ['P1', 'P2', 'P3', 'OPT'] as const) {
     const priorityItems = byPriority[priority];
     if (priorityItems.length > 0) {
       lines.push(`\n## ${getPriorityLabel(priority)} (${priorityItems.length}개)`);
@@ -434,10 +487,10 @@ ${item.description}
 /**
  * 우선순위 코드를 한국어 라벨로 변환합니다.
  * 
- * @param priority - P1, P2, P3 중 하나
+ * @param priority - P1, P2, P3, OPT 중 하나
  * @returns 이모지와 한글이 포함된 우선순위 라벨
  */
-function getPriorityLabel(priority: 'P1' | 'P2' | 'P3'): string {
+function getPriorityLabel(priority: 'P1' | 'P2' | 'P3' | 'OPT'): string {
   switch (priority) {
     case 'P1':
       return '🔴 긴급 (P1)';
@@ -445,6 +498,8 @@ function getPriorityLabel(priority: 'P1' | 'P2' | 'P3'): string {
       return '🟡 중요 (P2)';
     case 'P3':
       return '🟢 개선 (P3)';
+    case 'OPT':
+      return '🚀 최적화 (OPT)';
   }
 }
 

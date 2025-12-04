@@ -470,6 +470,24 @@ export interface VibeReportState {
 // ===== Improvement Item Types =====
 
 /**
+ * 개선 항목 원인/출처 유형
+ */
+export type ImprovementOrigin =
+  | 'test-failure'       // 테스트 실패에서 파생
+  | 'build-error'        // 빌드 오류에서 파생
+  | 'runtime-error'      // 런타임 오류에서 파생
+  | 'static-analysis'    // 정적 분석(lint, type-check 등)에서 파생
+  | 'manual-idea'        // 수동 아이디어/제안
+  | 'performance-issue'  // 성능 문제에서 파생
+  | 'security-scan'      // 보안 스캔에서 파생
+  | 'dependency-audit';  // 의존성 감사에서 파생
+
+/**
+ * 리스크 레벨
+ */
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+/**
  * 개선 항목 (파싱된)
  */
 export interface ImprovementItem {
@@ -502,6 +520,16 @@ export interface ImprovementItem {
     /** 측정 가능한 지표 */
     metrics?: string[];
   };
+  /** 개선 항목의 원인/출처 */
+  origin?: ImprovementOrigin;
+  /** 관련 오류/로그 메시지 요약 */
+  relatedErrors?: string[];
+  /** 관련 평가 점수 카테고리 (이 개선이 영향을 주는 평가 항목) */
+  relatedScoreCategories?: EvaluationCategory[];
+  /** 리스크 레벨 */
+  riskLevel?: RiskLevel;
+  /** Definition of Done 체크리스트 */
+  definitionOfDone?: string[];
 }
 
 // ===== Utility Types =====

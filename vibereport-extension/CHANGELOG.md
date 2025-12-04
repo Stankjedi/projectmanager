@@ -4,6 +4,48 @@
 
 ---
 
+## [0.3.4] - 2025-12-04
+
+### ✨ 새로운 기능
+
+- **기존 프롬프트 선택 및 복사 기능 개선**: Prompt.md에서 기존 프롬프트를 선택하여 클립보드에 바로 복사
+  - 모드 선택: "기존 프롬프트 선택 및 복사" vs "새 프롬프트 생성"
+  - 프롬프트 상태 표시 (⬜ 대기중, 🟡 진행중, ✅ 완료)
+  - 다양한 Prompt.md 형식 지원
+
+- **최적화 항목(OPT) 지원**: 코드 품질 및 성능 최적화 제안도 프롬프트 생성 시 선택 가능
+  - P1/P2/P3 우선순위와 함께 OPT(최적화) 항목 추가
+  - 개선 보고서의 최적화 섹션 파싱 지원
+
+### 🔧 개선사항
+
+- 프롬프트 파싱 정규식 개선으로 다양한 테이블 형식 지원
+- 평가 보고서에 TL;DR, Risk Summary, Score-Mapping, Trend Analysis 섹션 추가
+- 개선 보고서에 Error Exploration Procedure, Definition of Done 섹션 추가
+- AGENTS.md에 Task Completion Rules (Section 7), Report Generation Rules (Section 8) 추가
+
+### 🐛 버그 수정
+
+- 기존 Prompt.md 파싱 시 체크리스트 테이블 형식 불일치 문제 수정
+- OPT 우선순위 타입 누락으로 인한 컴파일 에러 수정
+
+---
+
+## [0.3.3] - 2025-06-02
+
+### ✨ 새로운 기능
+
+- **코드 품질/성능 최적화 분석 기능**: 개선 보고서와 Prompt.md 생성 시 code-optimization, performance-tuning 카테고리 지원
+- **AUTO-OPTIMIZATION 마커**: 최적화 제안을 별도 섹션으로 관리
+
+### 🔧 개선사항
+
+- 테스트 84개로 확장
+- 설정 로딩 중앙화 (configUtils)
+- GeneratePromptCommand 단위 테스트 추가
+
+---
+
 ## [0.3.1] - 2024-12-01
 
 ### ✨ 새로운 기능

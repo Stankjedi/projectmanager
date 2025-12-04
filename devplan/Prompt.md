@@ -19,50 +19,78 @@
 
 | # | Prompt ID | Title | Priority | Status |
 |:---:|:---|:---|:---:|:---:|
-| 1 | PROMPT-001 | -1] loadConfig 중복 코드 리팩토링 | P2 | ⬜ Pending |
-| 2 | PROMPT-002 | -2] 명령 레이어 단위 테스트 추가 | P2 | ⬜ Pending |
-| 3 | PROMPT-003 | -3] 세션 로그 단일 소스화 (Session_History.md 통합) | P2 | ⬜ Pending |
+| 1 | PROMPT-001 | Expand command layer unit tests | P2 | ⬜ Pending |
+| 2 | PROMPT-002 | Add AI direct integration service | P3 | ⬜ Pending |
+| 3 | PROMPT-003 | Enable multi-workspace report workflow | P3 | ⬜ Pending |
 
 **Total: 3 prompts** | **Completed: 0** | **Remaining: 3**
 
 ---
 
-## 🟡 Priority 2 (High) - Execute Second
+## 🟡 Priority 2 (High) - Execute First
 
-### [PROMPT-001] -1] loadConfig 중복 코드 리팩토링
+### [PROMPT-001] Expand command layer unit tests
 
 **⏱️ Execute this prompt now, then proceed to PROMPT-002**
 
 > **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
 
-**Task**: -1] loadConfig 중복 코드 Refactoring
+**Task**: Add and expand unit tests for the main command classes using VS Code and fs mocks.
 
 **Details:**
 
-| 항목 | 내용 |
+| Field | Value |
 |:---|:---|
-| **ID** | `refactor-config-001` |
-| **Category** | 🧹 코드 품질 |
+| **ID** | `test-commands-001` |
+| **Category** | 🧪 Testing |
 | **Complexity** | Medium |
-| **Target Files** | `src/extension.ts`, `src/commands/*.ts`, `src/views/*.ts` |
+| **Target Files** | `src/commands/__tests__/generatePrompt.test.ts`, `(new) src/commands/__tests__/setProjectVision.test.ts`, `(new) src/commands/__tests__/updateReports.test.ts` |
+| **Origin** | `code-smell` |
+| **Risk Level** | 🟡 Medium |
 
-**Current State:** `loadConfig()` 함수가 `extension.ts`, `UpdateReportsCommand`, `GeneratePromptCommand`, `SummaryViewProvider`, `HistoryViewProvider`, `SettingsViewProvider` 등 최소 6곳 이상에서 동일하게 정의되어 있습니다. v0.2.8에서 `projectVisionMode`, `defaultProjectType`, `defaultQualityFocus` 설정이 추가되면서 모든 파일을 일일이 수정해야 했습니다.
+**📥 Input:**
+- Existing `generatePrompt.test.ts` as a reference for mocking patterns
+- `SetProjectVisionCommand` and `UpdateReportsCommand` source files
+- VS Code API types for mocking (`vscode.window`, `vscode.workspace`)
+
+**📤 Output:**
+- `src/commands/__tests__/setProjectVision.test.ts` (new file, 5+ test cases)
+- `src/commands/__tests__/updateReports.test.ts` (new file, 5+ test cases)
+
+**Current State:** There is an existing unit test file for `GeneratePromptCommand`, but `UpdateReportsCommand` and `SetProjectVisionCommand` still have no dedicated tests. Many important branches (no workspace, scan errors, user cancellation in multi-step input flows) are only validated manually.
 
 **Improvement:**
-- `src/utils/configUtils.ts` 파일을 생성하여 `loadConfig()` 함수를 중앙화
-- `DEFAULT_CONFIG` 상수를 정의하여 기본값을 한 곳에서 관리
-- 모든 파일에서 해당 유틸을 import하여 사용하도록 변경
-- `getRootPath()` 헬퍼 함수도 함께 중앙화
+- Reuse the existing mocking approach for `vscode` and `fs/promises` in `generatePrompt.test.ts`.
+- Add comprehensive tests for `SetProjectVisionCommand` covering:
+  - No workspace / empty workspace folders
+  - Happy path where all QuickPick/InputBox prompts are answered
+  - Early return when the user cancels at each step.
+- Add targeted tests for `UpdateReportsCommand` covering:
+  - No workspace / empty folders
+  - Successful execution path where `_executeWithProgress` is invoked
+  - Error handling when workspace scan or report preparation fails.
 
 **Expected Effect:**
-- 코드 중복 약 200줄 이상 제거
-- 설정 항목 변경 시 한 곳만 수정하면 됨
-- 설정 관련 버그 발생 가능성 감소
-- 유지보수성 점수 향상 예상
+- Higher confidence when refactoring the command layer.
+- Improved overall test coverage focusing on user-facing flows.
+
+#### Implementation Code:
+
+```typescript
+// FULL implementation code here - NO abbreviations
+// Include ALL necessary imports
+// Include COMPLETE function/class definitions
+```
 
 ---
 
-#
+#### Definition of Done:
+
+- [ ] `setProjectVision.test.ts` created with 5+ test cases
+- [ ] `updateReports.test.ts` created with 5+ test cases
+- [ ] All tests pass: `pnpm test`
+- [ ] No compile errors: `pnpm compile`
+- [ ] Test coverage remains at 85%+
 
 #### Verification:
 
@@ -72,103 +100,153 @@
 
 **✅ After completing this prompt, proceed to [PROMPT-002]**
 
----
-
-### [PROMPT-002] -2] 명령 레이어 단위 테스트 추가
-
+### [PROMPT-002] Add AI direct integration service
+	
 **⏱️ Execute this prompt now, then proceed to PROMPT-003**
 
 > **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
 
-**Task**: -2] 명령 레이어 단위 Testing 추가
+**Task**: Introduce an AI integration service and wire it into the report update flow, guarded by a configuration flag.
 
 **Details:**
 
-| 항목 | 내용 |
+| Field | Value |
 |:---|:---|
-| **ID** | `test-commands-001` |
-| **Category** | 🧪 테스트 |
-| **Complexity** | Medium |
-| **Target Files** | `(new) src/commands/__tests__/generatePrompt.test.ts`, `(new) src/commands/__tests__/setProjectVision.test.ts` |
+| **ID** | `feat-ai-integration-001` |
+| **Category** | ✨ Feature |
+| **Complexity** | High |
+| **Target Files** | `src/commands/updateReports.ts`, `src/utils/configUtils.ts`, `(new) src/services/aiService.ts` |
+| **Origin** | `manual-idea` |
+| **Risk Level** | 🟢 Low |
 
-**Current State:** `GeneratePromptCommand`, `SetProjectVisionCommand` 등 명령 레이어에 대한 단위 테스트가 없습니다. 현재 74개 테스트 중 명령 레이어 테스트는 0개입니다. 리팩토링 시 회귀 버그 위험이 존재합니다.
+**📥 Input:**
+- VS Code Language Model API documentation
+- Existing `UpdateReportsCommand` implementation
+- `configUtils.ts` for configuration management
 
+**📤 Output:**
+- `src/services/aiService.ts` (new file with `AiService` class)
+- Updated `package.json` with `vibereport.enableDirectAi` setting
+- Updated `UpdateReportsCommand` with AI integration logic
+
+**Current State:** Prompts are generated and copied to the clipboard, but there is no direct AI integration via the VS Code Language Model API, and there is no configuration flag to enable or disable such behavior.
+	
 **Improvement:**
-- VS Code API 모킹을 활용한 명령 클래스 단위 테스트 작성
-- `vscode.window.showQuickPick`, `vscode.workspace.getConfiguration` 등을 모킹
-- 개선 항목 파싱, 프롬프트 생성, 클립보드 복사 로직 검증
-- 프로젝트 비전 설정 플로우 테스트
-
+- Add a new configuration option `vibereport.enableDirectAi` (boolean, default `false`) in `package.json` and reflect it in `VibeReportConfig` and `DEFAULT_CONFIG`.
+- Implement `AiService` in `src/services/aiService.ts` that:
+  - Accepts a prompt string and optional metadata.
+  - Uses `vscode.lm` if available, but fails gracefully (with a user-facing message) when not supported.
+  - Returns the AI response as a string so that callers can decide how to apply it.
+- Update `UpdateReportsCommand` so that, after generating the analysis prompt, it:
+  - Checks `enableDirectAi`.
+  - If disabled, keeps the existing clipboard behavior.
+  - If enabled, calls `AiService` and logs or surfaces the response, ready to be applied to reports.
+	
 **Expected Effect:**
-- 명령 레이어의 안정성 확보
-- 리팩토링 시 회귀 버그 조기 발견
-- 테스트 커버리지 약 10-15% 추가 향상 예상
+- One-click, fully automated analysis and improvement prompt execution.
+- Clear separation between AI integration details and the command workflow.
+
+#### Implementation Code:
+
+```typescript
+// FULL implementation code here - NO abbreviations
+// Include ALL necessary imports
+// Include COMPLETE function/class definitions
+```
 
 ---
 
-#
+#### Definition of Done:
+
+- [ ] `src/services/aiService.ts` created
+- [ ] `package.json` includes `vibereport.enableDirectAi` configuration
+- [ ] `UpdateReportsCommand` checks flag and branches accordingly
+- [ ] Graceful fallback to clipboard when AI unavailable
+- [ ] No compile errors: `pnpm compile`
+- [ ] All tests pass: `pnpm test`
 
 #### Verification:
 
 - Run: `cd vibereport-extension && pnpm compile`
 - Run: `cd vibereport-extension && pnpm test`
-- Confirm no compilation errors
+- Confirm the extension compiles successfully and the `enableDirectAi` flag toggles AI integration without runtime errors.
 
 **✅ After completing this prompt, proceed to [PROMPT-003]**
 
 ---
 
-### [PROMPT-003] -3] 세션 로그 단일 소스화 (Session_History.md 통합)
+## ✨ Feature Addition Items
 
+> Items for adding new features to the extension.
+
+<!-- AUTO-FEATURE-LIST-START -->
+### 🟢 Enhancement (P3)
+
+### [PROMPT-003] Enable multi-workspace report workflow
+	
 **⏱️ Execute this prompt now - FINAL PROMPT**
 
 > **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
 
-**Task**: -3] 세션 로그 단일 소스화 (Session_History.md 통합)
+**Task**: Use `selectWorkspaceRoot()` to support multi-root workspaces across the main commands and views.
 
 **Details:**
 
-| 항목 | 내용 |
+| Field | Value |
 |:---|:---|
-| **ID** | `refactor-session-log-001` |
-| **Category** | 🧹 코드 품질 |
-| **Complexity** | Low |
-| **Target Files** | `src/services/reportService.ts`, `src/commands/updateReports.ts` |
+| **ID** | `feat-multi-workspace-001` |
+| **Category** | ⚙️ Workflow |
+| **Complexity** | Medium |
+| **Target Files** | `src/commands/updateReports.ts`, `src/extension.ts`, `src/services/workspaceScanner.ts`, `src/utils/configUtils.ts` |
+| **Origin** | `manual-idea` |
+| **Risk Level** | 🟢 Low |
 
-**Current State:** 세션 로그가 `Session_History.md`를 단일 소스로 사용하도록 구조화되어 있지만, 보고서 템플릿에 여전히 `<!-- AUTO-SESSION-LOG-START -->` 마커가 남아있을 수 있습니다. 완전한 통합이 필요합니다.
+**📥 Input:**
+- Existing `selectWorkspaceRoot()` implementation in `configUtils.ts`
+- Current `UpdateReportsCommand` that uses `workspaceFolders[0]`
+- `WorkspaceScanner` and `SnapshotService` interfaces
+
+**📤 Output:**
+- Updated `UpdateReportsCommand` using `selectWorkspaceRoot()`
+- Updated service calls passing selected workspace path
+- Progress UI showing workspace name
+
+**Current State:** `configUtils.selectWorkspaceRoot()` exists but is not yet used consistently. The main commands (including `UpdateReportsCommand`) still use `workspaceFolders[0]`, effectively limiting the extension to a single workspace folder.
 
 **Improvement:**
-- 평가/개선 보고서 템플릿에서 `<!-- AUTO-SESSION-LOG-START/END -->` 섹션 완전 제거
-- `updateEvaluationReport`, `updateImprovementReport` 메소드에서 세션 로그 기록 코드 제거
-- `Session_History.md`를 세션 로그의 유일한 소스로 유지
-- 보고서에는 "세션 히스토리는 Session_History.md를 참조하세요" 안내 문구만 유지
+- Replace direct `workspaceFolders[0]` usage in `UpdateReportsCommand` and extension command registrations with `selectWorkspaceRoot()`.
+- Make sure that the selected workspace path is passed through to `WorkspaceScanner`, `SnapshotService`, and `ReportService` so that all subsequent operations are scoped correctly.
+- When multiple workspaces are open, show the workspace name in progress and status messages so users always know which workspace is being analyzed.
 
 **Expected Effect:**
-- 데이터 일관성 보장 (중복 데이터 제거)
-- 보고서 파일 크기 감소
-- 코드 단순화 및 유지보수성 향상
-<!-- AUTO-IMPROVEMENT-LIST-END -->
+- First-class support for multi-root workspaces and monorepos.
+- Reduced confusion when working with multiple projects in a single VS Code window.
+
+#### Implementation Code:
+
+```typescript
+// FULL implementation code here - NO abbreviations
+// Include ALL necessary imports
+// Include COMPLETE function/class definitions
+```
 
 ---
 
-## ✨ 기능 추가 항목
+#### Definition of Done:
 
-> 새로운 기능을 추가하는 항목입니다.
-
-<!-- AUTO-FEATURE-LIST-START -->
-### 🟢 개선 (P3)
-
-#
+- [ ] `UpdateReportsCommand` uses `selectWorkspaceRoot()`
+- [ ] Selected workspace path passed to all services
+- [ ] Progress UI shows workspace name
+- [ ] No compile errors: `pnpm compile`
+- [ ] All tests pass: `pnpm test`
+- [ ] Manual test in multi-root workspace successful
 
 #### Verification:
 
 - Run: `cd vibereport-extension && pnpm compile`
 - Run: `cd vibereport-extension && pnpm test`
-- Confirm no compilation errors
+- Open a multi-root workspace and verify that:
+  - `VibeCoding: Update Project Reports` prompts for a workspace root selection.
+  - Reports and `Session_History.md` are written under the selected workspace.
 
-**🎉 ALL PROMPTS COMPLETED! Run final verification.**
-
----
-
-
-*Generated: 2025-12-01T16:46:34.938Z*
+**🎉 ALL PROMPTS COMPLETED!**
