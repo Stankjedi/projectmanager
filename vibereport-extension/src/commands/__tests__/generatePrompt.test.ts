@@ -38,6 +38,9 @@ vi.mock('vscode', () => ({
   commands: {
     executeCommand: vi.fn(),
   },
+  QuickPickItemKind: {
+    Separator: 1,
+  },
 }));
 
 // Mock fs/promises
@@ -96,7 +99,7 @@ describe('GeneratePromptCommand', () => {
       );
     });
 
-    it('should show error when Prompt.md does not exist', async () => {
+    it('should show error when no items available (both Prompt.md and Improvement Report missing)', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
@@ -113,25 +116,38 @@ describe('GeneratePromptCommand', () => {
 
       // Assert
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        'Prompt.md 파일을 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
+        '선택 가능한 프롬프트나 OPT 항목이 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
       );
     });
 
-    it('should show error when no prompts found in Prompt.md', async () => {
+    it('should show error when no prompts or OPT items found', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
 
-      // Prompt.md with no prompt items
+      // Prompt.md with no prompt items, Improvement Report with no OPT items
       const mockPromptMd = `
 # AI Agent Improvement Prompts
 
 아직 프롬프트가 없습니다.
 `;
+      const mockImprovementMd = `
+# 개선 보고서
+
+개선 항목이 없습니다.
+`;
 
       const fs = await import('fs/promises');
-      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+      vi.mocked(fs.readFile).mockImplementation((filePath: any) => {
+        if (filePath.includes('Prompt.md')) {
+          return Promise.resolve(mockPromptMd);
+        }
+        if (filePath.includes('Project_Improvement_Exploration_Report.md')) {
+          return Promise.resolve(mockImprovementMd);
+        }
+        return Promise.reject(new Error('File not found'));
+      });
 
       const { GeneratePromptCommand } = await import('../generatePrompt.js');
       const command = new GeneratePromptCommand(mockOutputChannel);
@@ -141,7 +157,7 @@ describe('GeneratePromptCommand', () => {
 
       // Assert
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        'Prompt.md에서 프롬프트를 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
+        '선택 가능한 프롬프트나 OPT 항목이 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
       );
     });
 
@@ -228,13 +244,16 @@ describe('GeneratePromptCommand', () => {
       vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
         label: '⬜ [PROMPT-001] Code Quality Improvement',
         description: 'P2',
-        detail: '상태: 대기 중',
-        _prompt: {
-          promptId: 'PROMPT-001',
-          title: 'Code Quality Improvement',
-          priority: 'P2',
-          status: 'pending',
-          fullContent: '### [PROMPT-001] Code Quality Improvement\n\n**⏱️ Execute this prompt now.**',
+        detail: '📋 프롬프트 | 상태: 대기 중',
+        _item: {
+          type: 'prompt',
+          item: {
+            promptId: 'PROMPT-001',
+            title: 'Code Quality Improvement',
+            priority: 'P2',
+            status: 'pending',
+            fullContent: '### [PROMPT-001] Code Quality Improvement\n\n**⏱️ Execute this prompt now.**',
+          },
         },
       } as any);
 
@@ -275,13 +294,16 @@ Content
       vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
         label: '⬜ [PROMPT-001] Test',
         description: 'P2',
-        detail: '상태: 대기 중',
-        _prompt: {
-          promptId: 'PROMPT-001',
-          title: 'Test',
-          priority: 'P2',
-          status: 'pending',
-          fullContent: '### [PROMPT-001] Test\n\nContent',
+        detail: '📋 프롬프트 | 상태: 대기 중',
+        _item: {
+          type: 'prompt',
+          item: {
+            promptId: 'PROMPT-001',
+            title: 'Test',
+            priority: 'P2',
+            status: 'pending',
+            fullContent: '### [PROMPT-001] Test\n\nContent',
+          },
         },
       } as any);
 
@@ -321,13 +343,16 @@ Content
       vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
         label: '⬜ [PROMPT-001] Test',
         description: 'P2',
-        detail: '상태: 대기 중',
-        _prompt: {
-          promptId: 'PROMPT-001',
-          title: 'Test',
-          priority: 'P2',
-          status: 'pending',
-          fullContent: '### [PROMPT-001] Test\n\nContent',
+        detail: '📋 프롬프트 | 상태: 대기 중',
+        _item: {
+          type: 'prompt',
+          item: {
+            promptId: 'PROMPT-001',
+            title: 'Test',
+            priority: 'P2',
+            status: 'pending',
+            fullContent: '### [PROMPT-001] Test\n\nContent',
+          },
         },
       } as any);
 

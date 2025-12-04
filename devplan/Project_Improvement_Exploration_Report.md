@@ -13,10 +13,10 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (vibereport) |
-| **버전** | 0.3.3 |
+| **버전** | 0.3.5 |
 | **최초 분석일** | 2025-11-30 00:48 |
-| **최근 분석일** | 2025-12-02 03:40 |
-| **테스트** | 84개 통과 (Vitest) |
+| **최근 분석일** | 2025-12-04 22:00 |
+| **테스트** | 86개 통과 (Vitest) |
 <!-- AUTO-OVERVIEW-END -->
 
 ---
@@ -51,7 +51,7 @@
 ### 우선순위별 요약
 
 **🟡 P2 - 다음 릴리즈 전 권장:**
-1. **명령 레이어 테스트 확장**: UpdateReportsCommand, SetProjectVisionCommand 등 주요 명령 플로우에 대한 테스트 보강
+1. **명령 레이어 테스트 확장**: UpdateReportsCommand, SetProjectVisionCommand 등 주요 명령 플로우에 대한 테스트 보강. v0.3.5에서 generatePrompt.ts가 단순화되었으므로 테스트 패턴을 재사용하기 용이함.
 
 **🟢 P3 - 점진적 개선:**
 1. **AI 직접 연동**: VS Code Language Model API를 사용한 자동화 경로 도입

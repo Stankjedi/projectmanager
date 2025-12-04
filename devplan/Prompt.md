@@ -44,12 +44,12 @@
 | **ID** | `test-commands-001` |
 | **Category** | 🧪 Testing |
 | **Complexity** | Medium |
-| **Target Files** | `src/commands/__tests__/generatePrompt.test.ts`, `(new) src/commands/__tests__/setProjectVision.test.ts`, `(new) src/commands/__tests__/updateReports.test.ts` |
+| **Target Files** | `(new) src/commands/__tests__/setProjectVision.test.ts`, `(new) src/commands/__tests__/updateReports.test.ts` |
 | **Origin** | `code-smell` |
 | **Risk Level** | 🟡 Medium |
 
 **📥 Input:**
-- Existing `generatePrompt.test.ts` as a reference for mocking patterns
+- Existing `generatePrompt.test.ts` (updated in v0.3.5) as a reference for mocking patterns
 - `SetProjectVisionCommand` and `UpdateReportsCommand` source files
 - VS Code API types for mocking (`vscode.window`, `vscode.workspace`)
 
@@ -57,7 +57,7 @@
 - `src/commands/__tests__/setProjectVision.test.ts` (new file, 5+ test cases)
 - `src/commands/__tests__/updateReports.test.ts` (new file, 5+ test cases)
 
-**Current State:** There is an existing unit test file for `GeneratePromptCommand`, but `UpdateReportsCommand` and `SetProjectVisionCommand` still have no dedicated tests. Many important branches (no workspace, scan errors, user cancellation in multi-step input flows) are only validated manually.
+**Current State:** There is an existing unit test file for `GeneratePromptCommand` (12 test cases as of v0.3.5), but `UpdateReportsCommand` and `SetProjectVisionCommand` still have no dedicated tests. Many important branches (no workspace, scan errors, user cancellation in multi-step input flows) are only validated manually.
 
 **Improvement:**
 - Reuse the existing mocking approach for `vscode` and `fs/promises` in `generatePrompt.test.ts`.
@@ -73,6 +73,7 @@
 **Expected Effect:**
 - Higher confidence when refactoring the command layer.
 - Improved overall test coverage focusing on user-facing flows.
+- Test count expected to increase from 86 to ~96+.
 
 #### Implementation Code:
 

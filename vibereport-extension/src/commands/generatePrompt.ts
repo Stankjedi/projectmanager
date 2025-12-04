@@ -1,7 +1,7 @@
 /**
  * Generate Prompt Command
  *
- * @description Prompt.md에서 프롬프트를 선택하여 클립보드에 복사하는 명령
+ * @description Prompt.md에서 프롬프트를 선택하거나, 개선 보고서의 OPT 항목을 선택하여 클립보드에 복사하는 명령
  */
 
 import * as vscode from 'vscode';
@@ -21,6 +21,24 @@ interface ExistingPrompt {
 }
 
 /**
+ * 개선 보고서에서 파싱된 OPT 항목
+ */
+interface OptimizationItem {
+  optId: string;
+  title: string;
+  category: string;
+  targetFiles: string;
+  fullContent: string;
+}
+
+/**
+ * 선택 가능한 항목 (프롬프트 또는 OPT)
+ */
+type SelectableItem = 
+  | { type: 'prompt'; item: ExistingPrompt }
+  | { type: 'opt'; item: OptimizationItem };
+
+/**
  * 프롬프트 선택 및 복사 명령
  */
 export class GeneratePromptCommand {
@@ -31,7 +49,7 @@ export class GeneratePromptCommand {
   }
 
   /**
-   * 메인 실행: Prompt.md에서 프롬프트를 선택하여 클립보드에 복사
+   * 메인 실행: Prompt.md에서 프롬프트를 선택하거나, 개선 보고서의 OPT 항목을 선택하여 클립보드에 복사
    */
   async execute(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -43,69 +61,116 @@ export class GeneratePromptCommand {
     const rootPath = workspaceFolders[0].uri.fsPath;
     const config = loadConfig();
     const promptPath = path.join(rootPath, config.reportDirectory, 'Prompt.md');
+    const improvementPath = path.join(rootPath, config.reportDirectory, 'Project_Improvement_Exploration_Report.md');
 
-    // Prompt.md 확인
-    let promptContent: string;
+    // Prompt.md에서 프롬프트 파싱
+    let existingPrompts: ExistingPrompt[] = [];
     try {
-      promptContent = await fs.readFile(promptPath, 'utf-8');
+      const promptContent = await fs.readFile(promptPath, 'utf-8');
+      existingPrompts = this.parseExistingPrompts(promptContent);
     } catch {
-      vscode.window.showErrorMessage(
-        'Prompt.md 파일을 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
-      );
-      return;
+      // Prompt.md가 없어도 OPT 항목은 선택 가능
+      this.log('Prompt.md를 찾을 수 없습니다. OPT 항목만 표시합니다.');
     }
 
-    // 프롬프트 파싱
-    const existingPrompts = this.parseExistingPrompts(promptContent);
+    // 개선 보고서에서 OPT 항목 파싱
+    let optItems: OptimizationItem[] = [];
+    try {
+      const improvementContent = await fs.readFile(improvementPath, 'utf-8');
+      optItems = this.parseOptimizationItems(improvementContent);
+    } catch {
+      this.log('개선 보고서를 찾을 수 없습니다.');
+    }
     
-    if (existingPrompts.length === 0) {
+    if (existingPrompts.length === 0 && optItems.length === 0) {
       vscode.window.showErrorMessage(
-        'Prompt.md에서 프롬프트를 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
+        '선택 가능한 프롬프트나 OPT 항목이 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
       );
       return;
     }
 
-    // 프롬프트 선택 및 복사
-    await this.selectExistingPrompt(existingPrompts, promptPath);
+    // 프롬프트와 OPT 항목 모두 선택 가능하게 표시
+    await this.selectItem(existingPrompts, optItems, promptPath);
   }
 
   /**
-   * Prompt.md에서 프롬프트 선택 및 복사
+   * 프롬프트 또는 OPT 항목 선택 및 복사
    */
-  private async selectExistingPrompt(prompts: ExistingPrompt[], promptPath: string): Promise<void> {
-    // 완료되지 않은 프롬프트 우선 표시, 완료된 것도 선택 가능
+  private async selectItem(
+    prompts: ExistingPrompt[], 
+    optItems: OptimizationItem[],
+    promptPath: string
+  ): Promise<void> {
+    // QuickPick 아이템 생성
+    const quickPickItems: (vscode.QuickPickItem & { _item: SelectableItem })[] = [];
+
+    // 프롬프트 항목 추가 (완료되지 않은 것 우선)
     const sortedPrompts = [...prompts].sort((a, b) => {
       if (a.status === 'done' && b.status !== 'done') return 1;
       if (a.status !== 'done' && b.status === 'done') return -1;
       return 0;
     });
 
-    const quickPickItems: vscode.QuickPickItem[] = sortedPrompts.map(p => ({
-      label: `${this.getStatusIcon(p.status)} [${p.promptId}] ${p.title}`,
-      description: p.priority,
-      detail: `상태: ${this.getStatusText(p.status)}`,
-      _prompt: p,
-    } as vscode.QuickPickItem & { _prompt: ExistingPrompt }));
+    for (const p of sortedPrompts) {
+      quickPickItems.push({
+        label: `${this.getStatusIcon(p.status)} [${p.promptId}] ${p.title}`,
+        description: p.priority,
+        detail: `📋 프롬프트 | 상태: ${this.getStatusText(p.status)}`,
+        _item: { type: 'prompt', item: p },
+      });
+    }
 
-    const selected = await vscode.window.showQuickPick(quickPickItems, {
-      canPickMany: false,
-      placeHolder: '복사할 프롬프트를 선택하세요',
-      title: '📋 프롬프트 선택',
-    });
+    // OPT 항목 추가 (구분선 역할의 separator 추가)
+    if (optItems.length > 0 && prompts.length > 0) {
+      quickPickItems.push({
+        label: '─────────────────────────────────',
+        description: '코드 품질 및 성능 최적화 제안',
+        detail: '',
+        kind: vscode.QuickPickItemKind.Separator,
+        _item: null as unknown as SelectableItem,
+      });
+    }
+
+    for (const opt of optItems) {
+      quickPickItems.push({
+        label: `🔧 [${opt.optId}] ${opt.title}`,
+        description: opt.category,
+        detail: `📁 대상: ${opt.targetFiles}`,
+        _item: { type: 'opt', item: opt },
+      });
+    }
+
+    const selected = await vscode.window.showQuickPick(
+      quickPickItems.filter(item => item.kind !== vscode.QuickPickItemKind.Separator),
+      {
+        canPickMany: false,
+        placeHolder: '복사할 프롬프트 또는 OPT 항목을 선택하세요',
+        title: '📋 프롬프트 / 최적화 항목 선택',
+      }
+    );
 
     if (!selected) return;
 
-    // @ts-expect-error - 커스텀 속성 접근
-    const selectedPrompt: ExistingPrompt = selected._prompt;
+    const selectedItem = selected._item;
+    let content: string;
+    let itemId: string;
+
+    if (selectedItem.type === 'prompt') {
+      content = selectedItem.item.fullContent;
+      itemId = selectedItem.item.promptId;
+    } else {
+      content = this.formatOptAsPrompt(selectedItem.item);
+      itemId = selectedItem.item.optId;
+    }
     
-    // 선택된 프롬프트 내용을 클립보드에 복사
-    await vscode.env.clipboard.writeText(selectedPrompt.fullContent);
+    // 선택된 내용을 클립보드에 복사
+    await vscode.env.clipboard.writeText(content);
 
     const openChat = 'Copilot Chat 열기';
     const openFile = '프롬프트 파일 열기';
     
     const result = await vscode.window.showInformationMessage(
-      `✅ [${selectedPrompt.promptId}] 프롬프트가 클립보드에 복사되었습니다!\nCtrl+V로 AI 챗에 붙여넣기하세요.`,
+      `✅ [${itemId}] 항목이 클립보드에 복사되었습니다!\nCtrl+V로 AI 챗에 붙여넣기하세요.`,
       openChat,
       openFile
     );
@@ -117,7 +182,44 @@ export class GeneratePromptCommand {
       await vscode.window.showTextDocument(doc);
     }
 
-    this.log(`프롬프트 [${selectedPrompt.promptId}] 클립보드에 복사됨`);
+    this.log(`항목 [${itemId}] 클립보드에 복사됨`);
+  }
+
+  /**
+   * OPT 항목을 프롬프트 형식으로 포맷팅
+   */
+  private formatOptAsPrompt(opt: OptimizationItem): string {
+    return `## 🔧 ${opt.title}
+
+> **🚨 REQUIRED: Use file editing tools to make changes. Do NOT just show code.**
+
+**Task**: Implement the optimization described below.
+
+**Details:**
+
+| Field | Value |
+|:---|:---|
+| **ID** | \`${opt.optId}\` |
+| **Category** | ${opt.category} |
+| **Target Files** | ${opt.targetFiles} |
+
+${opt.fullContent}
+
+---
+
+#### Verification:
+
+- Run: \`cd vibereport-extension && pnpm compile\`
+- Run: \`cd vibereport-extension && pnpm test\`
+- Confirm no compilation errors and all tests pass
+`;
+  }
+
+  /**
+   * Prompt.md에서 기존 프롬프트 선택 및 복사 (레거시 - selectItem으로 대체됨)
+   */
+  private async selectExistingPrompt(prompts: ExistingPrompt[], promptPath: string): Promise<void> {
+    await this.selectItem(prompts, [], promptPath);
   }
 
   /**
@@ -177,6 +279,52 @@ export class GeneratePromptCommand {
     }
 
     return prompts;
+  }
+
+  /**
+   * 개선 보고서에서 OPT 항목 파싱
+   */
+  private parseOptimizationItems(content: string): OptimizationItem[] {
+    const items: OptimizationItem[] = [];
+    
+    // AUTO-OPTIMIZATION 마커 내의 콘텐츠 추출
+    const optSectionMatch = content.match(/<!-- AUTO-OPTIMIZATION-START -->([\s\S]*?)<!-- AUTO-OPTIMIZATION-END -->/);
+    if (!optSectionMatch) {
+      return items;
+    }
+    
+    const optContent = optSectionMatch[1];
+    
+    // OPT 항목 패턴: ### 🚀 코드 최적화 (OPT-1) 또는 ### ⚙️ 성능 튜닝 (OPT-2)
+    const optPattern = /###\s*[🚀⚙️]\s*([^\n(]+)\s*\((OPT-\d+)\)\s*\n([\s\S]*?)(?=\n###\s*[🚀⚙️]|$)/gi;
+    
+    let match;
+    while ((match = optPattern.exec(optContent)) !== null) {
+      const title = match[1].trim();
+      const optId = match[2];
+      const sectionContent = match[3].trim();
+      
+      // 카테고리 추출
+      const categoryMatch = sectionContent.match(/\|\s*\*\*카테고리\*\*\s*\|\s*([^|]+)\|/);
+      const category = categoryMatch ? categoryMatch[1].trim() : '최적화';
+      
+      // 대상 파일 추출
+      const targetFilesMatch = sectionContent.match(/\|\s*\*\*대상 파일\*\*\s*\|\s*([^|]+)\|/);
+      const targetFiles = targetFilesMatch ? targetFilesMatch[1].trim() : '';
+      
+      // 전체 내용 (테이블 이후의 설명 포함)
+      const fullContent = sectionContent;
+      
+      items.push({
+        optId,
+        title,
+        category,
+        targetFiles,
+        fullContent,
+      });
+    }
+    
+    return items;
   }
 
   private getStatusIcon(status: 'pending' | 'in-progress' | 'done'): string {

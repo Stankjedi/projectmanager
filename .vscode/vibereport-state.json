@@ -1,9 +1,9 @@
 {
   "lastSnapshot": {
-    "generatedAt": "2025-12-04T07:57:55.161Z",
+    "generatedAt": "2025-12-04T08:56:03.055Z",
     "rootPath": "c:\\Users\\송용준\\Desktop\\Dev\\projectmanager",
     "projectName": "projectmanager",
-    "filesCount": 56,
+    "filesCount": 50,
     "dirsCount": 16,
     "languageStats": {
       "ts": 30,
@@ -17,62 +17,56 @@
     },
     "importantFiles": [],
     "fileList": [
-      "AGENTS.md",
       "README.md",
       "LICENSE",
+      "AGENTS.md",
       ".vscode/settings.json",
       ".vscode/vibereport-state.json",
-      "vibereport-extension/LICENSE",
-      "vibereport-extension/vibereport-0.3.2.vsix",
-      "vibereport-extension/vibereport-0.3.3.vsix",
-      "vibereport-extension/vibereport-0.3.1.vsix",
-      "vibereport-extension/vibereport-0.3.0.vsix",
-      "vibereport-extension/vibereport-0.2.9.vsix",
-      "vibereport-extension/images/icon.png",
-      "vibereport-extension/vibereport-0.2.8.vsix",
-      "vibereport-extension/vibereport-0.2.7.vsix",
-      "vibereport-extension/tsconfig.json",
       "vibereport-extension/vitest.config.ts",
-      "vibereport-extension/README.md",
-      "vibereport-extension/pnpm-lock.yaml",
-      "vibereport-extension/package.json",
+      "vibereport-extension/vibereport-0.3.5.vsix",
+      "vibereport-extension/tsconfig.json",
+      "vibereport-extension/src/views/HistoryViewProvider.ts",
+      "vibereport-extension/src/views/index.ts",
+      "vibereport-extension/src/models/types.ts",
+      "vibereport-extension/src/models/index.ts",
+      "vibereport-extension/src/models/errors.ts",
+      "vibereport-extension/src/models/constants.ts",
+      "vibereport-extension/src/views/SettingsViewProvider.ts",
       "vibereport-extension/src/views/__tests__/SummaryViewProvider.test.ts",
       "vibereport-extension/src/views/__tests__/HistoryViewProvider.test.ts",
-      "vibereport-extension/src/views/SummaryViewProvider.ts",
-      "vibereport-extension/src/views/SettingsViewProvider.ts",
-      "vibereport-extension/src/views/index.ts",
-      "vibereport-extension/src/views/HistoryViewProvider.ts",
-      "vibereport-extension/src/services/index.ts",
-      "vibereport-extension/src/utils/__tests__/markdownUtils.test.ts",
-      "vibereport-extension/src/services/workspaceScanner.ts",
-      "vibereport-extension/src/services/snapshotService.ts",
-      "vibereport-extension/src/services/reportService.ts",
       "vibereport-extension/src/utils/timeUtils.ts",
       "vibereport-extension/src/utils/markdownUtils.ts",
       "vibereport-extension/src/utils/logger.ts",
       "vibereport-extension/src/utils/index.ts",
       "vibereport-extension/src/utils/configUtils.ts",
-      "vibereport-extension/src/services/__tests__/workspaceScanner.test.ts",
-      "vibereport-extension/src/services/__tests__/snapshotService.test.ts",
-      "vibereport-extension/src/services/__tests__/reportService.test.ts",
-      "vibereport-extension/src/models/constants.ts",
+      "vibereport-extension/src/views/SummaryViewProvider.ts",
+      "vibereport-extension/src/utils/__tests__/markdownUtils.test.ts",
       "vibereport-extension/src/extension.ts",
-      "vibereport-extension/src/models/types.ts",
-      "vibereport-extension/src/models/index.ts",
-      "vibereport-extension/src/models/errors.ts",
-      "vibereport-extension/src/commands/__tests__/generatePrompt.test.ts",
-      "vibereport-extension/src/commands/updateReports.ts",
       "vibereport-extension/src/commands/setProjectVision.ts",
+      "vibereport-extension/src/commands/updateReports.ts",
       "vibereport-extension/src/commands/index.ts",
       "vibereport-extension/src/commands/generatePrompt.ts",
-      "vibereport-extension/CHANGELOG.md",
+      "vibereport-extension/src/services/__tests__/reportService.test.ts",
+      "vibereport-extension/src/services/__tests__/snapshotService.test.ts",
+      "vibereport-extension/src/services/__tests__/workspaceScanner.test.ts",
+      "vibereport-extension/src/commands/__tests__/generatePrompt.test.ts",
+      "vibereport-extension/src/services/workspaceScanner.ts",
+      "vibereport-extension/src/services/snapshotService.ts",
+      "vibereport-extension/src/services/reportService.ts",
+      "vibereport-extension/src/services/index.ts",
+      "vibereport-extension/README.md",
+      "vibereport-extension/pnpm-lock.yaml",
+      "vibereport-extension/package.json",
       "devplan/Session_History.md",
-      "vibereport-extension/.vscodeignore",
+      "vibereport-extension/LICENSE",
+      "vibereport-extension/images/icon.png",
       "devplan/Prompt.md",
-      "vibereport-extension/.gitignore",
       "devplan/Project_Improvement_Exploration_Report.md",
-      "vibereport-extension/.github/workflows/ci.yml",
-      "devplan/Project_Evaluation_Report.md"
+      "vibereport-extension/CHANGELOG.md",
+      "vibereport-extension/.vscodeignore",
+      "vibereport-extension/.gitignore",
+      "devplan/Project_Evaluation_Report.md",
+      "vibereport-extension/.github/workflows/ci.yml"
     ],
     "structureSummary": [
       {
@@ -308,37 +302,7 @@
             "extension": "json"
           },
           {
-            "name": "vibereport-0.2.7.vsix",
-            "type": "file",
-            "extension": "vsix"
-          },
-          {
-            "name": "vibereport-0.2.8.vsix",
-            "type": "file",
-            "extension": "vsix"
-          },
-          {
-            "name": "vibereport-0.2.9.vsix",
-            "type": "file",
-            "extension": "vsix"
-          },
-          {
-            "name": "vibereport-0.3.0.vsix",
-            "type": "file",
-            "extension": "vsix"
-          },
-          {
-            "name": "vibereport-0.3.1.vsix",
-            "type": "file",
-            "extension": "vsix"
-          },
-          {
-            "name": "vibereport-0.3.2.vsix",
-            "type": "file",
-            "extension": "vsix"
-          },
-          {
-            "name": "vibereport-0.3.3.vsix",
+            "name": "vibereport-0.3.5.vsix",
             "type": "file",
             "extension": "vsix"
           },
@@ -588,9 +552,33 @@
         "changedConfigsCount": 0,
         "totalChanges": 0
       }
+    },
+    {
+      "id": "session_mir74hhs_onwmk3",
+      "timestamp": "2025-12-04T08:50:45.520Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-04T07:57:55.161Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.3.5.vsix\n\n**삭제된 파일 (7개):**\n- vibereport-extension/vibereport-0.3.2.vsix\n- vibereport-extension/vibereport-0.3.3.vsix\n- vibereport-extension/vibereport-0.3.1.vsix\n- vibereport-extension/vibereport-0.3.0.vsix\n- vibereport-extension/vibereport-0.2.9.vsix\n- vibereport-extension/vibereport-0.2.8.vsix\n- vibereport-extension/vibereport-0.2.7.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 7,
+        "changedConfigsCount": 0,
+        "totalChanges": 8
+      }
+    },
+    {
+      "id": "session_mir7baiu_e5mfq5",
+      "timestamp": "2025-12-04T08:56:03.078Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "변경사항 없음",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      }
     }
   ],
   "appliedImprovements": [],
-  "lastUpdated": "2025-12-04T07:57:55.185Z",
+  "lastUpdated": "2025-12-04T08:56:03.078Z",
   "version": 1
 }
