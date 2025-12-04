@@ -228,6 +228,25 @@ export interface GitChanges {
   renamed: Array<{ from: string; to: string }>;
   /** 총 변경 줄 수 (대략적) */
   linesChanged?: number;
+  /** 파일별 라인 메트릭 */
+  lineMetrics?: GitLineMetric[];
+}
+
+/**
+ * Git 파일별 라인 변경 메트릭
+ * 
+ * @description 파일별로 추가/삭제된 라인 수를 추적하여
+ * 변경 규모를 수치로 파악할 수 있게 합니다.
+ */
+export interface GitLineMetric {
+  /** 파일 경로 */
+  filePath: string;
+  /** 추가된 라인 수 */
+  added: number;
+  /** 삭제된 라인 수 */
+  deleted: number;
+  /** 총 변경 라인 수 (added + deleted) */
+  total: number;
 }
 
 // ===== Report Types =====

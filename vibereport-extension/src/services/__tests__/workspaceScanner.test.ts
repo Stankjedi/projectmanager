@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as vscode from 'vscode';
 import { WorkspaceScanner } from '../workspaceScanner.js';
+import { clearAllCache } from '../snapshotCache.js';
 import type { VibeReportConfig } from '../../models/types.js';
 
 // Mock vscode module
@@ -69,6 +70,7 @@ describe('WorkspaceScanner', () => {
   beforeEach(() => {
     scanner = new WorkspaceScanner(mockOutputChannel);
     vi.clearAllMocks();
+    clearAllCache(); // 캐시 초기화
   });
 
   describe('scan', () => {

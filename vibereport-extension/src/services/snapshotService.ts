@@ -13,6 +13,7 @@ import type {
   SessionRecord,
   AppliedImprovement,
   GitChanges,
+  GitLineMetric,
   VibeReportConfig,
 } from '../models/types.js';
 import { STATE_VERSION } from '../models/types.js';
@@ -309,6 +310,26 @@ export class SnapshotService {
       changes.modified = [...new Set(changes.modified)];
       changes.added = [...new Set(changes.added)];
       changes.deleted = [...new Set(changes.deleted)];
+
+      // 라인 메트릭 수집
+      try {
+        const diffSummary = await git.diffSummary();
+        const lineMetrics: GitLineMetric[] = diffSummary.files
+          .filter((file): file is typeof file & { insertions: number; deletions: number } => 
+            'insertions' in file && 'deletions' in file
+          )
+          .map((file) => ({
+            filePath: file.file,
+            added: file.insertions,
+            deleted: file.deletions,
+            total: file.insertions + file.deletions,
+          }));
+        changes.lineMetrics = lineMetrics;
+        changes.linesChanged = lineMetrics.reduce((sum, m) => sum + m.total, 0);
+      } catch (diffError) {
+        this.log(`Git diff summary 수집 실패: ${diffError}`);
+        // 라인 메트릭은 선택적이므로 실패해도 계속 진행
+      }
 
       return changes;
     } catch (error) {

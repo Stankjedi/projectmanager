@@ -25,6 +25,7 @@ import type {
   VibeReportConfig,
 } from '../models/types.js';
 import { LANGUAGE_EXTENSIONS, IMPORTANT_CONFIG_FILES } from '../models/types.js';
+import { getCachedValue, setCachedValue, createCacheKey } from './snapshotCache.js';
 
 export class WorkspaceScanner {
   private outputChannel: vscode.OutputChannel;
@@ -112,12 +113,22 @@ export class WorkspaceScanner {
   }
 
   /**
-   * 파일 목록 수집
+   * 파일 목록 수집 (캐시 지원)
+   * 
+   * @description 30초 TTL 캐시를 사용하여 연속 실행 시 성능을 향상시킵니다.
    */
   private async collectFiles(
     rootPath: string,
     config: VibeReportConfig
   ): Promise<string[]> {
+    const cacheKey = createCacheKey('file-list', rootPath, config.maxFilesToScan);
+    const cached = getCachedValue<string[]>(cacheKey);
+    
+    if (cached) {
+      this.log(`[WorkspaceScanner] Using cached file list for ${rootPath}`);
+      return cached;
+    }
+
     const excludePattern = `{${config.excludePatterns.join(',')}}`;
     
     const uris = await vscode.workspace.findFiles(
@@ -126,9 +137,12 @@ export class WorkspaceScanner {
       config.maxFilesToScan
     );
 
-    return uris
+    const files = uris
       .filter(uri => uri.fsPath.startsWith(rootPath))
       .map(uri => path.relative(rootPath, uri.fsPath).replace(/\\/g, '/'));
+
+    setCachedValue(cacheKey, files);
+    return files;
   }
 
   /**

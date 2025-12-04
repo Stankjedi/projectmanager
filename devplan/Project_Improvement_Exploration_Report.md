@@ -48,14 +48,16 @@
 | 🧪 테스트 | 1 | 명령 레이어 단위 테스트 확장 |
 | ✨ 기능 추가 | 2 | AI 직접 연동, 멀티 워크스페이스 |
 
+> 참고: 코드 품질 및 성능 최적화(OPT) 항목은 별도 섹션에서 관리되며, 현재 `opt-markdown-parse-001`, `opt-snapshot-diff-001` 2개가 **미적용 상태**로 남아 있습니다.
+
 ### 우선순위별 요약
 
 **🟡 P2 - 다음 릴리즈 전 권장:**
-1. **명령 레이어 테스트 확장**: UpdateReportsCommand, SetProjectVisionCommand 등 주요 명령 플로우에 대한 테스트 보강. v0.3.8에서 generatePrompt.ts가 개선되었으므로 테스트 패턴을 재사용하기 용이함.
+1. **명령 레이어 테스트 확장 (`test-commands-001`)**: UpdateReportsCommand, SetProjectVisionCommand 등 주요 명령 플로우에 대한 테스트 보강. v0.3.8에서 generatePrompt.ts가 개선되었으므로 테스트 패턴을 재사용하기 용이함.
 
 **🟢 P3 - 점진적 개선:**
-1. **AI 직접 연동**: VS Code Language Model API를 사용한 자동화 경로 도입
-2. **멀티 워크스페이스 지원**: 다중 루트 워크스페이스 환경 지원 및 UX 개선
+1. **AI 직접 연동 (`feat-ai-integration-001`)**: VS Code Language Model API를 사용한 자동화 경로 도입
+2. **멀티 워크스페이스 지원 (`feat-multi-workspace-001`)**: 다중 루트 워크스페이스 환경 지원 및 UX 개선
 <!-- AUTO-SUMMARY-END -->
 
 ---
@@ -75,8 +77,9 @@
 | **카테고리** | 🧪 테스트 |
 | **복잡도** | Medium |
 | **대상 파일** | `src/commands/__tests__/generatePrompt.test.ts`, `(new) src/commands/__tests__/setProjectVision.test.ts`, `(new) src/commands/__tests__/updateReports.test.ts` |
-| **Origin** | `code-smell` |
+| **Origin** | `static-analysis` |
 | **Risk Level** | 🟡 Medium |
+| **관련 평가 카테고리** | `testCoverage`, `reliability`, `maintainability` |
 
 **현재 상태:** `GeneratePromptCommand`에 대한 기본 단위 테스트는 추가되었지만, `UpdateReportsCommand`, `SetProjectVisionCommand` 등 핵심 명령 흐름에 대한 테스트가 부족합니다. 워크스페이스 미존재, 설정 로딩 실패, 스냅샷 로딩 오류, 사용자의 QuickPick/입력 취소 등 다양한 분기 처리가 실제로는 사람이 수동으로만 검증되고 있습니다.
 
@@ -122,6 +125,7 @@
 | **카테고리** | 🚀 코드 최적화 |
 | **영향 범위** | 품질 |
 | **대상 파일** | `src/utils/markdownUtils.ts` |
+| **관련 평가 카테고리** | `codeQuality`, `maintainability` |
 
 **현재 상태:** `markdownUtils`는 마커 기반 섹션 추출/치환, 개선 항목 파싱, 점수 테이블 생성을 모두 담당하고 있습니다. 기능은 충실하지만, 하나의 유틸리티 모듈에 다양한 책임이 섞여 있어 테스트 관점에서 개별 기능의 경계를 이해하기 어렵고, 향후 파서 로직이 복잡해질수록 유지보수 난이도가 증가할 수 있습니다.
 
@@ -141,6 +145,7 @@
 | **카테고리** | ⚙️ 성능 튜닝 |
 | **영향 범위** | 성능 / 품질 |
 | **대상 파일** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts` |
+| **관련 평가 카테고리** | `performance`, `observability` |
 
 **현재 상태:** WorkspaceScanner와 SnapshotService는 `maxFilesToScan`과 `excludePatterns`를 활용해 기본적인 성능을 확보하고 있지만, 대형 모노레포에서 자주 실행될 경우 동일한 파일 목록/설정 파일을 반복적으로 스캔하게 됩니다. Git diff 요약도 라인 수 기준 메트릭이 부족해 "변경 규모"를 정량적으로 판단하기 어렵습니다.
 
@@ -171,6 +176,7 @@
 | **대상 파일** | `src/commands/updateReports.ts`, `(new) src/services/aiService.ts` |
 | **Origin** | `manual-idea` |
 | **Risk Level** | 🟢 Low |
+| **관련 평가 카테고리** | `productionReadiness`, `automation`, `developerExperience` |
 
 **현재 상태:** 현재 워크플로우는 생성된 프롬프트를 클립보드에 복사한 후, 사용자가 수동으로 AI 챗(예: Copilot Chat)에 붙여넣는 방식에 의존합니다. VS Code의 Language Model API가 아직 Proposed API 단계이므로 직접 연동은 보류 중이며, 관련 서비스(`aiService`)나 설정 플래그도 존재하지 않습니다.
 
@@ -216,6 +222,7 @@
 | **대상 파일** | `src/services/workspaceScanner.ts`, `src/commands/updateReports.ts`, `src/utils/configUtils.ts` |
 | **Origin** | `manual-idea` |
 | **Risk Level** | 🟢 Low |
+| **관련 평가 카테고리** | `scalability`, `developerExperience` |
 
 **현재 상태:** `configUtils.selectWorkspaceRoot()`가 추가되어 다중 워크스페이스 중 하나를 선택할 수 있는 기반은 마련되었지만, `UpdateReportsCommand`와 주요 명령/뷰에서는 여전히 `workspaceFolders[0]`을 직접 사용하는 부분이 남아 있습니다. 실제 보고서 생성/열기 플로우는 단일 루트 기준으로 동작합니다.
 

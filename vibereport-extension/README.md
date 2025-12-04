@@ -216,6 +216,12 @@ pnpm run package
 
 ## 📝 Changelog
 
+### v0.3.11 (2025-12-04)
+- **Command Layer 테스트 확장**: SetProjectVisionCommand, UpdateReportsCommand 테스트 추가 (86 → 102 테스트)
+- **markerUtils 분리**: SRP 원칙에 따라 마커 처리 로직을 별도 모듈로 분리
+- **스냅샷 캐싱**: 30초 TTL 캐시로 연속 스캔 성능 향상
+- **Git 라인 메트릭**: 파일별 추가/삭제 라인 수 추적 기능 추가
+
 ### v0.3.10 (2025-12-04)
 - **TODO 기반 프롬프트 구조**: 분석 프롬프트에 10개 TODO 체크리스트 추가
 - AI 에이전트가 반드시 순차적으로 TODO를 실행하도록 강화
