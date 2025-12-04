@@ -1,7 +1,7 @@
 /**
  * GeneratePromptCommand Unit Tests
  * 
- * @description 개선 항목 선택 및 프롬프트 생성 명령에 대한 테스트
+ * @description Prompt.md에서 프롬프트 선택 및 클립보드 복사 명령에 대한 테스트
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -21,6 +21,7 @@ vi.mock('vscode', () => ({
     showInformationMessage: vi.fn(),
     showWarningMessage: vi.fn(),
     showErrorMessage: vi.fn(),
+    showTextDocument: vi.fn(),
     createOutputChannel: vi.fn(() => ({
       appendLine: vi.fn(),
       dispose: vi.fn(),
@@ -95,7 +96,7 @@ describe('GeneratePromptCommand', () => {
       );
     });
 
-    it('should show error when improvement report does not exist', async () => {
+    it('should show error when Prompt.md does not exist', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
@@ -112,25 +113,25 @@ describe('GeneratePromptCommand', () => {
 
       // Assert
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        '개선 보고서를 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
+        'Prompt.md 파일을 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
       );
     });
 
-    it('should show info message when no pending improvements found', async () => {
+    it('should show error when no prompts found in Prompt.md', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
 
-      // Report with no improvement items
-      const mockReport = `
-# 개선 보고서
+      // Prompt.md with no prompt items
+      const mockPromptMd = `
+# AI Agent Improvement Prompts
 
-아직 개선 항목이 없습니다.
+아직 프롬프트가 없습니다.
 `;
 
       const fs = await import('fs/promises');
-      vi.mocked(fs.readFile).mockResolvedValue(mockReport);
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
 
       const { GeneratePromptCommand } = await import('../generatePrompt.js');
       const command = new GeneratePromptCommand(mockOutputChannel);
@@ -138,42 +139,45 @@ describe('GeneratePromptCommand', () => {
       // Act
       await command.execute();
 
-      // Assert - The code uses showInformationMessage with "적용할 개선 항목이 없습니다. 🎉"
-      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        '적용할 개선 항목이 없습니다. 🎉'
+      // Assert
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        'Prompt.md에서 프롬프트를 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
       );
     });
 
-    it('should parse improvement items from report and show QuickPick', async () => {
+    it('should parse prompts from Prompt.md and show QuickPick', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
 
-      const mockReport = `
-## 🔧 기능 개선 항목
+      const mockPromptMd = `
+# 🤖 AI Agent Improvement Prompts
 
-### 🟡 중요 (P2)
+## 📋 Execution Checklist
 
-#### [P2-1] 테스트 항목
-| 항목 | 내용 |
-|:---|:---|
-| **ID** | \`test-001\` |
-| **카테고리** | 🧪 테스트 |
-| **복잡도** | Medium |
-| **대상 파일** | \`src/test.ts\` |
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Test Prompt | P2 | ⬜ Pending |
 
-**현재 상태:** 현재 테스트가 없습니다.
+## 🟡 Priority 2 (High) - Execute Second
 
-**개선 내용:**
-- 테스트 추가
+### [PROMPT-001] Test Prompt
 
-**기대 효과:**
-- 안정성 향상
+**⏱️ Execute this prompt now.**
+
+#### Goal
+- Test goal
+
+#### Context
+- Priority: P2
+
+#### Verification
+- Run tests
 `;
 
       const fs = await import('fs/promises');
-      vi.mocked(fs.readFile).mockResolvedValue(mockReport);
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
       vi.mocked(vscode.window.showQuickPick).mockResolvedValue(undefined); // User cancelled
 
       const { GeneratePromptCommand } = await import('../generatePrompt.js');
@@ -186,47 +190,54 @@ describe('GeneratePromptCommand', () => {
       expect(vscode.window.showQuickPick).toHaveBeenCalled();
     });
 
-    it('should generate prompt and copy to clipboard when items selected', async () => {
+    it('should copy selected prompt to clipboard', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
 
-      const mockReport = `
-### 🟡 중요 (P2)
+      const mockPromptMd = `
+# 🤖 AI Agent Improvement Prompts
 
-#### [P2-1] 코드 개선
-| 항목 | 내용 |
-|:---|:---|
-| **ID** | \`improve-001\` |
-| **카테고리** | 🧹 코드 품질 |
+## 📋 Execution Checklist
 
-**현재 상태:** 중복 코드가 있습니다.
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Code Quality Improvement | P2 | ⬜ Pending |
 
-**개선 내용:**
-- 중복 코드 제거
+## 🟡 Priority 2 (High)
+
+### [PROMPT-001] Code Quality Improvement
+
+**⏱️ Execute this prompt now.**
+
+#### Goal
+- Improve code quality
+
+#### Context
+- Priority: P2
+
+#### Verification
+- Run tests
 `;
 
       const fs = await import('fs/promises');
-      vi.mocked(fs.readFile).mockResolvedValue(mockReport);
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
       
-      // Simulate user selecting items (returns array since canPickMany: true)
-      vi.mocked(vscode.window.showQuickPick).mockResolvedValue([{
-        label: '🟡 [P2-1] 코드 개선',
-        description: '🧹 코드 품질',
-        detail: '중복 코드 제거',
-        _item: {
-          id: 'improve-001',
-          title: '코드 개선',
+      // Simulate user selecting a prompt (single selection)
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
+        label: '⬜ [PROMPT-001] Code Quality Improvement',
+        description: 'P2',
+        detail: '상태: 대기 중',
+        _prompt: {
+          promptId: 'PROMPT-001',
+          title: 'Code Quality Improvement',
           priority: 'P2',
-          description: '중복 코드가 있습니다.',
-          applied: false,
-          rawContent: mockReport,
+          status: 'pending',
+          fullContent: '### [PROMPT-001] Code Quality Improvement\n\n**⏱️ Execute this prompt now.**',
         },
-        _index: 0,
-      }] as any);
+      } as any);
 
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
       vi.mocked(vscode.window.showInformationMessage).mockResolvedValue(undefined);
 
       const { GeneratePromptCommand } = await import('../generatePrompt.js');
@@ -237,8 +248,102 @@ describe('GeneratePromptCommand', () => {
 
       // Assert - Check clipboard was written
       expect(vscode.env.clipboard.writeText).toHaveBeenCalled();
-      // Check file was written
-      expect(fs.writeFile).toHaveBeenCalled();
+      expect(vscode.window.showInformationMessage).toHaveBeenCalled();
+    });
+
+    it('should open Copilot Chat when user clicks the button', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      const mockPromptMd = `
+## 📋 Execution Checklist
+
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Test | P2 | ⬜ Pending |
+
+### [PROMPT-001] Test
+
+Content
+`;
+
+      const fs = await import('fs/promises');
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+      
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
+        label: '⬜ [PROMPT-001] Test',
+        description: 'P2',
+        detail: '상태: 대기 중',
+        _prompt: {
+          promptId: 'PROMPT-001',
+          title: 'Test',
+          priority: 'P2',
+          status: 'pending',
+          fullContent: '### [PROMPT-001] Test\n\nContent',
+        },
+      } as any);
+
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValue('Copilot Chat 열기' as any);
+
+      const { GeneratePromptCommand } = await import('../generatePrompt.js');
+      const command = new GeneratePromptCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith('workbench.panel.chat.view.copilot.focus');
+    });
+
+    it('should open Prompt.md file when user clicks the button', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      const mockPromptMd = `
+## 📋 Execution Checklist
+
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Test | P2 | ⬜ Pending |
+
+### [PROMPT-001] Test
+
+Content
+`;
+
+      const fs = await import('fs/promises');
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+      
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
+        label: '⬜ [PROMPT-001] Test',
+        description: 'P2',
+        detail: '상태: 대기 중',
+        _prompt: {
+          promptId: 'PROMPT-001',
+          title: 'Test',
+          priority: 'P2',
+          status: 'pending',
+          fullContent: '### [PROMPT-001] Test\n\nContent',
+        },
+      } as any);
+
+      const mockDocument = { uri: { fsPath: '/test/workspace/devplan/Prompt.md' } };
+      vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(mockDocument as any);
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValue('프롬프트 파일 열기' as any);
+
+      const { GeneratePromptCommand } = await import('../generatePrompt.js');
+      const command = new GeneratePromptCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalled();
     });
   });
 });
