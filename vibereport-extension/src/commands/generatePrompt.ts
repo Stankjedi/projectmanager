@@ -28,6 +28,7 @@ interface OptimizationItem {
   title: string;
   category: string;
   targetFiles: string;
+  status: 'pending' | 'in-progress' | 'done';
   fullContent: string;
 }
 
@@ -49,7 +50,7 @@ export class GeneratePromptCommand {
   }
 
   /**
-   * 메인 실행: Prompt.md에서 프롬프트를 선택하거나, 개선 보고서의 OPT 항목을 선택하여 클립보드에 복사
+   * 메인 실행: Prompt.md에서 프롬프트와 OPT 항목을 선택하여 클립보드에 복사
    */
   async execute(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -61,25 +62,20 @@ export class GeneratePromptCommand {
     const rootPath = workspaceFolders[0].uri.fsPath;
     const config = loadConfig();
     const promptPath = path.join(rootPath, config.reportDirectory, 'Prompt.md');
-    const improvementPath = path.join(rootPath, config.reportDirectory, 'Project_Improvement_Exploration_Report.md');
 
-    // Prompt.md에서 프롬프트 파싱
+    // Prompt.md에서 프롬프트와 OPT 항목 파싱
     let existingPrompts: ExistingPrompt[] = [];
+    let optItems: OptimizationItem[] = [];
+    
     try {
       const promptContent = await fs.readFile(promptPath, 'utf-8');
       existingPrompts = this.parseExistingPrompts(promptContent);
+      optItems = this.parseOptimizationItemsFromPromptMd(promptContent);
     } catch {
-      // Prompt.md가 없어도 OPT 항목은 선택 가능
-      this.log('Prompt.md를 찾을 수 없습니다. OPT 항목만 표시합니다.');
-    }
-
-    // 개선 보고서에서 OPT 항목 파싱
-    let optItems: OptimizationItem[] = [];
-    try {
-      const improvementContent = await fs.readFile(improvementPath, 'utf-8');
-      optItems = this.parseOptimizationItems(improvementContent);
-    } catch {
-      this.log('개선 보고서를 찾을 수 없습니다.');
+      vscode.window.showErrorMessage(
+        'Prompt.md 파일을 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
+      );
+      return;
     }
     
     if (existingPrompts.length === 0 && optItems.length === 0) {
@@ -120,8 +116,14 @@ export class GeneratePromptCommand {
       });
     }
 
-    // OPT 항목 추가 (구분선 역할의 separator 추가)
-    if (optItems.length > 0 && prompts.length > 0) {
+    // OPT 항목 추가 (완료되지 않은 것 우선)
+    const sortedOptItems = [...optItems].sort((a, b) => {
+      if (a.status === 'done' && b.status !== 'done') return 1;
+      if (a.status !== 'done' && b.status === 'done') return -1;
+      return 0;
+    });
+
+    if (sortedOptItems.length > 0 && prompts.length > 0) {
       quickPickItems.push({
         label: '─────────────────────────────────',
         description: '코드 품질 및 성능 최적화 제안',
@@ -131,11 +133,11 @@ export class GeneratePromptCommand {
       });
     }
 
-    for (const opt of optItems) {
+    for (const opt of sortedOptItems) {
       quickPickItems.push({
-        label: `🔧 [${opt.optId}] ${opt.title}`,
+        label: `${this.getStatusIcon(opt.status)} [${opt.optId}] ${opt.title}`,
         description: opt.category,
-        detail: `📁 대상: ${opt.targetFiles}`,
+        detail: `📁 대상: ${opt.targetFiles} | 상태: ${this.getStatusText(opt.status)}`,
         _item: { type: 'opt', item: opt },
       });
     }
@@ -196,8 +198,15 @@ export class GeneratePromptCommand {
 
   /**
    * OPT 항목을 프롬프트 형식으로 포맷팅
+   * Prompt.md에서 가져온 경우 이미 영어로 작성되어 있으므로 fullContent를 그대로 사용
    */
   private formatOptAsPrompt(opt: OptimizationItem): string {
+    // fullContent가 이미 Prompt.md 형식인 경우 그대로 반환
+    if (opt.fullContent.startsWith('### [OPT-')) {
+      return opt.fullContent;
+    }
+    
+    // 레거시: 개선 보고서에서 가져온 경우 포맷팅
     return `## 🔧 ${opt.title}
 
 > **🚨 REQUIRED: Use file editing tools to make changes. Do NOT just show code.**
@@ -291,7 +300,76 @@ ${opt.fullContent}
   }
 
   /**
-   * 개선 보고서에서 OPT 항목 파싱
+   * Prompt.md에서 OPT 항목 파싱 (영어)
+   */
+  private parseOptimizationItemsFromPromptMd(content: string): OptimizationItem[] {
+    const items: OptimizationItem[] = [];
+    
+    // 체크리스트에서 OPT 상태 정보 추출
+    const statusMap = new Map<string, 'pending' | 'in-progress' | 'done'>();
+    const checklistMatch = content.match(/## 📋 Execution Checklist[\s\S]*?(?=\n---|\n\n##|\n\*\*Total)/);
+    
+    if (checklistMatch) {
+      const checklistContent = checklistMatch[0];
+      // 테이블 행에서 OPT-X와 상태 아이콘 추출
+      const rowPattern = /\|\s*\d+\s*\|\s*(OPT-\d+)\s*\|[\s\S]*?(⬜|🟡|✅)[^\n|]*\|/g;
+      let rowMatch;
+      while ((rowMatch = rowPattern.exec(checklistContent)) !== null) {
+        const optId = rowMatch[1];
+        const statusIcon = rowMatch[2];
+        let status: 'pending' | 'in-progress' | 'done' = 'pending';
+        if (statusIcon === '🟡') status = 'in-progress';
+        else if (statusIcon === '✅') status = 'done';
+        statusMap.set(optId, status);
+      }
+    }
+    
+    // OPT 섹션 파싱: ## 🔧 Optimization Items (OPT) 이후의 ### [OPT-X] 항목들
+    const optSectionMatch = content.match(/## 🔧 Optimization Items[\s\S]*$/i);
+    if (!optSectionMatch) {
+      return items;
+    }
+    
+    const optContent = optSectionMatch[0];
+    
+    // OPT 항목 패턴: ### [OPT-1] Title 또는 ### [OPT-2] Title
+    const optPattern = /###\s*\[(OPT-\d+)\]\s*([^\n]+)\n([\s\S]*?)(?=\n###\s*\[OPT-|\n##\s+[^#]|\n\*\*🎉|$)/gi;
+    
+    let match;
+    while ((match = optPattern.exec(optContent)) !== null) {
+      const optId = match[1];
+      const title = match[2].trim();
+      const sectionContent = match[3].trim();
+      
+      // 카테고리 추출 (영어)
+      const categoryMatch = sectionContent.match(/\|\s*\*\*Category\*\*\s*\|\s*([^|]+)\|/i);
+      const category = categoryMatch ? categoryMatch[1].trim() : 'Optimization';
+      
+      // 대상 파일 추출 (영어)
+      const targetFilesMatch = sectionContent.match(/\|\s*\*\*Target Files?\*\*\s*\|\s*([^|]+)\|/i);
+      const targetFiles = targetFilesMatch ? targetFilesMatch[1].trim() : '';
+      
+      // 상태 확인
+      const status = statusMap.get(optId) || 'pending';
+      
+      // 전체 내용
+      const fullContent = `### [${optId}] ${title}\n\n${sectionContent}`;
+      
+      items.push({
+        optId,
+        title,
+        category,
+        targetFiles,
+        status,
+        fullContent,
+      });
+    }
+    
+    return items;
+  }
+
+  /**
+   * 개선 보고서에서 OPT 항목 파싱 (한글) - 레거시, 더 이상 사용하지 않음
    */
   private parseOptimizationItems(content: string): OptimizationItem[] {
     const items: OptimizationItem[] = [];
@@ -329,6 +407,7 @@ ${opt.fullContent}
         title,
         category,
         targetFiles,
+        status: 'pending',
         fullContent,
       });
     }

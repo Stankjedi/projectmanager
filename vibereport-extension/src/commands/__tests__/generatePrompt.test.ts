@@ -114,9 +114,9 @@ describe('GeneratePromptCommand', () => {
       // Act
       await command.execute();
 
-      // Assert
+      // Assert - Now requires Prompt.md file
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        '선택 가능한 프롬프트나 OPT 항목이 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
+        'Prompt.md 파일을 찾을 수 없습니다. 먼저 "보고서 업데이트"를 실행해주세요.'
       );
     });
 
