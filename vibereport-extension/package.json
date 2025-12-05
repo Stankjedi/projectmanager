@@ -2,8 +2,8 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.3.11",
-  "publisher": "vibe-coding",
+  "version": "0.3.14",
+  "publisher": "stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -12,8 +12,8 @@
   },
   "badges": [
     {
-      "url": "https://img.shields.io/visual-studio-marketplace/v/vibe-coding.vibereport",
-      "href": "https://marketplace.visualstudio.com/items?itemName=vibe-coding.vibereport",
+      "url": "https://img.shields.io/visual-studio-marketplace/v/stankjedi.vibereport",
+      "href": "https://marketplace.visualstudio.com/items?itemName=stankjedi.vibereport",
       "description": "Version"
     }
   ],
@@ -289,4 +289,3 @@
     "simple-git": "^3.27.0"
   }
 }
-

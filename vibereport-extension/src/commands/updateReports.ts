@@ -111,7 +111,37 @@ export class UpdateReportsCommand {
       return;
     }
 
-    const { snapshot, state, diff } = scanResult;
+    let { snapshot, state, diff } = scanResult;
+
+    // Step 1.5: 기존 Prompt.md에서 완료된 프롬프트를 적용 완료 항목으로 인식
+    try {
+      const inferredApplied = await this._inferAppliedImprovementsFromPrompt(rootPath, config);
+      if (inferredApplied.length > 0) {
+        const previousCount = state.appliedImprovements.length;
+        const mergedApplied = this._mergeAppliedImprovements(
+          state.appliedImprovements,
+          inferredApplied
+        );
+
+        if (mergedApplied.length !== previousCount) {
+          state = {
+            ...state,
+            appliedImprovements: mergedApplied,
+          };
+
+          const newlyAdded = mergedApplied.length - previousCount;
+          if (newlyAdded > 0) {
+            this.log(`Prompt.md에서 완료된 프롬프트 ${newlyAdded}개를 적용 완료 항목으로 인식했습니다.`);
+          }
+        }
+      }
+    } catch (error) {
+      this.log(
+        `Prompt.md 기반 적용 완료 항목 추출 실패 (계속 진행): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
 
     // Step 2: 보고서 템플릿 준비
     try {
@@ -119,6 +149,14 @@ export class UpdateReportsCommand {
     } catch (error) {
       this._handleError(error, '보고서 템플릿 준비');
       return;
+    }
+
+    // Step 2.5: 적용 완료된 항목 자동 제거
+    try {
+      await this._cleanupAppliedItems(rootPath, config, state, reportProgress);
+    } catch (error) {
+      // 클린업 실패는 치명적이지 않으므로 로그만 남기고 계속 진행
+      this.log(`적용 완료 항목 클린업 실패 (계속 진행): ${error}`);
     }
 
     // Step 3: 프롬프트 생성 및 클립보드 복사
@@ -241,6 +279,35 @@ export class UpdateReportsCommand {
   }
 
   /**
+   * Step 2.5: 적용 완료된 개선 항목 자동 제거
+   * 
+   * @description 개선 보고서와 Prompt.md에서 이미 적용된 항목을 제거
+   */
+  private async _cleanupAppliedItems(
+    rootPath: string,
+    config: VibeReportConfig,
+    state: VibeReportState,
+    reportProgress: (message: string, increment?: number) => void
+  ): Promise<void> {
+    const applied = state.appliedImprovements ?? [];
+    if (applied.length === 0) {
+      return;
+    }
+
+    reportProgress('적용 완료 항목 정리 중...', 65);
+
+    const result = await this.reportService.cleanupAppliedItems(
+      rootPath,
+      config,
+      applied
+    );
+
+    if (result.improvementRemoved > 0 || result.promptRemoved > 0) {
+      this.log(`적용 완료 항목 제거: 개선보고서 ${result.improvementRemoved}개, Prompt.md ${result.promptRemoved}개`);
+    }
+  }
+
+  /**
    * Step 3: 프롬프트 생성 및 클립보드 복사
    */
   private async _generateAndCopyPrompt(
@@ -345,6 +412,113 @@ export class UpdateReportsCommand {
   }
 
   /**
+   * 기존 Prompt.md에서 완료된 프롬프트를 적용 완료 항목으로 추출
+   *
+   * @description Execution Checklist에서 완료(✅, 완료, Done 등) 상태인 항목을 찾아
+   *              AppliedImprovement 목록으로 반환합니다.
+   */
+  private async _inferAppliedImprovementsFromPrompt(
+    rootPath: string,
+    config: VibeReportConfig
+  ): Promise<import('../models/types.js').AppliedImprovement[]> {
+    const paths = this.reportService.getReportPaths(rootPath, config);
+
+    let content: string;
+    try {
+      const fs = await import('fs/promises');
+      content = await fs.readFile(paths.prompt, 'utf-8');
+    } catch {
+      return [];
+    }
+
+    const checklistMatch = content.match(
+      /## 📋 Execution Checklist[\s\S]*?(?=\n---|\n\n##|\n\*\*Total|$)/
+    );
+    if (!checklistMatch) {
+      return [];
+    }
+
+    const checklist = checklistMatch[0];
+    const applied: import('../models/types.js').AppliedImprovement[] = [];
+    const seenIds = new Set<string>();
+
+    // | # | Prompt ID | Title | Priority | Status |
+    const rowPattern =
+      /\|\s*\d+\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\|/g;
+
+    let match: RegExpExecArray | null;
+    while ((match = rowPattern.exec(checklist)) !== null) {
+      const promptId = match[1].trim();
+      const title = match[2].trim();
+      const statusCell = match[4].trim();
+
+      const normalized = statusCell.replace(/\s+/g, '').toLowerCase();
+      const hasDoneIcon = /✅|☑|✔/.test(statusCell);
+      const isPartial =
+        normalized.includes('부분완료') ||
+        normalized.includes('부분완') ||
+        normalized.includes('partial');
+      const isKoreanDone =
+        normalized.includes('완료') && !normalized.includes('미완료') && !isPartial;
+      const isEnglishDone =
+        (normalized.includes('done') ||
+          normalized.includes('complete') ||
+          normalized.includes('completed')) &&
+        !normalized.includes('notdone') &&
+        !normalized.includes('incomplete') &&
+        !isPartial;
+
+      const isDone = !isPartial && (hasDoneIcon || isKoreanDone || isEnglishDone);
+      if (!isDone) {
+        continue;
+      }
+
+      const idFromTitle = title.match(/`([^`]+)`/);
+      const improvementId = (idFromTitle ? idFromTitle[1].trim() : promptId) || promptId;
+
+      if (seenIds.has(improvementId)) {
+        continue;
+      }
+      seenIds.add(improvementId);
+
+      applied.push({
+        id: improvementId,
+        title,
+        appliedAt: new Date().toISOString(),
+        sessionId: SnapshotService.generateSessionId(),
+      });
+    }
+
+    return applied;
+  }
+
+  /**
+   * 기존 적용 완료 목록과 Prompt.md에서 추론된 항목을 병합
+   */
+  private _mergeAppliedImprovements(
+    existing: import('../models/types.js').AppliedImprovement[],
+    inferred: import('../models/types.js').AppliedImprovement[]
+  ): import('../models/types.js').AppliedImprovement[] {
+    if (!inferred.length) {
+      return existing;
+    }
+
+    const merged = [...existing];
+    const existingIds = new Set(existing.map((i) => i.id));
+    const existingTitles = new Set(existing.map((i) => i.title.toLowerCase()));
+
+    for (const item of inferred) {
+      const titleKey = item.title.toLowerCase();
+      if (existingIds.has(item.id) || existingTitles.has(titleKey)) {
+        continue;
+      }
+      merged.push(item);
+    }
+
+    return merged;
+  }
+
+  /**
    * Step 5: 완료 알림 표시
    */
   private async _showCompletionNotification(
@@ -427,17 +601,22 @@ export class UpdateReportsCommand {
     lines.push('');
     lines.push('### 📋 TODO 체크리스트 (순서대로 실행 필수)');
     lines.push('');
+    lines.push('> **📝 작성 언어 규칙:**');
+    lines.push('> - **평가 보고서 (TODO 1-4)**: 🇰🇷 **한국어**로 작성');
+    lines.push('> - **개선 보고서 (TODO 5-7)**: 🇰🇷 **한국어**로 작성');
+    lines.push('> - **Prompt.md (TODO 8-10)**: 🇺🇸 **영어**로 작성 (필수!)');
+    lines.push('');
     lines.push('```');
-    lines.push('[ ] TODO-1: 평가 보고서 파트1 - 프로젝트 개요 섹션 수정');
-    lines.push('[ ] TODO-2: 평가 보고서 파트2 - 종합 점수 테이블 수정');
-    lines.push('[ ] TODO-3: 평가 보고서 파트3 - 기능별 상세 평가 수정');
-    lines.push('[ ] TODO-4: 평가 보고서 파트4 - 현재 상태 요약 수정');
-    lines.push('[ ] TODO-5: 개선 보고서 파트1 - 개선 현황 요약 수정');
-    lines.push('[ ] TODO-6: 개선 보고서 파트2 - P1/P2 개선 항목 수정');
-    lines.push('[ ] TODO-7: 개선 보고서 파트3 - P3/OPT 항목 수정');
-    lines.push('[ ] TODO-8: Prompt.md 파트1 - 헤더 및 체크리스트 수정');
-    lines.push('[ ] TODO-9: Prompt.md 파트2 - P2 프롬프트들 수정');
-    lines.push('[ ] TODO-10: Prompt.md 파트3 - P3/OPT 프롬프트들 수정');
+    lines.push('[ ] TODO-1: 평가 보고서 파트1 - 프로젝트 개요 섹션 수정 [한국어]');
+    lines.push('[ ] TODO-2: 평가 보고서 파트2 - 종합 점수 테이블 수정 [한국어]');
+    lines.push('[ ] TODO-3: 평가 보고서 파트3 - 기능별 상세 평가 수정 [한국어]');
+    lines.push('[ ] TODO-4: 평가 보고서 파트4 - 현재 상태 요약 수정 [한국어]');
+    lines.push('[ ] TODO-5: 개선 보고서 파트1 - 개선 현황 요약 수정 [한국어]');
+    lines.push('[ ] TODO-6: 개선 보고서 파트2 - P1/P2 개선 항목 수정 [한국어]');
+    lines.push('[ ] TODO-7: 개선 보고서 파트3 - P3/OPT 항목 수정 [한국어]');
+    lines.push('[ ] TODO-8: Prompt.md 파트1 - 헤더 및 체크리스트 수정 [영어 ONLY]');
+    lines.push('[ ] TODO-9: Prompt.md 파트2 - P2 프롬프트들 수정 [영어 ONLY]');
+    lines.push('[ ] TODO-10: Prompt.md 파트3 - P3/OPT 프롬프트들 수정 [영어 ONLY]');
     lines.push('```');
     lines.push('');
     lines.push('**🚨 각 TODO 완료 후:**');
@@ -876,8 +1055,10 @@ export class UpdateReportsCommand {
     lines.push('#### 4. 🚀 코드 품질 및 성능 최적화 섹션 (필수)');
     lines.push('`<!-- AUTO-OPTIMIZATION-START -->` 와 `<!-- AUTO-OPTIMIZATION-END -->` 마커 사이에:');
     lines.push('');
-    lines.push('> **⚠️ 중요**: 기존 기능을 해치지 않으면서 코드 품질과 성능을 향상시킬 수 있는 개선점을 반드시 분석하세요.');
-    lines.push('> 이 섹션은 프로젝트의 최대 잠재력을 끌어내기 위한 최적화 제안입니다.');
+    lines.push('> **🚨 중요**: 이 섹션은 **반드시 작성**해야 합니다!');
+    lines.push('> - OPT 항목은 Prompt.md에 포함되어 AI 에이전트가 실행할 수 있어야 합니다');
+    lines.push('> - 최소 1개 이상의 OPT 항목을 제안하세요');
+    lines.push('> - 기존 기능을 해치지 않으면서 코드 품질과 성능을 향상시킬 수 있는 개선점을 분석하세요');
     lines.push('');
     lines.push('**분석 및 제안 항목:**');
     lines.push('');
@@ -924,14 +1105,24 @@ export class UpdateReportsCommand {
     lines.push('');
     lines.push(`**File Path**: \`${promptPath}\``);
     lines.push('');
+    lines.push('### 🚨🚨🚨 MANDATORY: ALL CONTENT IN ENGLISH');
+    lines.push('');
+    lines.push('> **⛔ CRITICAL LANGUAGE RULE:**');
+    lines.push('> - **EVERY SINGLE WORD in Prompt.md MUST be in English**');
+    lines.push('> - **DO NOT write ANY Korean text (한글) in this file**');
+    lines.push('> - This includes: titles, descriptions, code comments, table content, everything');
+    lines.push('> - Translate all content from the Korean Improvement Report to English');
+    lines.push('> - If you write Korean, the prompt file is INVALID');
+    lines.push('');
     lines.push('### ⚠️ CRITICAL: Based on Improvement Report');
     lines.push('');
     lines.push('**Prompt.md MUST be generated from the Improvement Report\'s pending items:**');
     lines.push('- Read `Project_Improvement_Exploration_Report.md` first');
     lines.push('- Extract ONLY the pending (not applied) items from P1/P2/P3 sections');
-    lines.push('- **ALSO extract OPT items from the `AUTO-OPTIMIZATION-START/END` section**');
+    lines.push('- **MANDATORY: Extract ALL OPT items from `<!-- AUTO-OPTIMIZATION-START/END -->` section**');
+    lines.push('- **OPT items MUST be included in Prompt.md - do NOT skip them**');
     lines.push('- Create prompts for EACH pending item with complete implementation code');
-    lines.push('- **Translate OPT items to English when writing to Prompt.md**');
+    lines.push('- **Translate ALL Korean content to English when writing to Prompt.md**');
     lines.push('- DO NOT include prompts for already completed items');
     lines.push('');
     lines.push('### ⚠️ CRITICAL: Sequential Execution Structure');
@@ -1065,12 +1256,14 @@ export class UpdateReportsCommand {
     lines.push('');
     lines.push('---');
     lines.push('');
-    lines.push('## 🔧 Optimization Items (OPT)');
+    lines.push('## 🔧 Optimization Items (OPT) - MANDATORY SECTION');
     lines.push('');
-    lines.push('> Code quality and performance optimization suggestions from the Improvement Report.');
-    lines.push('> These are optional but recommended for maintaining code health.');
+    lines.push('> **🚨 This section is REQUIRED - extract from AUTO-OPTIMIZATION section in Improvement Report**');
+    lines.push('> Translate Korean content to English. Include implementation code for each OPT item.');
     lines.push('');
     lines.push('### [OPT-1] Code Optimization Title');
+    lines.push('');
+    lines.push('**⏱️ Execute this OPT prompt now**');
     lines.push('');
     lines.push('| Field | Value |');
     lines.push('|:---|:---|');
@@ -1078,17 +1271,24 @@ export class UpdateReportsCommand {
     lines.push('| **Category** | 🚀 Code Optimization |');
     lines.push('| **Target Files** | `src/path/to/file.ts` |');
     lines.push('');
-    lines.push('**Current State:** [Description of current situation]');
+    lines.push('**Current State:** [Description of current situation - translate from Korean report]');
     lines.push('');
-    lines.push('**Optimization:** [What should be done]');
+    lines.push('**Optimization:** [What should be done - translate from Korean report]');
     lines.push('');
     lines.push('**Expected Effect:** [Benefits of this optimization]');
+    lines.push('');
+    lines.push('#### Implementation Code:');
+    lines.push('');
+    lines.push('```typescript');
+    lines.push('// Write actual implementation code here');
+    lines.push('// Based on the optimization described above');
+    lines.push('```');
     lines.push('');
     lines.push('---');
     lines.push('');
     lines.push('### [OPT-2] Performance Tuning Title');
     lines.push('');
-    lines.push('[Same structure as OPT-1...]');
+    lines.push('[Same structure as OPT-1 with actual implementation code...]');
     lines.push('');
     lines.push('**🎉 ALL PROMPTS COMPLETED! Run final verification.**');
     lines.push('````');
@@ -1168,12 +1368,15 @@ export class UpdateReportsCommand {
     lines.push('- [ ] 개선 현황 요약 (항목별 분포 테이블 포함)');
     lines.push('- [ ] 기능 개선 항목 (P1/P2)');
     lines.push('- [ ] 기능 추가 항목 (P3)');
+    lines.push('- [ ] **OPT 항목 필수 포함** (AUTO-OPTIMIZATION 섹션)');
     lines.push('- [ ] 미적용 항목만 표시 (적용 완료 항목 제외)');
     lines.push('');
-    lines.push('**프롬프트 파일:**');
+    lines.push('**프롬프트 파일 (영어로 작성!):**');
+    lines.push('- [ ] **모든 내용이 영어로 작성됨 (한글 없음)**');
     lines.push('- [ ] Execution Checklist 테이블');
     lines.push('- [ ] 각 프롬프트에 순차 실행 헤더/푸터');
     lines.push('- [ ] 완전한 구현 코드 (축약 없음)');
+    lines.push('- [ ] **OPT 항목이 Prompt.md에 포함됨**');
     lines.push('- [ ] 마지막에 "ALL PROMPTS COMPLETED"');
     lines.push('');
     lines.push('### 🚨 파트별 순차 작성 확인');

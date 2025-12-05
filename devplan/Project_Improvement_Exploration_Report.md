@@ -13,10 +13,11 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (vibereport) |
-| **버전** | 0.3.8 |
+| **버전** | 0.3.12 |
 | **최초 분석일** | 2025-11-30 00:48 |
-| **최근 분석일** | 2025-12-04 18:30 |
-| **테스트** | 86개 통과 (Vitest) |
+| **최근 분석일** | 2025-12-05 |
+| **테스트** | 102개 통과 (Vitest) |
+| **발행자** | stankjedi |
 <!-- AUTO-OVERVIEW-END -->
 
 ---
@@ -24,40 +25,40 @@
 <!-- AUTO-SUMMARY-START -->
 ## 📊 개선 현황 요약
 
-### 현황 개요
+### 1. 현황 개요 (미적용 항목만 집계)
 
-| 우선순위 | 개수 | 설명 |
+| 우선순위 | 미적용 개수 | 설명 |
 |:---|:---:|:---|
-| 🔴 긴급 (P1) | 0 | 없음 |
-| 🟡 중요 (P2) | 1 | 명령 레이어 단위 테스트 확장 |
+| 🔴 긴급 (P1) | 0 | 현재 추적 중인 P1 항목 없음 |
+| 🟡 중요 (P2) | 0 | 현재 추적 중인 P2 기능 개선 항목 없음 |
 | 🟢 개선 (P3) | 2 | AI 직접 연동, 멀티 워크스페이스 지원 |
-| **총 미적용** | **3** | - |
+| ⚙️ OPT (코드 최적화) | 2 | 마크다운 파서/마커 분리 보완, 스냅샷 성능 튜닝 |
+| **총 미적용** | **4** | 기능 추가 2개, OPT 2개 |
 
-### 항목별 분포 테이블
+### 2. 항목별 분포 테이블 (미적용·부분 적용 항목만)
 
 | # | 항목명 | 우선순위 | 카테고리 |
 |:---:|:---|:---:|:---|
-| 1 | 명령 레이어 단위 테스트 확장 | P2 | 🧪 테스트 |
-| 2 | AI 직접 연동 (Language Model API) | P3 | ✨ 기능 추가 |
-| 3 | 멀티 워크스페이스 지원 | P3 | ✨ 기능 추가 |
+| 1 | AI 직접 연동 (Language Model API) | P3 | ✨ 기능 추가 |
+| 2 | 멀티 워크스페이스 지원 | P3 | ✨ 기능 추가 |
+| 3 | 마크다운 파서/마커 구조 정리 (`opt-markdown-parse-001` 잔여 작업) | OPT | 🚀 코드 품질 |
+| 4 | 스냅샷/디프 성능 튜닝 (`opt-snapshot-diff-001`) | OPT | ⚙️ 성능 튜닝 |
 
-### 카테고리별 분포
+### 3. 카테고리별 분포
 
-| 카테고리 | 개수 | 항목 |
+| 카테고리 | 미적용 개수 | 항목 |
 |:---|:---:|:---|
-| 🧪 테스트 | 1 | 명령 레이어 단위 테스트 확장 |
 | ✨ 기능 추가 | 2 | AI 직접 연동, 멀티 워크스페이스 |
+| 🚀 코드 품질 / ⚙️ 성능 | 2 | opt-markdown-parse-001(부분 적용), opt-snapshot-diff-001 |
 
-> 참고: 코드 품질 및 성능 최적화(OPT) 항목은 별도 섹션에서 관리되며, 현재 `opt-markdown-parse-001`, `opt-snapshot-diff-001` 2개가 **미적용 상태**로 남아 있습니다.
+### 4. 우선순위별 한줄 요약
 
-### 우선순위별 요약
+- 🔴 **P1:** 현재까지 긴급하게 처리해야 할 버그·장애 등은 식별되지 않았습니다.  
+- 🟡 **P2:** 명령 레이어 테스트·안정성 관련 주요 개선은 최근 버전에서 반영되어, 신규 P2 기능 개선 항목은 없습니다.  
+- 🟢 **P3:** AI 직접 연동(`feat-ai-integration-001`)과 멀티 워크스페이스 지원(`feat-multi-workspace-001`)이 남은 핵심 기능 과제입니다.  
+- ⚙️ **OPT:** 마커/마크다운 파이프라인 정리(`opt-markdown-parse-001` 잔여 작업)와 스냅샷 성능 튜닝(`opt-snapshot-diff-001`)을 통해 품질·성능을 함께 끌어올릴 수 있습니다.
 
-**🟡 P2 - 다음 릴리즈 전 권장:**
-1. **명령 레이어 테스트 확장 (`test-commands-001`)**: UpdateReportsCommand, SetProjectVisionCommand 등 주요 명령 플로우에 대한 테스트 보강. v0.3.8에서 generatePrompt.ts가 개선되었으므로 테스트 패턴을 재사용하기 용이함.
-
-**🟢 P3 - 점진적 개선:**
-1. **AI 직접 연동 (`feat-ai-integration-001`)**: VS Code Language Model API를 사용한 자동화 경로 도입
-2. **멀티 워크스페이스 지원 (`feat-multi-workspace-001`)**: 다중 루트 워크스페이스 환경 지원 및 UX 개선
+> 참고: 적용 완료된 개선 항목의 **구체적인 목록과 개수**는 `devplan/Session_History.md` 및 VS Code 사이드바 **Session History** 뷰에서 별도로 관리됩니다. 이 보고서에는 **현재 시점 기준 미적용·부분 적용 항목만** 포함됩니다.
 <!-- AUTO-SUMMARY-END -->
 
 ---
@@ -67,50 +68,38 @@
 > 기존 기능의 품질, 보안, 성능을 향상시키는 항목입니다.
 
 <!-- AUTO-IMPROVEMENT-LIST-START -->
+### 🔴 긴급 (P1)
+
+현재 P1 우선순위의 미적용 기능 개선 항목은 없습니다.  
+장애·데이터 손실·치명적 보안 이슈가 확인되는 경우, 아래 템플릿을 사용해 신규 항목을 추가합니다.
+
 ### 🟡 중요 (P2)
 
-#### [P2-1] 명령 레이어 단위 테스트 확장
+현재 추적 중인 P2 기능 개선 항목은 없습니다. 최근 버전에서 명령 레이어 테스트 확장 및 언어 규칙 강화가 완료되어, 남은 과제는 P3·OPT에 집중되어 있습니다.  
+새로운 P2 항목이 발견되면 아래 형식을 사용해 **미적용 항목만** 추가합니다.
 
+#### [P2-x] 예시 템플릿 (향후 항목 추가 시 사용)
 | 항목 | 내용 |
-|:---|:---|
-| **ID** | `test-commands-001` |
-| **카테고리** | 🧪 테스트 |
-| **복잡도** | Medium |
-| **대상 파일** | `src/commands/__tests__/generatePrompt.test.ts`, `(new) src/commands/__tests__/setProjectVision.test.ts`, `(new) src/commands/__tests__/updateReports.test.ts` |
-| **Origin** | `static-analysis` |
-| **Risk Level** | 🟡 Medium |
-| **관련 평가 카테고리** | `testCoverage`, `reliability`, `maintainability` |
+|------|------|
+| **ID** | `고유-id` |
+| **카테고리** | 🧪 테스트 / 🔒 보안 / 🧹 코드 품질 등 |
+| **복잡도** | Low / Medium / High |
+| **대상 파일** | 파일 경로 |
+| **Origin** | test-failure / build-error / static-analysis / manual-idea |
+| **리스크 레벨** | low / medium / high / critical |
+| **관련 평가 카테고리** | testCoverage, codeQuality 등 |
 
-**현재 상태:** `GeneratePromptCommand`에 대한 기본 단위 테스트는 추가되었지만, `UpdateReportsCommand`, `SetProjectVisionCommand` 등 핵심 명령 흐름에 대한 테스트가 부족합니다. 워크스페이스 미존재, 설정 로딩 실패, 스냅샷 로딩 오류, 사용자의 QuickPick/입력 취소 등 다양한 분기 처리가 실제로는 사람이 수동으로만 검증되고 있습니다.
+**현재 상태:** (예시) 명령 레이어 테스트는 충분하지만, 특정 에러 경로에 대한 회귀 테스트가 부족합니다.  
+**문제점 (Problem):** 에러 플로우 리팩토링 시 예외 케이스에서 회귀가 발생할 수 있습니다.  
+**영향 (Impact):** 사용자에게 잘못된 에러 메시지가 노출되거나, 보고서 업데이트가 조용히 실패할 수 있습니다.  
+**원인 (Cause):** 예외 흐름에 대한 테스트 케이스가 부족하고, 경계 조건에 대한 명세가 부족합니다.  
+**개선 내용 (Proposed Solution):** 해당 명령·서비스에 대한 에러 플로우 테스트를 보강하고, 실패 시 사용자 피드백을 통일합니다.  
+**기대 효과:** 회귀 위험 감소, 사용자 경험 향상, 문제 재현·디버깅 시간 단축.
 
-**개선 내용:**
-- VS Code API(`vscode.window`, `vscode.workspace`, `vscode.commands`)와 `fs/promises`를 모킹하여 명령 레이어 단위 테스트를 추가
-- `UpdateReportsCommand.execute()`의 정상 플로우 및 에러 플로우(스캔 실패, 리포트 생성 실패 등) 검증
-- `SetProjectVisionCommand.execute()`에서 각 단계별 사용자 취소 시 조기 종료를 검증하고, 최종적으로 상태 저장 및 설정 업데이트가 올바르게 호출되는지 확인
-- 기존 `generatePrompt.test.ts` 패턴을 재사용해, 새로운 테스트 파일에서도 일관된 mocking 스타일 유지
-
-<!-- ERROR-EXPLORATION-START -->
-**🔍 Error Exploration Procedure:**
-1. **현상 파악**: 명령 레이어에 테스트가 없어 리팩토링 시 회귀 버그 발생 가능성 높음
-2. **재현 단계**: 
-   - `pnpm test` 실행 시 command 레이어 커버리지 확인
-   - `UpdateReportsCommand`, `SetProjectVisionCommand`에 대한 테스트 파일 부재 확인
-3. **근본 원인**: 초기 개발 시 서비스 레이어에 집중하여 명령 레이어 테스트 미구현
-4. **해결 방안**: `generatePrompt.test.ts` 패턴 재사용하여 테스트 파일 생성
-5. **검증 방법**: `pnpm test` 실행 후 모든 테스트 통과 및 커버리지 증가 확인
-<!-- ERROR-EXPLORATION-END -->
-
-**기대 효과:**
-- 명령 레이어 리팩토링 시 회귀 버그를 조기에 발견
-- UX에 직접적인 영향을 주는 오류(메시지 표시, 취소 플로우 등)를 자동화된 테스트로 검증
-- 테스트 커버리지 약 10~15% 추가 향상 및 품질 지표 개선
-
-**✅ Definition of Done:**
-- [ ] `setProjectVision.test.ts` 생성 및 5개 이상 테스트 케이스 추가
-- [ ] `updateReports.test.ts` 생성 및 5개 이상 테스트 케이스 추가
-- [ ] `pnpm compile` 에러 없이 완료
-- [ ] `pnpm test` 모든 테스트 통과
-- [ ] 테스트 커버리지 85% 이상 유지
+**Definition of Done:**
+- [ ] 에러 플로우 테스트 케이스가 추가되어 있음
+- [ ] 실패 시 사용자 메시지가 일관되게 노출됨
+- [ ] `pnpm test` 전체 통과
 <!-- AUTO-IMPROVEMENT-LIST-END -->
 
 ---
@@ -118,43 +107,57 @@
 ## 🚀 코드 품질 및 성능 최적화 제안
 
 <!-- AUTO-OPTIMIZATION-START -->
-### 🚀 코드 최적화 (OPT-1)
+### 🚀 코드 최적화 (OPT-1) - 마커/마크다운 파이프라인 정리
 | 항목 | 내용 |
 |------|------|
 | **ID** | `opt-markdown-parse-001` |
+| **상태** | ✅ 부분 적용 (markerUtils.ts 분리 완료, 나머지 작업 미적용) |
 | **카테고리** | 🚀 코드 최적화 |
 | **영향 범위** | 품질 |
-| **대상 파일** | `src/utils/markdownUtils.ts` |
-| **관련 평가 카테고리** | `codeQuality`, `maintainability` |
+| **대상 파일** | `src/utils/markdownUtils.ts`, `src/utils/markerUtils.ts` (신규), `src/services/reportService.ts` |
 
-**현재 상태:** `markdownUtils`는 마커 기반 섹션 추출/치환, 개선 항목 파싱, 점수 테이블 생성을 모두 담당하고 있습니다. 기능은 충실하지만, 하나의 유틸리티 모듈에 다양한 책임이 섞여 있어 테스트 관점에서 개별 기능의 경계를 이해하기 어렵고, 향후 파서 로직이 복잡해질수록 유지보수 난이도가 증가할 수 있습니다.
+**현재 상태:**  
+- `markerUtils.ts`가 신규 생성되어 마커 처리 로직(findMarkerRange, replaceBetweenMarkersLines)이 분리되었고, 기본적인 SRP는 확보되었습니다.  
+- 다만, 마크다운 파싱/포맷팅 로직 일부가 여전히 reportService·유틸 곳곳에 흩어져 있어, 마커·테이블 포맷 변경 시 수정 범위가 넓습니다.
 
-**최적화 내용:** 마커 처리(append/prepend/replaceBetweenMarkers)와 개선 항목/점수 테이블 도메인 로직을 내부적으로 분리하고, 순수 함수 중심으로 재구성합니다. 예를 들어 `markerUtils.ts`(마커 처리), `improvementParser.ts`(개선 항목 파싱), `scoreTableFormatter.ts`(점수 테이블 생성)처럼 역할별 서브 모듈로 구조를 나누되, 외부 공개 API는 `markdownUtils`에서 재export하여 기존 호출부는 그대로 유지합니다.
+**최적화 내용:**  
+- 마커/테이블 처리 로직을 `markdownUtils`·`markerUtils` 레이어로 더 분리하여, 보고서 템플릿 변경 시 단일 책임 지점에서 수정 가능하도록 구조를 정리합니다.  
+- 점수 테이블, 리스크 요약, TL;DR, OPT 섹션과 같은 반복 패턴을 전용 헬퍼로 추출해, 코드 중복을 줄입니다.
 
-**예상 효과:**
-- 성능: 로직 자체의 성능 변화는 크지 않지만, 단일 책임 원칙(SRP)을 적용함으로써 특정 기능만 교체/최적화하기 쉬워집니다.
-- 품질: 각 책임이 분리되어 테스트 대상이 명확해지고, 파싱/포매팅 로직에 대한 단위 테스트를 촘촘히 작성하기 쉬워집니다.
-**측정 가능한 지표:** 모듈 분리 전후의 파일 라인 수 감소, 함수당 평균 라인 수 감소, 개선 항목 파서 및 점수 테이블 생성 로직에 대한 테스트 커버리지(라인/브랜치 기준) 향상.
+**예상 효과:**  
+- 품질: 템플릿 변경 시 수정해야 할 코드 위치가 줄어들어, 유지보수성이 향상됩니다.  
+- 테스트: 마커·마크다운 파서에 대한 단위 테스트를 추가하기 쉬워져, 포맷 변경 시 회귀 방지에 도움이 됩니다.
+
+**측정 가능한 지표:**  
+- 보고서 템플릿 관련 코드 라인 수 감소 비율  
+- 마커/마크다운 유틸에 대한 단위 테스트 커버리지(라인/브랜치 기준)
 
 ---
 
-### ⚙️ 성능 튜닝 (OPT-2)
+### ⚙️ 성능 튜닝 (OPT-2) - 스냅샷/디프 성능 및 가시성 개선
 | 항목 | 내용 |
 |------|------|
 | **ID** | `opt-snapshot-diff-001` |
 | **카테고리** | ⚙️ 성능 튜닝 |
 | **영향 범위** | 성능 / 품질 |
-| **대상 파일** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts` |
+| **대상 파일** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts`, `src/services/snapshotCache.ts` |
 | **관련 평가 카테고리** | `performance`, `observability` |
 
-**현재 상태:** WorkspaceScanner와 SnapshotService는 `maxFilesToScan`과 `excludePatterns`를 활용해 기본적인 성능을 확보하고 있지만, 대형 모노레포에서 자주 실행될 경우 동일한 파일 목록/설정 파일을 반복적으로 스캔하게 됩니다. Git diff 요약도 라인 수 기준 메트릭이 부족해 "변경 규모"를 정량적으로 판단하기 어렵습니다.
+**현재 상태:**  
+- `snapshotCache.ts`가 신규 추가되어 TTL 기반 캐싱 인프라는 준비되어 있으나, 실제 WorkspaceScanner/SnapshotService에서 캐시를 활용하는 로직은 아직 제한적입니다.  
+- Git diff 요약에 라인 수(added/removed/total) 메트릭이 포함되어 있지 않아, "변경량이 큰 세션"을 수치로 빠르게 파악하기 어렵습니다.
 
-**최적화 내용:** 마지막 스캔 결과(파일 목록, 주요 설정 파일, Git 상태 요약)를 메모이제이션하거나, 간단한 캐시 구조를 도입해 짧은 시간 내 연속 실행 시 재사용하도록 개선합니다. 동시에 Git diff 요약에 변경 라인 수(added/removed/total)를 포함하고, SnapshotDiff 및 Summary에서 이 정보를 노출해 대규모 변경 여부를 한눈에 파악할 수 있게 합니다.
+**최적화 내용:**  
+- WorkspaceScanner에서 파일 목록·스냅샷 계산에 snapshotCache를 적극 활용하도록 연동합니다.  
+- SnapshotService에서 Git diff 결과에 라인 수 메트릭(added/removed/total)을 포함시키고, Summary·Session History에서 해당 정보를 노출합니다.
 
-**예상 효과:**
-- 성능: 대형 프로젝트에서 연속 실행 시 스캔 시간이 체감적으로 단축되고, 불필요한 파일 시스템 접근이 줄어듭니다.
-- 품질: 변경량을 숫자로 표현함으로써, "큰 변경"이 발생한 세션을 Session History에서 빠르게 식별할 수 있습니다.
-**측정 가능한 지표:** 동일 워크스페이스에서 연속 두 번 실행 시, 두 번째 실행의 스캔 시간 및 파일 시스템 호출 수 감소 비율, Git diff 요약에 포함된 라인 수 메트릭 활용 빈도.
+**예상 효과:**  
+- 성능: 대형 프로젝트에서 연속 실행 시 스캔 시간이 눈에 띄게 단축됩니다.  
+- 품질/가시성: 변경량을 숫자로 표현함으로써, "큰 변경"이 발생한 세션을 Session History에서 빠르게 식별할 수 있습니다.
+
+**측정 가능한 지표:**  
+- 동일 워크스페이스에서 연속 실행 시 두 번째 실행의 스캔 시간 감소 비율  
+- Session History에서 라인 수 메트릭이 노출되는 세션 비율
 <!-- AUTO-OPTIMIZATION-END -->
 
 ---

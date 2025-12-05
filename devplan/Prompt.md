@@ -19,223 +19,24 @@
 
 | # | Prompt ID | Title | Priority | Status |
 |:---:|:---|:---|:---:|:---:|
-| 1 | PROMPT-001 | Expand command layer unit tests (`test-commands-001`) | P2 | ⬜ Pending |
-| 2 | PROMPT-002 | Add AI direct integration service (`feat-ai-integration-001`) | P3 | ⬜ Pending |
-| 3 | PROMPT-003 | Enable multi-workspace report workflow (`feat-multi-workspace-001`) | P3 | ⬜ Pending |
-| 4 | OPT-001 | Refactor markdownUtils for SRP (`opt-markdown-parse-001`) | OPT | ⬜ Pending |
-| 5 | OPT-002 | Add snapshot caching and Git line metrics (`opt-snapshot-diff-001`) | OPT | ⬜ Pending |
+| 1 | PROMPT-001 | Add AI direct integration service (`feat-ai-integration-001`) | P3 | ⬜ Pending |
+| 2 | PROMPT-002 | Enable multi-workspace report workflow (`feat-multi-workspace-001`) | P3 | ⬜ Pending |
+| 3 | OPT-001 | Refine markdown/marker pipeline (`opt-markdown-parse-001`) | OPT | ⬜ Pending |
+| 4 | OPT-002 | Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`) | OPT | ⬜ Pending |
 
-**Total: 5 prompts** | **Completed: 0** | **Remaining: 5**
+**Total: 4 prompts** | **Completed: 0** | **Remaining: 4**
 
 ---
 
-## 🟡 Priority 2 (High) - Execute First
+## 🟢 Priority 3 (Medium) - Feature Additions
 
-### [PROMPT-001] Expand command layer unit tests
+### [PROMPT-001] Add AI direct integration service
 
 **⏱️ Execute this prompt now, then proceed to PROMPT-002**
 
 > **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
 
-**Task**: Add and expand unit tests for the main command classes using VS Code and fs mocks.
-
-**Details:**
-
-| Field | Value |
-|:---|:---|
-| **ID** | `test-commands-001` |
-| **Category** | 🧪 Testing |
-| **Complexity** | Medium |
-| **Target Files** | `(new) src/commands/__tests__/setProjectVision.test.ts`, `(new) src/commands/__tests__/updateReports.test.ts` |
-| **Origin** | `static-analysis` |
-| **Risk Level** | 🟡 Medium |
-
-**📥 Input:**
-- Existing `generatePrompt.test.ts` (updated in v0.3.5) as a reference for mocking patterns
-- `SetProjectVisionCommand` and `UpdateReportsCommand` source files
-- VS Code API types for mocking (`vscode.window`, `vscode.workspace`)
-
-**📤 Output:**
-- `src/commands/__tests__/setProjectVision.test.ts` (new file, 5+ test cases)
-- `src/commands/__tests__/updateReports.test.ts` (new file, 5+ test cases)
-
-**Current State:** There is an existing unit test file for `GeneratePromptCommand` (12 test cases as of v0.3.5), but `UpdateReportsCommand` and `SetProjectVisionCommand` still have no dedicated tests. Many important branches (no workspace, scan errors, user cancellation in multi-step input flows) are only validated manually.
-
-**Improvement:**
-- Reuse the existing mocking approach for `vscode` and `fs/promises` in `generatePrompt.test.ts`.
-- Add comprehensive tests for `SetProjectVisionCommand` covering:
-  - No workspace / empty workspace folders
-  - Happy path where all QuickPick/InputBox prompts are answered
-  - Early return when the user cancels at each step.
-- Add targeted tests for `UpdateReportsCommand` covering:
-  - No workspace / empty folders
-  - Successful execution path where `_executeWithProgress` is invoked
-  - Error handling when workspace scan or report preparation fails.
-
-**Expected Effect:**
-- Higher confidence when refactoring the command layer.
-- Improved overall test coverage focusing on user-facing flows.
-- Test count expected to increase from 86 to ~96+.
-
-#### Implementation Code:
-
-```typescript
-// src/commands/__tests__/setProjectVision.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import * as vscode from "vscode";
-
-// The command under test will be imported lazily after mocks are in place
-
-vi.mock("vscode", () => ({
-  workspace: {
-    workspaceFolders: [{ uri: { fsPath: "/test/workspace" }, name: "test", index: 0 }],
-    getConfiguration: vi.fn(() => ({
-      get: vi.fn(() => "auto"),
-      update: vi.fn(),
-    })),
-  },
-  window: {
-    showErrorMessage: vi.fn(),
-    showInformationMessage: vi.fn(),
-    showQuickPick: vi.fn(),
-    showInputBox: vi.fn(),
-    createOutputChannel: vi.fn(() => ({
-      appendLine: vi.fn(),
-      dispose: vi.fn(),
-    })),
-  },
-}));
-
-describe("SetProjectVisionCommand", () => {
-  let outputChannel: vscode.OutputChannel;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    outputChannel = {
-      appendLine: vi.fn(),
-      dispose: vi.fn(),
-    } as unknown as vscode.OutputChannel;
-  });
-
-  afterEach(() => {
-    vi.resetModules();
-  });
-
-  it("shows an error when no workspace is open", async () => {
-    const mockedWorkspace = vi.mocked(vscode.workspace);
-    mockedWorkspace.workspaceFolders = undefined;
-
-    const { SetProjectVisionCommand } = await import("../setProjectVision.js");
-    const command = new SetProjectVisionCommand(outputChannel);
-
-    await command.execute();
-
-    expect(vscode.window.showErrorMessage).toHaveBeenCalled();
-  });
-
-  it("shows an error when workspaceFolders is an empty array", async () => {
-    const mockedWorkspace = vi.mocked(vscode.workspace);
-    mockedWorkspace.workspaceFolders = [];
-
-    const { SetProjectVisionCommand } = await import("../setProjectVision.js");
-    const command = new SetProjectVisionCommand(outputChannel);
-
-    await command.execute();
-
-    expect(vscode.window.showErrorMessage).toHaveBeenCalled();
-  });
-});
-
-// src/commands/__tests__/updateReports.test.ts
-import { describe as describeUpdate, it as itUpdate, expect as expectUpdate, vi as viUpdate, beforeEach as beforeEachUpdate, afterEach as afterEachUpdate } from "vitest";
-import * as vscodeUpdate from "vscode";
-
-viUpdate.mock("vscode", () => ({
-  workspace: {
-    workspaceFolders: [{ uri: { fsPath: "/test/workspace" }, name: "test", index: 0 }],
-  },
-  window: {
-    showErrorMessage: viUpdate.fn(),
-    withProgress: viUpdate.fn(async (_options, task) => task({ report: viUpdate.fn() })),
-    createOutputChannel: viUpdate.fn(() => ({
-      appendLine: viUpdate.fn(),
-      dispose: viUpdate.fn(),
-    })),
-  },
-  commands: {
-    executeCommand: viUpdate.fn(),
-  },
-  ProgressLocation: {
-    Notification: 15,
-  },
-}));
-
-describeUpdate("UpdateReportsCommand", () => {
-  let outputChannel: vscodeUpdate.OutputChannel;
-
-  beforeEachUpdate(() => {
-    viUpdate.clearAllMocks();
-    outputChannel = {
-      appendLine: viUpdate.fn(),
-      dispose: viUpdate.fn(),
-    } as unknown as vscodeUpdate.OutputChannel;
-  });
-
-  afterEachUpdate(() => {
-    viUpdate.resetModules();
-  });
-
-  itUpdate("shows an error when no workspace is open", async () => {
-    const mockedWorkspace = viUpdate.mocked(vscodeUpdate.workspace);
-    mockedWorkspace.workspaceFolders = undefined;
-
-    const { UpdateReportsCommand } = await import("../updateReports.js");
-    const command = new UpdateReportsCommand(outputChannel);
-
-    await command.execute();
-
-    expectUpdate(vscodeUpdate.window.showErrorMessage).toHaveBeenCalled();
-  });
-
-  itUpdate("shows an error when workspaceFolders is an empty array", async () => {
-    const mockedWorkspace = viUpdate.mocked(vscodeUpdate.workspace);
-    mockedWorkspace.workspaceFolders = [];
-
-    const { UpdateReportsCommand } = await import("../updateReports.js");
-    const command = new UpdateReportsCommand(outputChannel);
-
-    await command.execute();
-
-    expectUpdate(vscodeUpdate.window.showErrorMessage).toHaveBeenCalled();
-  });
-});
-```
-
----
-
-#### Definition of Done:
-
-- [ ] `setProjectVision.test.ts` created with 5+ test cases
-- [ ] `updateReports.test.ts` created with 5+ test cases
-- [ ] All tests pass: `pnpm test`
-- [ ] No compile errors: `pnpm compile`
-- [ ] Test coverage remains at 85%+
-
-#### Verification:
-
-- Run: `cd vibereport-extension && pnpm compile`
-- Run: `cd vibereport-extension && pnpm test`
-- Confirm no compilation errors
-
-**✅ After completing this prompt, proceed to [PROMPT-002]**
-
-### [PROMPT-002] Add AI direct integration service
-	
-**⏱️ Execute this prompt now, then proceed to PROMPT-003**
-
-> **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
-
-**Task**: Introduce an AI integration service and wire it into the report update flow, guarded by a configuration flag.
+**Task**: Introduce an AI integration service using VS Code Language Model API and wire it into the report update flow.
 
 **Details:**
 
@@ -244,55 +45,23 @@ describeUpdate("UpdateReportsCommand", () => {
 | **ID** | `feat-ai-integration-001` |
 | **Category** | ✨ Feature |
 | **Complexity** | High |
-| **Target Files** | `src/commands/updateReports.ts`, `src/utils/configUtils.ts`, `(new) src/services/aiService.ts` |
-| **Origin** | `manual-idea` |
+| **Target Files** | `src/commands/updateReports.ts`, `package.json`, `(new) src/services/aiService.ts` |
 | **Risk Level** | 🟢 Low |
 
-**📥 Input:**
-- VS Code Language Model API documentation
-- Existing `UpdateReportsCommand` implementation
-- `configUtils.ts` for configuration management
+**Current State:** Prompts are generated and copied to clipboard. Users must manually paste to Copilot Chat. No direct AI integration exists.
 
-**📤 Output:**
-- `src/services/aiService.ts` (new file with `AiService` class)
-- Updated `package.json` with `vibereport.enableDirectAi` setting
-- Updated `UpdateReportsCommand` with AI integration logic
-
-**Current State:** Prompts are generated and copied to the clipboard, but there is no direct AI integration via the VS Code Language Model API, and there is no configuration flag to enable or disable such behavior.
-	
 **Improvement:**
-- Add a new configuration option `vibereport.enableDirectAi` (boolean, default `false`) in `package.json` and reflect it in `VibeReportConfig` and `DEFAULT_CONFIG`.
-- Implement `AiService` in `src/services/aiService.ts` that:
-  - Accepts a prompt string and optional metadata.
-  - Uses `vscode.lm` if available, but fails gracefully (with a user-facing message) when not supported.
-  - Returns the AI response as a string so that callers can decide how to apply it.
-- Update `UpdateReportsCommand` so that, after generating the analysis prompt, it:
-  - Checks `enableDirectAi`.
-  - If disabled, keeps the existing clipboard behavior.
-  - If enabled, calls `AiService` and logs or surfaces the response, ready to be applied to reports.
-	
+- Add `vibereport.enableDirectAi` config option (boolean, default `false`) in `package.json`
+- Create `AiService` in `src/services/aiService.ts` using `vscode.lm` API
+- Update `UpdateReportsCommand` to check flag and call AI service or use clipboard fallback
+
 **Expected Effect:**
-- One-click, fully automated analysis and improvement prompt execution.
-- Clear separation between AI integration details and the command workflow.
+- One-click automated analysis when AI API is available
+- Graceful fallback to clipboard when API unavailable
 
 #### Implementation Code:
 
 ```typescript
-// package.json (configuration contribution snippet)
-{
-  "contributes": {
-    "configuration": {
-      "properties": {
-        "vibereport.enableDirectAi": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable direct AI integration using the VS Code Language Model API (experimental)."
-        }
-      }
-    }
-  }
-}
-
 // src/services/aiService.ts
 import * as vscode from "vscode";
 
@@ -307,134 +76,61 @@ export class AiService {
     const lmApi = (vscode as any).lm;
 
     if (!lmApi || typeof lmApi.selectChatModels !== "function") {
-      this.output.appendLine("[AiService] Language Model API is not available. Falling back to clipboard-only workflow.");
+      this.output.appendLine("[AiService] Language Model API is not available.");
       vscode.window.showWarningMessage(
-        "Language Model API is not available. The extension will continue to use the clipboard-only workflow."
+        "Language Model API not available. Using clipboard-only workflow."
       );
       return null;
     }
 
-    const [model] = await lmApi.selectChatModels({
-      where: { family: options.modelId ?? "gpt" },
-    });
+    try {
+      const [model] = await lmApi.selectChatModels({
+        where: { family: options.modelId ?? "gpt" },
+      });
 
-    if (!model) {
-      this.output.appendLine("[AiService] No chat model selected.");
-      vscode.window.showWarningMessage(
-        "No chat model could be selected for direct AI integration."
-      );
+      if (!model) {
+        this.output.appendLine("[AiService] No chat model selected.");
+        return null;
+      }
+
+      const messages = [
+        { role: "user", content: prompt },
+      ];
+
+      const response = await model.sendRequest(messages);
+      const chunks: string[] = [];
+      
+      for await (const chunk of response.text) {
+        chunks.push(chunk);
+      }
+
+      return chunks.join("");
+    } catch (error) {
+      this.output.appendLine(`[AiService] Error: ${error}`);
       return null;
     }
-
-    const response = await model.sendChatMessage([
-      { role: "system", content: "You are an assistant that updates project evaluation and improvement reports." },
-      { role: "user", content: prompt },
-    ]);
-
-    const chunks: string[] = [];
-    for await (const part of response.stream) {
-      chunks.push(part.content);
-    }
-
-    const text = chunks.join("");
-    this.output.appendLine("[AiService] Received response from language model.");
-    return text;
-  }
-}
-
-// src/commands/updateReports.ts (excerpt)
-import * as vscode from "vscode";
-import { AiService } from "../services/aiService.js";
-import { WorkspaceScanner, SnapshotService, ReportService } from "../services/index.js";
-import type { ProjectSnapshot, SnapshotDiff, VibeReportState, VibeReportConfig } from "../models/types.js";
-
-export class UpdateReportsCommand {
-  private workspaceScanner: WorkspaceScanner;
-  private snapshotService: SnapshotService;
-  private reportService: ReportService;
-  private outputChannel: vscode.OutputChannel;
-  private aiService: AiService;
-
-  constructor(outputChannel: vscode.OutputChannel) {
-    this.outputChannel = outputChannel;
-    this.workspaceScanner = new WorkspaceScanner(outputChannel);
-    this.snapshotService = new SnapshotService(outputChannel);
-    this.reportService = new ReportService(outputChannel);
-    this.aiService = new AiService(outputChannel);
-  }
-
-  private async _generateAndCopyPrompt(
-    snapshot: ProjectSnapshot,
-    diff: SnapshotDiff,
-    state: VibeReportState,
-    isFirstRun: boolean,
-    config: VibeReportConfig,
-    reportProgress: (message: string, increment?: number) => void
-  ): Promise<string> {
-    reportProgress("Generating analysis prompt...", 80);
-
-    const projectVision =
-      config.projectVisionMode === "custom" ? state.projectVision : undefined;
-
-    const prompt = this.buildAnalysisPrompt(
-      snapshot,
-      diff,
-      state.appliedImprovements,
-      isFirstRun,
-      config,
-      projectVision
-    );
-
-    const enableDirectAi = vscode.workspace
-      .getConfiguration("vibereport")
-      .get<boolean>("enableDirectAi", false);
-
-    if (enableDirectAi) {
-      await this.aiService.run(prompt);
-    } else {
-      await vscode.env.clipboard.writeText(prompt);
-    }
-
-    return prompt;
   }
 }
 ```
 
----
-
 #### Definition of Done:
-
 - [ ] `src/services/aiService.ts` created
 - [ ] `package.json` includes `vibereport.enableDirectAi` configuration
 - [ ] `UpdateReportsCommand` checks flag and branches accordingly
-- [ ] Graceful fallback to clipboard when AI unavailable
-- [ ] No compile errors: `pnpm compile`
-- [ ] All tests pass: `pnpm test`
+- [ ] `pnpm compile` passes
+- [ ] `pnpm test` passes
 
-#### Verification:
-
-- Run: `cd vibereport-extension && pnpm compile`
-- Run: `cd vibereport-extension && pnpm test`
-- Confirm the extension compiles successfully and the `enableDirectAi` flag toggles AI integration without runtime errors.
-
-**✅ After completing this prompt, proceed to [PROMPT-003]**
+**✅ After completing this prompt, proceed to [PROMPT-002]**
 
 ---
 
-## ✨ Feature Addition Items
+### [PROMPT-002] Enable multi-workspace report workflow
 
-> Items for adding new features to the extension.
-
-<!-- AUTO-FEATURE-LIST-START -->
-### 🟢 Enhancement (P3)
-
-### [PROMPT-003] Enable multi-workspace report workflow
-	
-**⏱️ Execute this prompt now - FINAL PROMPT**
+**⏱️ Execute this prompt now, then proceed to OPT-001**
 
 > **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
 
-**Task**: Use `selectWorkspaceRoot()` to support multi-root workspaces across the main commands and views.
+**Task**: Use `selectWorkspaceRoot()` to support multi-root workspaces across the main commands.
 
 **Details:**
 
@@ -443,121 +139,63 @@ export class UpdateReportsCommand {
 | **ID** | `feat-multi-workspace-001` |
 | **Category** | ⚙️ Workflow |
 | **Complexity** | Medium |
-| **Target Files** | `src/commands/updateReports.ts`, `src/extension.ts`, `src/services/workspaceScanner.ts`, `src/utils/configUtils.ts` |
-| **Origin** | `manual-idea` |
+| **Target Files** | `src/commands/updateReports.ts`, `src/utils/configUtils.ts` |
 | **Risk Level** | 🟢 Low |
 
-**📥 Input:**
-- Existing `selectWorkspaceRoot()` implementation in `configUtils.ts`
-- Current `UpdateReportsCommand` that uses `workspaceFolders[0]`
-- `WorkspaceScanner` and `SnapshotService` interfaces
-
-**📤 Output:**
-- Updated `UpdateReportsCommand` using `selectWorkspaceRoot()`
-- Updated service calls passing selected workspace path
-- Progress UI showing workspace name
-
-**Current State:** `configUtils.selectWorkspaceRoot()` exists but is not yet used consistently. The main commands (including `UpdateReportsCommand`) still use `workspaceFolders[0]`, effectively limiting the extension to a single workspace folder.
+**Current State:** `selectWorkspaceRoot()` exists in configUtils but isn't used. Commands use `workspaceFolders[0]` directly.
 
 **Improvement:**
-- Replace direct `workspaceFolders[0]` usage in `UpdateReportsCommand` and extension command registrations with `selectWorkspaceRoot()`.
-- Make sure that the selected workspace path is passed through to `WorkspaceScanner`, `SnapshotService`, and `ReportService` so that all subsequent operations are scoped correctly.
-- When multiple workspaces are open, show the workspace name in progress and status messages so users always know which workspace is being analyzed.
+- Replace `workspaceFolders[0]` usage with `selectWorkspaceRoot()` call
+- Pass selected workspace path to all services
+- Show workspace name in progress UI
 
 **Expected Effect:**
-- First-class support for multi-root workspaces and monorepos.
-- Reduced confusion when working with multiple projects in a single VS Code window.
+- First-class multi-root workspace support
+- Clear workspace context in all operations
 
 #### Implementation Code:
 
 ```typescript
-// src/commands/updateReports.ts (execute method)
-import * as vscode from "vscode";
-import { selectWorkspaceRoot } from "../utils/configUtils.js";
-import { WorkspaceScanner, SnapshotService, ReportService } from "../services/index.js";
-import { loadConfig } from "../utils/index.js";
-import type { VibeReportConfig } from "../models/types.js";
+// src/commands/updateReports.ts - execute method update
+import { selectWorkspaceRoot, loadConfig } from "../utils/index.js";
 
-export class UpdateReportsCommand {
-  private workspaceScanner: WorkspaceScanner;
-  private snapshotService: SnapshotService;
-  private reportService: ReportService;
-  private outputChannel: vscode.OutputChannel;
-
-  constructor(outputChannel: vscode.OutputChannel) {
-    this.outputChannel = outputChannel;
-    this.workspaceScanner = new WorkspaceScanner(outputChannel);
-    this.snapshotService = new SnapshotService(outputChannel);
-    this.reportService = new ReportService(outputChannel);
-  }
-
-  async execute(): Promise<void> {
-    const rootPath = await selectWorkspaceRoot();
-    if (!rootPath) {
-      // User cancelled or no workspace is open
-      return;
-    }
-
-    const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-    const selectedFolder =
-      workspaceFolders.find((folder) => folder.uri.fsPath === rootPath) ?? workspaceFolders[0];
-    const projectName = selectedFolder?.name ?? "workspace";
-
-    const config: VibeReportConfig = loadConfig();
-    const reportsExist = await this.reportService.reportsExist(rootPath, config);
-    const isFirstRun = !reportsExist;
-
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: `Vibe Report: ${projectName}`,
-        cancellable: false,
-      },
-      async (progress) => {
-        await this._executeWithProgress(rootPath, config, projectName, progress, isFirstRun);
-      }
-    );
-  }
-}
-
-// src/extension.ts (helper for commands that open reports)
-import * as vscode from "vscode";
-import { selectWorkspaceRoot } from "./utils/configUtils.js";
-
-async function getSelectedRootPath(): Promise<string | null> {
+async execute(): Promise<void> {
   const rootPath = await selectWorkspaceRoot();
   if (!rootPath) {
-    return null;
+    return; // User cancelled or no workspace
   }
 
-  return rootPath;
-}
+  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+  const selectedFolder = workspaceFolders.find(
+    (folder) => folder.uri.fsPath === rootPath
+  );
+  const projectName = selectedFolder?.name ?? "workspace";
 
-// Example usage inside a command handler:
-// const rootPath = await getSelectedRootPath();
-// if (!rootPath) return;
-// const config = loadConfig();
-// await reportService.openReport(rootPath, config, "evaluation");
+  const config = loadConfig();
+  const reportsExist = await this.reportService.reportsExist(rootPath, config);
+  const isFirstRun = !reportsExist;
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `Vibe Report: ${projectName}`,
+      cancellable: false,
+    },
+    async (progress) => {
+      await this._executeWithProgress(
+        rootPath, config, projectName, progress, isFirstRun
+      );
+    }
+  );
+}
 ```
 
----
-
 #### Definition of Done:
-
 - [ ] `UpdateReportsCommand` uses `selectWorkspaceRoot()`
 - [ ] Selected workspace path passed to all services
 - [ ] Progress UI shows workspace name
-- [ ] No compile errors: `pnpm compile`
-- [ ] All tests pass: `pnpm test`
-- [ ] Manual test in multi-root workspace successful
-
-#### Verification:
-
-- Run: `cd vibereport-extension && pnpm compile`
-- Run: `cd vibereport-extension && pnpm test`
-- Open a multi-root workspace and verify that:
-  - `VibeCoding: Update Project Reports` prompts for a workspace root selection.
-  - Reports and `Session_History.md` are written under the selected workspace.
+- [ ] `pnpm compile` passes
+- [ ] `pnpm test` passes
 
 **✅ After completing this prompt, proceed to [OPT-001]**
 
@@ -565,10 +203,7 @@ async function getSelectedRootPath(): Promise<string | null> {
 
 ## 🔧 Optimization Items (OPT)
 
-> Code quality and performance optimization suggestions from the Improvement Report.
-> These are optional but recommended for maintaining code health.
-
-### [OPT-001] Refactor markdownUtils for Single Responsibility Principle
+### [OPT-001] Refine markdown/marker pipeline (`opt-markdown-parse-001`)
 
 **⏱️ Execute this prompt now, then proceed to OPT-002**
 
@@ -577,93 +212,56 @@ async function getSelectedRootPath(): Promise<string | null> {
 | **ID** | `opt-markdown-parse-001` |
 | **Category** | 🚀 Code Optimization |
 | **Impact** | Quality |
-| **Target Files** | `src/utils/markdownUtils.ts` |
-| **Status** | ⬜ Pending |
+| **Target Files** | `src/utils/markdownUtils.ts`, `src/utils/markerUtils.ts`, `src/services/reportService.ts` |
 
-**Current State:** `markdownUtils` handles marker-based section extraction/replacement, improvement item parsing, and score table generation all in one module. While functional, having diverse responsibilities in a single utility module makes it harder to understand boundaries for testing and increases maintenance difficulty as parser logic grows more complex.
+**Current State:**  
+- Marker handling has been extracted into `markerUtils.ts`, but some Markdown/table formatting logic is still spread across multiple services.  
+- When the report format changes (for example, score table or TL;DR layout), several files must be edited manually.
 
-**Optimization:** Separate marker processing (append/prepend/replaceBetweenMarkers) and domain logic (improvement parsing, score table formatting) internally. For example, create sub-modules like `markerUtils.ts` (marker handling), `improvementParser.ts` (improvement item parsing), `scoreTableFormatter.ts` (score table generation), while re-exporting from `markdownUtils` to maintain existing call sites.
+**Optimization:**  
+- Consolidate common table/section rendering helpers into `markdownUtils` and reuse them across the report templates.  
+- Ensure all marker-based replacements go through `markerUtils` so that marker semantics are centralized.
 
-**Expected Effect:**
-- Performance: Logic performance won't change significantly, but applying SRP makes it easier to replace/optimize specific features.
-- Quality: Separated responsibilities clarify test targets, making it easier to write granular unit tests for parsing/formatting logic.
-
-**Measurable Metrics:** File line count reduction after module separation, average lines per function reduction, improvement in test coverage (line/branch basis) for improvement parser and score table generation logic.
+**Expected Effect:**  
+- Easier modifications to report templates with fewer places to update.  
+- Clearer separation between data (scores, risks, improvements) and presentation (Markdown layout).
 
 #### Implementation Code:
 
 ```typescript
-// src/utils/markerUtils.ts
-export interface MarkerRange {
-  start: number;
-  end: number;
+// Example: extracting a reusable table renderer in markdownUtils.ts
+export interface ScoreRow {
+  label: string;
+  score: number;
+  grade: string;
+  delta: string;
 }
 
-export function findMarkerRange(
-  lines: string[],
-  startMarker: string,
-  endMarker: string
-): MarkerRange | null {
-  let start = -1;
-  let end = -1;
+export function renderScoreTable(rows: ScoreRow[]): string {
+  const header = [
+    "| 항목 | 점수 (100점 만점) | 등급 | 변화 |",
+    "|------|------------------|------|------|",
+  ];
 
-  for (let i = 0; i < lines.length; i++) {
-    if (start === -1 && lines[i].includes(startMarker)) {
-      start = i;
-    }
-    if (lines[i].includes(endMarker)) {
-      end = i;
-      if (start !== -1) {
-        break;
-      }
-    }
-  }
+  const body = rows.map((row) =>
+    `| ${row.label} | ${row.score} | ${row.grade} | ${row.delta} |`
+  );
 
-  if (start === -1 || end === -1 || end <= start) {
-    return null;
-  }
-
-  return { start, end };
-}
-
-export function replaceBetweenMarkers(
-  content: string,
-  startMarker: string,
-  endMarker: string,
-  newBlock: string
-): string {
-  const lines = content.split("\n");
-  const range = findMarkerRange(lines, startMarker, endMarker);
-  if (!range) {
-    return content;
-  }
-
-  const before = lines.slice(0, range.start + 1);
-  const after = lines.slice(range.end);
-  const middle = newBlock.replace(/\r?\n$/, "").split("\n");
-
-  return [...before, ...middle, ...after].join("\n");
-}
-
-// src/utils/markdownUtils.ts (excerpt)
-import { replaceBetweenMarkers } from "./markerUtils.js";
-
-export function updateSectionByMarker(
-  markdown: string,
-  markerId: string,
-  newBlock: string
-): string {
-  const startMarker = `<!-- ${markerId}-START -->`;
-  const endMarker = `<!-- ${markerId}-END -->`;
-  return replaceBetweenMarkers(markdown, startMarker, endMarker, newBlock);
+  return [...header, ...body].join("\n");
 }
 ```
+
+#### Definition of Done:
+- [ ] Common Markdown/table helpers are centralized in `markdownUtils.ts`
+- [ ] Marker-based replacements consistently use `markerUtils.ts`
+- [ ] `pnpm compile` passes
+- [ ] `pnpm test` passes
 
 **✅ After completing this prompt, proceed to [OPT-002]**
 
 ---
 
-### [OPT-002] Add Snapshot Caching and Git Line Metrics
+### [OPT-002] Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`)
 
 **⏱️ Execute this prompt now - FINAL PROMPT**
 
@@ -671,105 +269,52 @@ export function updateSectionByMarker(
 |:---|:---|
 | **ID** | `opt-snapshot-diff-001` |
 | **Category** | ⚙️ Performance Tuning |
-| **Impact** | Performance / Quality |
-| **Target Files** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts` |
-| **Status** | ⬜ Pending |
+| **Impact** | Performance / Observability |
+| **Target Files** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts`, `src/services/snapshotCache.ts` |
 
-**Current State:** WorkspaceScanner and SnapshotService use `maxFilesToScan` and `excludePatterns` for basic performance, but frequently running in large monorepos means repeatedly scanning the same file lists and config files. Git diff summaries also lack line-based metrics, making it hard to quantify "change magnitude."
+**Current State:**  
+- `snapshotCache.ts` provides TTL-based caching, but WorkspaceScanner and SnapshotService use it only partially.  
+- Diff summaries do not yet include added/removed/total line counts, making it harder to identify large change sessions.
 
-**Optimization:** Memoize or introduce a simple cache structure for last scan results (file list, key config files, Git status summary) to reuse during consecutive runs within a short time. Also include changed line counts (added/removed/total) in Git diff summaries and expose this info in SnapshotDiff and Summary for at-a-glance identification of large changes.
+**Optimization:**  
+- Add cache lookups for file lists and snapshot data in WorkspaceScanner, falling back to recomputation only when needed.  
+- Extend SnapshotService to compute and store line-count metrics in the diff summary model.
 
-**Expected Effect:**
-- Performance: Noticeable reduction in scan time for consecutive runs in large projects, fewer unnecessary filesystem accesses.
-- Quality: Expressing change volume as numbers allows quick identification of sessions with "large changes" in Session History.
-
-**Measurable Metrics:** Reduction ratio of scan time and filesystem calls on second consecutive run in same workspace, utilization frequency of line count metrics included in Git diff summary.
+**Expected Effect:**  
+- Faster repeated scans on large workspaces.  
+- Better visibility into high-impact sessions through numeric diff metrics.
 
 #### Implementation Code:
 
 ```typescript
-// src/services/snapshotCache.ts
-export interface SnapshotCacheEntry<T> {
-  key: string;
-  value: T;
-  timestamp: number;
-}
-
-const CACHE_TTL_MS = 30_000;
-const cache = new Map<string, SnapshotCacheEntry<unknown>>();
-
-export function getCachedValue<T>(key: string): T | null {
-  const entry = cache.get(key) as SnapshotCacheEntry<T> | undefined;
-  if (!entry) {
-    return null;
-  }
-
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-    cache.delete(key);
-    return null;
-  }
-
-  return entry.value;
-}
-
-export function setCachedValue<T>(key: string, value: T): void {
-  cache.set(key, { key, value, timestamp: Date.now() });
-}
-
-// src/services/workspaceScanner.ts (excerpt)
-import * as vscode from "vscode";
-import * as path from "path";
+// Example: using snapshot cache in workspaceScanner.ts
 import { getCachedValue, setCachedValue } from "./snapshotCache.js";
 
-private async collectFiles(
+async function collectFilesWithCache(
   rootPath: string,
-  config: VibeReportConfig
+  excludeGlobs: string[],
+  maxFilesToScan: number,
+  log: (msg: string) => void
 ): Promise<string[]> {
-  const cacheKey = `file-list:${rootPath}:${config.maxFilesToScan}`;
+  const cacheKey = `file-list:${rootPath}:${maxFilesToScan}`;
   const cached = getCachedValue<string[]>(cacheKey);
+
   if (cached) {
-    this.log(`[WorkspaceScanner] Using cached file list for ${rootPath}`);
+    log(`Using cached file list (${cached.length} files)`);
     return cached;
   }
 
-  const excludePattern = `{${config.excludePatterns.join(",")}}`;
-  const uris = await vscode.workspace.findFiles(
-    "**/*",
-    excludePattern,
-    config.maxFilesToScan
-  );
-
-  const files = uris
-    .filter((uri) => uri.fsPath.startsWith(rootPath))
-    .map((uri) => path.relative(rootPath, uri.fsPath).replace(/\\/g, "/"));
-
+  // ... perform file scan, then cache result ...
   setCachedValue(cacheKey, files);
+  log(`Scanned ${files.length} files (cached for 30s)`);
   return files;
 }
-
-// src/models/types.ts (excerpt)
-export interface GitLineMetric {
-  filePath: string;
-  added: number;
-  deleted: number;
-  total: number;
-}
-
-// src/services/snapshotService.ts (excerpt)
-import type { GitChanges, GitLineMetric } from "../models/types.js";
-
-private async getGitChanges(rootPath: string): Promise<GitChanges | undefined> {
-  const diffSummary = await git.diffSummary();
-  const lineMetrics: GitLineMetric[] = diffSummary.files.map((file) => ({
-    filePath: file.file,
-    added: file.insertions,
-    deleted: file.deletions,
-    total: file.insertions + file.deletions,
-  }));
-
-  (changes as any).lineMetrics = lineMetrics;
-  return changes;
-}
 ```
+
+#### Definition of Done:
+- [ ] WorkspaceScanner uses `snapshotCache` for file lists and/or snapshots
+- [ ] Snapshot diffs include line-count metrics for added/removed/total lines
+- [ ] `pnpm compile` passes
+- [ ] `pnpm test` passes
 
 **🎉 ALL PROMPTS COMPLETED!**

@@ -50,13 +50,241 @@ export class ReportService {
    * @param config Vibe Report 설정
    * @returns 평가/개선 보고서의 절대 경로
    */
-  getReportPaths(rootPath: string, config: VibeReportConfig): ReportPaths & { sessionHistory: string } {
+  getReportPaths(rootPath: string, config: VibeReportConfig): ReportPaths & { sessionHistory: string; prompt: string } {
     const reportDir = path.join(rootPath, config.reportDirectory);
     return {
       evaluation: path.join(reportDir, REPORT_FILE_NAMES.evaluation),
       improvement: path.join(reportDir, REPORT_FILE_NAMES.improvement),
       sessionHistory: path.join(reportDir, 'Session_History.md'),
+      prompt: path.join(reportDir, 'Prompt.md'),
     };
+  }
+
+  /**
+   * 적용 완료된 개선 항목을 보고서 파일에서 제거
+   *
+   * @description Remove completed improvement items from improvement report and Prompt.md
+   * @param rootPath 워크스페이스 루트 경로
+   * @param config Vibe Report 설정
+   * @param appliedImprovements 적용 완료된 항목 목록
+   * @returns 제거된 항목 수
+   */
+  async cleanupAppliedItems(
+    rootPath: string,
+    config: VibeReportConfig,
+    appliedImprovements: AppliedImprovement[]
+  ): Promise<{ improvementRemoved: number; promptRemoved: number }> {
+    if (appliedImprovements.length === 0) {
+      return { improvementRemoved: 0, promptRemoved: 0 };
+    }
+
+    const paths = this.getReportPaths(rootPath, config);
+    const appliedIds = new Set(appliedImprovements.map(i => i.id));
+    const appliedTitles = new Set(appliedImprovements.map(i => i.title.toLowerCase()));
+    
+    let improvementRemoved = 0;
+    let promptRemoved = 0;
+
+    // 개선 보고서에서 적용 완료 항목 제거
+    try {
+      const improvementContent = await fs.readFile(paths.improvement, 'utf-8');
+      const { content: cleanedImprovement, removedCount: impCount } = this.removeAppliedItemsFromContent(
+        improvementContent,
+        appliedIds,
+        appliedTitles,
+        'improvement'
+      );
+      
+      if (impCount > 0) {
+        await fs.writeFile(paths.improvement, cleanedImprovement, 'utf-8');
+        improvementRemoved = impCount;
+        this.log(`개선 보고서에서 적용 완료 항목 ${impCount}개 제거됨`);
+      }
+    } catch (error) {
+      this.log(`개선 보고서 클린업 실패: ${error}`);
+    }
+
+    // Prompt.md에서 적용 완료 항목 제거
+    try {
+      const promptContent = await fs.readFile(paths.prompt, 'utf-8');
+      const { content: cleanedPrompt, removedCount: promptCount } = this.removeAppliedItemsFromContent(
+        promptContent,
+        appliedIds,
+        appliedTitles,
+        'prompt'
+      );
+      
+      if (promptCount > 0) {
+        await fs.writeFile(paths.prompt, cleanedPrompt, 'utf-8');
+        promptRemoved = promptCount;
+        this.log(`Prompt.md에서 적용 완료 항목 ${promptCount}개 제거됨`);
+      }
+    } catch (error) {
+      this.log(`Prompt.md 클린업 실패: ${error}`);
+    }
+
+    return { improvementRemoved, promptRemoved };
+  }
+
+  /**
+   * 콘텐츠에서 적용 완료 항목 제거
+   */
+  private removeAppliedItemsFromContent(
+    content: string,
+    appliedIds: Set<string>,
+    appliedTitles: Set<string>,
+    type: 'improvement' | 'prompt'
+  ): { content: string; removedCount: number } {
+    let removedCount = 0;
+    let result = content;
+
+    // ID 기반 제거 패턴들
+    for (const id of appliedIds) {
+      // 개선 보고서 형식: ### 🔴 긴급 (P1) 항목명 또는 #### [P1-1] 항목명 등
+      // ID가 포함된 섹션 찾기: | **ID** | `id` | 형태
+      const idPattern = new RegExp(
+        `(###[^#]*?\\|\\s*\\*\\*ID\\*\\*\\s*\\|\\s*\`${this.escapeRegex(id)}\`[\\s\\S]*?)(?=\\n###|\\n## |$)`,
+        'gi'
+      );
+      
+      if (idPattern.test(result)) {
+        result = result.replace(idPattern, '');
+        removedCount++;
+      }
+    }
+
+    // 제목 기반 제거 (ID가 없는 경우 폴백)
+    for (const title of appliedTitles) {
+      // 프롬프트 형식: ### [PROMPT-001] Title 또는 ### [OPT-1] Title
+      const promptTitlePattern = new RegExp(
+        `(###\\s*\\[(?:PROMPT-\\d+|OPT-\\d+)\\]\\s*${this.escapeRegex(title)}[\\s\\S]*?)(?=\\n###\\s*\\[(?:PROMPT-|OPT-)|\\n##\\s+|\\*\\*🎉|$)`,
+        'gi'
+      );
+      
+      if (promptTitlePattern.test(result)) {
+        const before = result;
+        result = result.replace(promptTitlePattern, '');
+        if (result !== before) {
+          removedCount++;
+        }
+      }
+
+      // 개선 보고서 형식: #### [P1-1] Title 또는 ### 🟡 중요 (P2) - Title
+      const improvementTitlePattern = new RegExp(
+        `((?:###|####)\\s*(?:\\[P[123]-\\d+\\]|[🔴🟡🟢⚡].*?)\\s*${this.escapeRegex(title)}[\\s\\S]*?)(?=\\n(?:###|####)|\\n## |$)`,
+        'gi'
+      );
+      
+      if (improvementTitlePattern.test(result)) {
+        const before = result;
+        result = result.replace(improvementTitlePattern, '');
+        if (result !== before) {
+          removedCount++;
+        }
+      }
+    }
+
+    // Prompt.md의 Execution Checklist에서 완료된 프롬프트 행 제거
+    if (type === 'prompt') {
+      const checklistMatch = result.match(
+        /## 📋 Execution Checklist[\s\S]*?(?=\n---|\n\n##|\n\*\*Total|$)/
+      );
+
+      if (checklistMatch) {
+        const originalChecklist = checklistMatch[0];
+        let checklist = originalChecklist;
+
+        // ID 또는 제목이 포함된 테이블 행 제거
+        for (const id of appliedIds) {
+          const rowPatternById = new RegExp(
+            `^\\|\\s*\\d+\\s*\\|[^|]*${this.escapeRegex(id)}[^|]*\\|[^|]*\\|[^|]*\\|\\s*$`,
+            'gmi'
+          );
+          checklist = checklist.replace(rowPatternById, () => {
+            removedCount++;
+            return '';
+          });
+        }
+
+        for (const title of appliedTitles) {
+          const rowPatternByTitle = new RegExp(
+            `^\\|\\s*\\d+\\s*\\|[^|]*\\|[^|]*${this.escapeRegex(title)}[^|]*\\|[^|]*\\|[^|]*\\|\\s*$`,
+            'gmi'
+          );
+          checklist = checklist.replace(rowPatternByTitle, () => {
+            removedCount++;
+            return '';
+          });
+        }
+
+        if (checklist !== originalChecklist) {
+          result = result.replace(originalChecklist, checklist);
+        }
+      }
+    }
+
+    // 연속된 빈 줄 정리
+    result = result.replace(/\n{3,}/g, '\n\n');
+    // 연속된 구분선 정리
+    result = result.replace(/(\n---\n){2,}/g, '\n---\n');
+
+    // Prompt.md의 체크리스트 요약 갱신
+    if (type === 'prompt') {
+      result = this.updatePromptChecklistSummary(result);
+    }
+
+    return { content: result, removedCount };
+  }
+
+  /**
+   * 정규식 특수문자 이스케이프
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Prompt.md Execution Checklist 요약(Total/Completed/Remaining) 갱신
+   */
+  private updatePromptChecklistSummary(content: string): string {
+    const lines = content.split('\n');
+
+    const checklistHeaderIndex = lines.findIndex((line) =>
+      line.trim().startsWith('## 📋 Execution Checklist')
+    );
+    if (checklistHeaderIndex === -1) {
+      return content;
+    }
+
+    const alignmentRowIndex = lines.findIndex(
+      (line, index) => index > checklistHeaderIndex && line.trim().startsWith('|:')
+    );
+    if (alignmentRowIndex === -1) {
+      return content;
+    }
+
+    const rows: string[] = [];
+    for (let i = alignmentRowIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim().startsWith('|')) {
+        break;
+      }
+      rows.push(line);
+    }
+
+    const promptRowCount = rows.filter((line) => /\|\s*\d+\s*\|/.test(line)).length;
+
+    const summaryIndex = lines.findIndex(
+      (line, index) => index > alignmentRowIndex && line.includes('**Total:')
+    );
+
+    if (summaryIndex === -1) {
+      return lines.join('\n');
+    }
+
+    lines[summaryIndex] = `**Total: ${promptRowCount} prompts** | **Completed: 0** | **Remaining: ${promptRowCount}**`;
+
+    return lines.join('\n');
   }
 
   /**
@@ -1059,6 +1287,12 @@ ${MARKERS.OPTIMIZATION_END}
       );
     }
 
+    // 마커가 없는 경우 폴백: "## 📊 세션 통계" 또는 "## 📊 통계 요약" 테이블 업데이트
+    const statsTablePattern = /## 📊 [세션 통계|통계 요약][^\n]*\n+\| 항목[\s\S]*?\| \*\*적용 완료[^\|]*\| \d+ \|/;
+    if (statsTablePattern.test(content)) {
+      return content.replace(statsTablePattern, statsContent);
+    }
+
     return content;
   }
 
@@ -1103,8 +1337,22 @@ ${MARKERS.OPTIMIZATION_END}
     const sessionListStart = '<!-- SESSION-LIST-START -->';
     const sessionListEnd = '<!-- SESSION-LIST-END -->';
 
+    // 마커가 없는 경우 폴백: "## 🕐 전체 세션 기록" 또는 "## 📝 세션 기록" 아래에 추가
     if (!content.includes(sessionListStart)) {
-      return content;
+      // 레거시 형식 지원: "## 🕐 전체 세션 기록" 아래에 추가
+      const legacyHeader = '## 🕐 전체 세션 기록';
+      if (content.includes(legacyHeader)) {
+        const headerIndex = content.indexOf(legacyHeader);
+        const afterHeader = content.indexOf('\n', headerIndex + legacyHeader.length);
+        if (afterHeader !== -1) {
+          const before = content.slice(0, afterHeader + 1);
+          const after = content.slice(afterHeader + 1);
+          return `${before}\n${entry}\n${after}`;
+        }
+      }
+      
+      // 마커도 레거시 헤더도 없으면 파일 끝에 추가
+      return `${content}\n\n---\n\n${entry}`;
     }
 
     const existing = content.match(/<!-- SESSION-LIST-START -->\s*([\s\S]*?)\s*<!-- SESSION-LIST-END -->/);
