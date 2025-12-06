@@ -18,5 +18,8 @@
     ],
     "vibereport.enableGitDiff": true,
     "vibereport.autoOpenReports": true,
-    "vibereport.language": "ko"
+    "vibereport.language": "ko",
+    "kiroAgent.enableDebugLogs": true,
+    "kiroAgent.enableCodebaseIndexing": true,
+    "kiroAgent.enableTabAutocomplete": true
 }

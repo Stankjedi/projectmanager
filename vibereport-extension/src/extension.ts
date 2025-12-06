@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand } from './commands/index.js';
 import { ReportService } from './services/index.js';
+import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
@@ -32,6 +33,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);
   const setVisionCommand = new SetProjectVisionCommand(outputChannel);
   const generatePromptCommand = new GeneratePromptCommand(outputChannel);
+  
+  // 미리보기 스타일 서비스 초기화
+  const previewStyleService = new PreviewStyleService(outputChannel, context.extensionPath);
+  previewStyleService.updatePreviewStyles();
+  context.subscriptions.push(previewStyleService.registerConfigChangeListener());
 
   // Status Bar 아이템 생성
   statusBarItem = vscode.window.createStatusBarItem(

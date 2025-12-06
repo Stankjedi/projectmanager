@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "publisher": "stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -204,9 +204,22 @@
             "유지보수: 리팩토링, 기술 부채 해소"
           ],
           "description": "기본 품질 우선순위 단계"
+        },
+        "vibereport.previewBackgroundColor": {
+          "type": "string",
+          "default": "",
+          "description": "마크다운 미리보기 배경색 (예: #1a1a2e, #0d1117). 비워두면 테마 기본값 사용"
+        },
+        "vibereport.previewEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "보고서 스타일 마크다운 미리보기 활성화"
         }
       }
     },
+    "markdown.previewStyles": [
+      "./media/report-preview.css"
+    ],
     "viewsContainers": {
       "activitybar": [
         {
