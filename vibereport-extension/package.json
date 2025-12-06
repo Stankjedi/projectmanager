@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "publisher": "stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -213,8 +213,18 @@
         },
         "vibereport.previewBackgroundColor": {
           "type": "string",
-          "default": "",
-          "description": "마크다운 미리보기 배경색 (예: #1a1a2e, #0d1117). 비워두면 테마 기본값 사용"
+          "enum": [
+            "ide",
+            "white",
+            "black"
+          ],
+          "default": "ide",
+          "enumDescriptions": [
+            "IDE 테마 색상 사용 (기본값)",
+            "흰색 배경 (#ffffff)",
+            "검은색 배경 (#1e1e1e)"
+          ],
+          "description": "프리뷰 보고서 배경색 설정"
         },
         "vibereport.previewEnabled": {
           "type": "boolean",

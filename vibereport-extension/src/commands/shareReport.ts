@@ -168,9 +168,44 @@ ${scoreTable}
   }
 
   /**
+   * 배경색 설정 가져오기
+   */
+  private getBackgroundStyle(): { bg: string; fg: string; border: string; link: string } {
+    const config = vscode.workspace.getConfiguration('vibereport');
+    const bgSetting = config.get<string>('previewBackgroundColor', 'ide');
+
+    switch (bgSetting) {
+      case 'white':
+        return {
+          bg: '#ffffff',
+          fg: '#1e1e1e',
+          border: '#d4d4d4',
+          link: '#0066cc',
+        };
+      case 'black':
+        return {
+          bg: '#1e1e1e',
+          fg: '#d4d4d4',
+          border: '#404040',
+          link: '#4fc3f7',
+        };
+      case 'ide':
+      default:
+        return {
+          bg: 'var(--vscode-editor-background)',
+          fg: 'var(--vscode-foreground)',
+          border: 'var(--vscode-panel-border)',
+          link: 'var(--vscode-textLink-foreground)',
+        };
+    }
+  }
+
+  /**
    * 미리보기 HTML 생성
    */
   private getPreviewHtml(markdown: string): string {
+    const style = this.getBackgroundStyle();
+    
     // 간단한 마크다운 → HTML 변환
     const html = markdown
       .replace(/^# (.+)$/gm, '<h1>$1</h1>')
@@ -198,16 +233,16 @@ ${scoreTable}
       padding: 20px;
       max-width: 800px;
       margin: 0 auto;
-      color: var(--vscode-foreground);
-      background: var(--vscode-editor-background);
+      color: ${style.fg};
+      background: ${style.bg};
     }
-    h1 { border-bottom: 2px solid var(--vscode-textLink-foreground); padding-bottom: 10px; }
-    h2 { color: var(--vscode-textLink-foreground); margin-top: 30px; }
+    h1 { border-bottom: 2px solid ${style.link}; padding-bottom: 10px; }
+    h2 { color: ${style.link}; margin-top: 30px; }
     blockquote {
-      border-left: 4px solid var(--vscode-textLink-foreground);
+      border-left: 4px solid ${style.link};
       padding-left: 15px;
       margin: 10px 0;
-      color: var(--vscode-descriptionForeground);
+      opacity: 0.8;
     }
     table {
       width: 100%;
@@ -215,13 +250,13 @@ ${scoreTable}
       margin: 15px 0;
     }
     td, th {
-      border: 1px solid var(--vscode-panel-border);
+      border: 1px solid ${style.border};
       padding: 8px 12px;
       text-align: left;
     }
-    tr:nth-child(even) { background: var(--vscode-editor-inactiveSelectionBackground); }
-    hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 20px 0; }
-    strong { color: var(--vscode-textLink-foreground); }
+    tr:nth-child(even) { opacity: 0.9; }
+    hr { border: none; border-top: 1px solid ${style.border}; margin: 20px 0; }
+    strong { color: ${style.link}; }
   </style>
 </head>
 <body>
