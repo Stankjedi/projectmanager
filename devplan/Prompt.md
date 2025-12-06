@@ -21,10 +21,9 @@
 |:---:|:---|:---|:---:|:---:|
 | 1 | PROMPT-001 | Add AI direct integration service (`feat-ai-integration-001`) | P3 | ⬜ Pending |
 | 2 | PROMPT-002 | Enable multi-workspace report workflow (`feat-multi-workspace-001`) | P3 | ⬜ Pending |
-| 3 | OPT-001 | Refine markdown/marker pipeline (`opt-markdown-parse-001`) | OPT | ⬜ Pending |
-| 4 | OPT-002 | Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`) | OPT | ⬜ Pending |
+| 3 | OPT-001 | Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`) | OPT | ⬜ Pending |
 
-**Total: 4 prompts** | **Completed: 0** | **Remaining: 4**
+**Total: 3 prompts** | **Completed: 0** | **Remaining: 3**
 
 ---
 
@@ -203,65 +202,7 @@ async execute(): Promise<void> {
 
 ## 🔧 Optimization Items (OPT)
 
-### [OPT-001] Refine markdown/marker pipeline (`opt-markdown-parse-001`)
-
-**⏱️ Execute this prompt now, then proceed to OPT-002**
-
-| Field | Value |
-|:---|:---|
-| **ID** | `opt-markdown-parse-001` |
-| **Category** | 🚀 Code Optimization |
-| **Impact** | Quality |
-| **Target Files** | `src/utils/markdownUtils.ts`, `src/utils/markerUtils.ts`, `src/services/reportService.ts` |
-
-**Current State:**  
-- Marker handling has been extracted into `markerUtils.ts`, but some Markdown/table formatting logic is still spread across multiple services.  
-- When the report format changes (for example, score table or TL;DR layout), several files must be edited manually.
-
-**Optimization:**  
-- Consolidate common table/section rendering helpers into `markdownUtils` and reuse them across the report templates.  
-- Ensure all marker-based replacements go through `markerUtils` so that marker semantics are centralized.
-
-**Expected Effect:**  
-- Easier modifications to report templates with fewer places to update.  
-- Clearer separation between data (scores, risks, improvements) and presentation (Markdown layout).
-
-#### Implementation Code:
-
-```typescript
-// Example: extracting a reusable table renderer in markdownUtils.ts
-export interface ScoreRow {
-  label: string;
-  score: number;
-  grade: string;
-  delta: string;
-}
-
-export function renderScoreTable(rows: ScoreRow[]): string {
-  const header = [
-    "| 항목 | 점수 (100점 만점) | 등급 | 변화 |",
-    "|------|------------------|------|------|",
-  ];
-
-  const body = rows.map((row) =>
-    `| ${row.label} | ${row.score} | ${row.grade} | ${row.delta} |`
-  );
-
-  return [...header, ...body].join("\n");
-}
-```
-
-#### Definition of Done:
-- [ ] Common Markdown/table helpers are centralized in `markdownUtils.ts`
-- [ ] Marker-based replacements consistently use `markerUtils.ts`
-- [ ] `pnpm compile` passes
-- [ ] `pnpm test` passes
-
-**✅ After completing this prompt, proceed to [OPT-002]**
-
----
-
-### [OPT-002] Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`)
+### [OPT-001] Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`)
 
 **⏱️ Execute this prompt now - FINAL PROMPT**
 
@@ -273,47 +214,88 @@ export function renderScoreTable(rows: ScoreRow[]): string {
 | **Target Files** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts`, `src/services/snapshotCache.ts` |
 
 **Current State:**  
-- `snapshotCache.ts` provides TTL-based caching, but WorkspaceScanner and SnapshotService use it only partially.  
-- Diff summaries do not yet include added/removed/total line counts, making it harder to identify large change sessions.
+- `snapshotCache.ts` provides TTL-based caching infrastructure, and WorkspaceScanner already uses it for file list caching.
+- However, SnapshotService does not yet expose line-count metrics (added/removed/total) in the diff summary, making it harder to identify large change sessions at a glance.
 
 **Optimization:**  
-- Add cache lookups for file lists and snapshot data in WorkspaceScanner, falling back to recomputation only when needed.  
-- Extend SnapshotService to compute and store line-count metrics in the diff summary model.
+- Ensure WorkspaceScanner's cache usage is consistent and well-documented.
+- Extend SnapshotService to include `linesAdded`, `linesRemoved`, and `linesTotal` in the `SnapshotDiff` model.
+- Update Summary and Session History views to display line-count metrics when available.
 
 **Expected Effect:**  
-- Faster repeated scans on large workspaces.  
-- Better visibility into high-impact sessions through numeric diff metrics.
+- Faster repeated scans on large workspaces (already partially implemented).
+- Better visibility into high-impact sessions through numeric diff metrics in UI.
 
 #### Implementation Code:
 
 ```typescript
-// Example: using snapshot cache in workspaceScanner.ts
-import { getCachedValue, setCachedValue } from "./snapshotCache.js";
+// src/models/types.ts - Add to SnapshotDiff interface
+export interface SnapshotDiff {
+  // ... existing fields ...
+  
+  /** Total lines added across all changed files */
+  linesAdded?: number;
+  /** Total lines removed across all changed files */
+  linesRemoved?: number;
+  /** Total line changes (added + removed) */
+  linesTotal?: number;
+}
+```
 
-async function collectFilesWithCache(
+```typescript
+// src/services/snapshotService.ts - Update compareSnapshots method
+async compareSnapshots(
+  previous: ProjectSnapshot | null,
+  current: ProjectSnapshot,
   rootPath: string,
-  excludeGlobs: string[],
-  maxFilesToScan: number,
-  log: (msg: string) => void
-): Promise<string[]> {
-  const cacheKey = `file-list:${rootPath}:${maxFilesToScan}`;
-  const cached = getCachedValue<string[]>(cacheKey);
+  config: VibeReportConfig
+): Promise<SnapshotDiff> {
+  // ... existing code ...
 
-  if (cached) {
-    log(`Using cached file list (${cached.length} files)`);
-    return cached;
+  // Git 변경사항
+  let gitChanges: GitChanges | undefined;
+  let linesAdded = 0;
+  let linesRemoved = 0;
+  
+  if (config.enableGitDiff) {
+    gitChanges = await this.getGitChanges(rootPath);
+    
+    // Extract line metrics from gitChanges if available
+    if (gitChanges?.lineMetrics) {
+      for (const metric of gitChanges.lineMetrics) {
+        linesAdded += metric.added;
+        linesRemoved += metric.deleted;
+      }
+    }
   }
 
-  // ... perform file scan, then cache result ...
-  setCachedValue(cacheKey, files);
-  log(`Scanned ${files.length} files (cached for 30s)`);
-  return files;
+  return {
+    // ... existing fields ...
+    gitChanges,
+    linesAdded: linesAdded > 0 ? linesAdded : undefined,
+    linesRemoved: linesRemoved > 0 ? linesRemoved : undefined,
+    linesTotal: (linesAdded + linesRemoved) > 0 ? linesAdded + linesRemoved : undefined,
+  };
+}
+```
+
+```typescript
+// src/views/SummaryViewProvider.ts - Display line metrics
+private formatDiffSummary(diff: SnapshotDiff): string {
+  let summary = `Changes: ${diff.totalChanges}`;
+  
+  if (diff.linesTotal) {
+    summary += ` | Lines: +${diff.linesAdded || 0} / -${diff.linesRemoved || 0}`;
+  }
+  
+  return summary;
 }
 ```
 
 #### Definition of Done:
-- [ ] WorkspaceScanner uses `snapshotCache` for file lists and/or snapshots
-- [ ] Snapshot diffs include line-count metrics for added/removed/total lines
+- [ ] `SnapshotDiff` interface includes `linesAdded`, `linesRemoved`, `linesTotal` optional fields
+- [ ] `SnapshotService.compareSnapshots()` populates line metrics from Git diff
+- [ ] Summary view displays line metrics when available
 - [ ] `pnpm compile` passes
 - [ ] `pnpm test` passes
 
