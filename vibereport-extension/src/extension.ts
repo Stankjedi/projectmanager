@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand } from './commands/index.js';
+import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand, ShareReportCommand } from './commands/index.js';
 import { ReportService } from './services/index.js';
 import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
@@ -33,6 +33,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);
   const setVisionCommand = new SetProjectVisionCommand(outputChannel);
   const generatePromptCommand = new GeneratePromptCommand(outputChannel);
+  const shareReportCommand = new ShareReportCommand(outputChannel);
   
   // 미리보기 스타일 서비스 초기화
   const previewStyleService = new PreviewStyleService(outputChannel, context.extensionPath);
@@ -170,6 +171,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.generatePrompt', async () => {
       await generatePromptCommand.execute();
+    })
+  );
+
+  // 명령 등록: Share Report Preview (외부 공유용 프리뷰 복사)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.shareReport', async () => {
+      await shareReportCommand.execute();
     })
   );
 

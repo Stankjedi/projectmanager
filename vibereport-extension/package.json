@@ -94,6 +94,12 @@
         "title": "Generate Improvement Prompt",
         "category": "VibeCoding",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "vibereport.shareReport",
+        "title": "Share Report Preview",
+        "category": "VibeCoding",
+        "icon": "$(export)"
       }
     ],
     "configuration": {
