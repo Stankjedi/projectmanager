@@ -1,302 +1,161 @@
-# 🤖 AI Agent Improvement Prompts
+# AI Agent Improvement Prompts
 
-> ## 🚨 MANDATORY: FILE MODIFICATION REQUIRED
-> 
-> **⛔ DO NOT just respond with text or code blocks.**
-> **⛔ DO NOT say "you can modify like this" without actually modifying.**
-> **⛔ DO NOT explain what needs to be done without doing it.**
-> 
-> **✅ YOU MUST use file editing tools (`replace_string_in_file`, `create_file`, `multi_replace_string_in_file`) to directly modify files.**
-> **✅ After each prompt, confirm "I have modified the file(s)" with the actual changes made.**
-> 
-> ---
-> 
-> **Process ALL prompts below SEQUENTIALLY. Do NOT stop after completing one prompt.**
-
----
+> **EXECUTION RULES (Read Carefully):**
+> 1.  **Direct Code Editing**: Always use file-edit tools (e.g., `write_to_file`, `replace_file_content`) to modify files. Do not just show code.
+> 2.  **Sequential Execution**: Run prompts strictly in order (PROMPT-001 -> PROMPT-002...).
+> 3.  **No Placeholders**: Write full, working code. Do not use comments like `// implementation here`.
+> 4.  **Verification**: After each prompt, run the specified verification command (e.g., `pnpm run test`).
 
 ## 📋 Execution Checklist
 
 | # | Prompt ID | Title | Priority | Status |
 |:---:|:---|:---|:---:|:---:|
-| 1 | PROMPT-001 | Add AI direct integration service (`feat-ai-integration-001`) | P3 | ⬜ Pending |
-| 2 | PROMPT-002 | Enable multi-workspace report workflow (`feat-multi-workspace-001`) | P3 | ⬜ Pending |
-| 3 | OPT-001 | Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`) | OPT | ⬜ Pending |
+| 1 | PROMPT-001 | Add Unit Tests for AiService | P2 | ⬜ Pending |
+| 2 | PROMPT-002 | Create Architecture Documentation | P2 | ⬜ Pending |
+| 3 | PROMPT-003 | Implement Custom System Prompt Support | P3 | ⬜ Pending |
+| 4 | OPT-001 | Optimize Workspace Scanner Excludes | OPT | ⬜ Pending |
 
-**Total: 3 prompts** | **Completed: 0** | **Remaining: 3**
-
----
-
-## 🟢 Priority 3 (Medium) - Feature Additions
-
-### [PROMPT-001] Add AI direct integration service
-
-**⏱️ Execute this prompt now, then proceed to PROMPT-002**
-
-> **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
-
-**Task**: Introduce an AI integration service using VS Code Language Model API and wire it into the report update flow.
-
-**Details:**
-
-| Field | Value |
-|:---|:---|
-| **ID** | `feat-ai-integration-001` |
-| **Category** | ✨ Feature |
-| **Complexity** | High |
-| **Target Files** | `src/commands/updateReports.ts`, `package.json`, `(new) src/services/aiService.ts` |
-| **Risk Level** | 🟢 Low |
-
-**Current State:** Prompts are generated and copied to clipboard. Users must manually paste to Copilot Chat. No direct AI integration exists.
-
-**Improvement:**
-- Add `vibereport.enableDirectAi` config option (boolean, default `false`) in `package.json`
-- Create `AiService` in `src/services/aiService.ts` using `vscode.lm` API
-- Update `UpdateReportsCommand` to check flag and call AI service or use clipboard fallback
-
-**Expected Effect:**
-- One-click automated analysis when AI API is available
-- Graceful fallback to clipboard when API unavailable
-
-#### Implementation Code:
-
-```typescript
-// src/services/aiService.ts
-import * as vscode from "vscode";
-
-export interface AiRequestOptions {
-  modelId?: string;
-}
-
-export class AiService {
-  constructor(private readonly output: vscode.OutputChannel) {}
-
-  async run(prompt: string, options: AiRequestOptions = {}): Promise<string | null> {
-    const lmApi = (vscode as any).lm;
-
-    if (!lmApi || typeof lmApi.selectChatModels !== "function") {
-      this.output.appendLine("[AiService] Language Model API is not available.");
-      vscode.window.showWarningMessage(
-        "Language Model API not available. Using clipboard-only workflow."
-      );
-      return null;
-    }
-
-    try {
-      const [model] = await lmApi.selectChatModels({
-        where: { family: options.modelId ?? "gpt" },
-      });
-
-      if (!model) {
-        this.output.appendLine("[AiService] No chat model selected.");
-        return null;
-      }
-
-      const messages = [
-        { role: "user", content: prompt },
-      ];
-
-      const response = await model.sendRequest(messages);
-      const chunks: string[] = [];
-      
-      for await (const chunk of response.text) {
-        chunks.push(chunk);
-      }
-
-      return chunks.join("");
-    } catch (error) {
-      this.output.appendLine(`[AiService] Error: ${error}`);
-      return null;
-    }
-  }
-}
-```
-
-#### Definition of Done:
-- [ ] `src/services/aiService.ts` created
-- [ ] `package.json` includes `vibereport.enableDirectAi` configuration
-- [ ] `UpdateReportsCommand` checks flag and branches accordingly
-- [ ] `pnpm compile` passes
-- [ ] `pnpm test` passes
-
-**✅ After completing this prompt, proceed to [PROMPT-002]**
+> **Total: 4 prompts | Completed: 0 | Remaining: 4**
 
 ---
 
-### [PROMPT-002] Enable multi-workspace report workflow
+## 🟡 P2: Critical Improvements
 
-**⏱️ Execute this prompt now, then proceed to OPT-001**
+### [PROMPT-001] Add Unit Tests for AiService
 
-> **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**
+> **Execute this prompt now, then proceed to PROMPT-002.**
 
-**Task**: Use `selectWorkspaceRoot()` to support multi-root workspaces across the main commands.
+**Task:**
+Create a new test file `vibereport-extension/src/services/__tests__/aiService.test.ts` to verify the `AiService` functionality. Mock the `vscode.lm` API.
 
-**Details:**
+**Target File:**
+- `vibereport-extension/src/services/__tests__/aiService.test.ts` (New)
 
-| Field | Value |
-|:---|:---|
-| **ID** | `feat-multi-workspace-001` |
-| **Category** | ⚙️ Workflow |
-| **Complexity** | Medium |
-| **Target Files** | `src/commands/updateReports.ts`, `src/utils/configUtils.ts` |
-| **Risk Level** | 🟢 Low |
+**Steps:**
+1.  Isolate `vscode.lm` dependency using `vi.mock('vscode')`.
+2.  Test `runAnalysisPrompt` method:
+    -   Case 1: Success (Model returns response).
+    -   Case 2: Availability check (`isAvailable` returns false).
+    -   Case 3: API Error (Graceful failure/null return).
+3.  Ensure `vi` (Vitest) is imported.
 
-**Current State:** `selectWorkspaceRoot()` exists in configUtils but isn't used. Commands use `workspaceFolders[0]` directly.
-
-**Improvement:**
-- Replace `workspaceFolders[0]` usage with `selectWorkspaceRoot()` call
-- Pass selected workspace path to all services
-- Show workspace name in progress UI
-
-**Expected Effect:**
-- First-class multi-root workspace support
-- Clear workspace context in all operations
-
-#### Implementation Code:
-
+**Implementation Goal (Example structure):**
 ```typescript
-// src/commands/updateReports.ts - execute method update
-import { selectWorkspaceRoot, loadConfig } from "../utils/index.js";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { AiService } from '../aiService';
+import * as vscode from 'vscode';
 
-async execute(): Promise<void> {
-  const rootPath = await selectWorkspaceRoot();
-  if (!rootPath) {
-    return; // User cancelled or no workspace
-  }
-
-  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-  const selectedFolder = workspaceFolders.find(
-    (folder) => folder.uri.fsPath === rootPath
-  );
-  const projectName = selectedFolder?.name ?? "workspace";
-
-  const config = loadConfig();
-  const reportsExist = await this.reportService.reportsExist(rootPath, config);
-  const isFirstRun = !reportsExist;
-
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: `Vibe Report: ${projectName}`,
-      cancellable: false,
+// Mock vscode language model API
+vi.mock('vscode', () => ({
+    lm: {
+        selectChatModels: vi.fn(),
     },
-    async (progress) => {
-      await this._executeWithProgress(
-        rootPath, config, projectName, progress, isFirstRun
-      );
-    }
-  );
-}
+    LanguageModelChatUserMessage: vi.fn(),
+    LanguageModelChatSystemMessage: vi.fn(),
+}));
+
+describe('AiService', () => {
+    // Implement tests...
+});
 ```
 
-#### Definition of Done:
-- [ ] `UpdateReportsCommand` uses `selectWorkspaceRoot()`
-- [ ] Selected workspace path passed to all services
-- [ ] Progress UI shows workspace name
-- [ ] `pnpm compile` passes
-- [ ] `pnpm test` passes
+**Verification:**
+- Run `pnpm run test` and check that `aiService.test.ts` passes.
 
-**✅ After completing this prompt, proceed to [OPT-001]**
+After completing this prompt, proceed to [PROMPT-002].
+
+### [PROMPT-002] Create Architecture Documentation
+
+> **Execute this prompt now, then proceed to PROMPT-003.**
+
+**Task:**
+Create `vibereport-extension/docs/ARCHITECTURE.md` to document the internal design. Update `vibereport-extension/README.md` to link to it.
+
+**Target Files:**
+- `vibereport-extension/docs/ARCHITECTURE.md` (New)
+- `vibereport-extension/README.md` (Update)
+
+**Steps:**
+1.  Create `ARCHITECTURE.md`.
+2.  Write sections:
+    -   **System Map**: A Mermaid diagram showing Core Services, UI Layer, and Data Flow (reuse the one from Evaluation Report).
+    -   **Core Components**: Brief description of WorkspaceScanner, SnapshotService, ReportService, AiService.
+    -   **Report Generation Flow**: Explain the 3-step reporting.
+    -   **Preview Architecture**: Explain Local Mermaid bundling and Webview CSP.
+3.  Add a link `[Internal Architecture](./docs/ARCHITECTURE.md)` to `README.md` under a "Contributing" or "Internal" section.
+
+**Content for ARCHITECTURE.md (Guidelines):**
+-   Start with H1 "System Architecture".
+-   Use Mermaid code blocks for diagrams.
+-   Explain *why* we use local mermaid (security/offline support).
+
+**Verification:**
+-   Check that `vibereport-extension/docs/ARCHITECTURE.md` exists.
+-   Check `README.md` contains the link.
+
+After completing this prompt, proceed to [PROMPT-003].
 
 ---
 
-## 🔧 Optimization Items (OPT)
+## 🟢 P3: Feature Additions
 
-### [OPT-001] Integrate snapshot cache and diff metrics (`opt-snapshot-diff-001`)
+### [PROMPT-003] Implement Custom System Prompt Support
 
-**⏱️ Execute this prompt now - FINAL PROMPT**
+> **Execute this prompt now, then proceed to OPT-001.**
 
-| Field | Value |
-|:---|:---|
-| **ID** | `opt-snapshot-diff-001` |
-| **Category** | ⚙️ Performance Tuning |
-| **Impact** | Performance / Observability |
-| **Target Files** | `src/services/workspaceScanner.ts`, `src/services/snapshotService.ts`, `src/services/snapshotCache.ts` |
+**Task:**
+Add filtering/customization for AI prompts by introducing `vibereport.ai.customInstructions` in `package.json` and consuming it in `analysisPromptTemplate.ts`.
 
-**Current State:**  
-- `snapshotCache.ts` provides TTL-based caching infrastructure, and WorkspaceScanner already uses it for file list caching.
-- However, SnapshotService does not yet expose line-count metrics (added/removed/total) in the diff summary, making it harder to identify large change sessions at a glance.
+**Target Files:**
+- `vibereport-extension/package.json`
+- `vibereport-extension/src/utils/analysisPromptTemplate.ts`
 
-**Optimization:**  
-- Ensure WorkspaceScanner's cache usage is consistent and well-documented.
-- Extend SnapshotService to include `linesAdded`, `linesRemoved`, and `linesTotal` in the `SnapshotDiff` model.
-- Update Summary and Session History views to display line-count metrics when available.
+**Steps:**
+1.  **Update schema**: Add `vibereport.ai.customInstructions` (string, description: "Custom instructions injected into AI analysis prompts") to `package.json` > `contributes.configuration`.
+2.  **Update Prompt Template**:
+    -   Modify `buildAnalysisPrompt` in `analysisPromptTemplate.ts` to accept `config` object (or read config inside it).
+    -   If `customInstructions` exists, append it to the `systemInstructions` part of the template.
+    -   Format: `\n\n[User Custom Instructions]\n${customInstructions}`.
 
-**Expected Effect:**  
-- Faster repeated scans on large workspaces (already partially implemented).
-- Better visibility into high-impact sessions through numeric diff metrics in UI.
+**Verification:**
+-   Add a temporary config value in `.vscode/settings.json` (if exists) or just verify compilation `pnpm run compile`.
 
-#### Implementation Code:
+After completing this prompt, proceed to [OPT-001].
 
-```typescript
-// src/models/types.ts - Add to SnapshotDiff interface
-export interface SnapshotDiff {
-  // ... existing fields ...
-  
-  /** Total lines added across all changed files */
-  linesAdded?: number;
-  /** Total lines removed across all changed files */
-  linesRemoved?: number;
-  /** Total line changes (added + removed) */
-  linesTotal?: number;
-}
-```
+---
 
-```typescript
-// src/services/snapshotService.ts - Update compareSnapshots method
-async compareSnapshots(
-  previous: ProjectSnapshot | null,
-  current: ProjectSnapshot,
-  rootPath: string,
-  config: VibeReportConfig
-): Promise<SnapshotDiff> {
-  // ... existing code ...
+## ⚙️ OPT: Code Optimization
 
-  // Git 변경사항
-  let gitChanges: GitChanges | undefined;
-  let linesAdded = 0;
-  let linesRemoved = 0;
-  
-  if (config.enableGitDiff) {
-    gitChanges = await this.getGitChanges(rootPath);
+### [OPT-001] Optimize Workspace Scanner Excludes
+
+> **Execute this prompt now, then proceed to Final Verification.**
+
+**Task:**
+Improve `package.json` default exclude patterns and `configUtils.ts` to handle large exclusion lists mainly for performance.
+
+**Target Files:**
+- `vibereport-extension/package.json`
+- `vibereport-extension/src/utils/configUtils.ts`
+
+**Steps:**
+1.  **Update Defaults**: In `package.json`, add typical heavy folders to `vibereport.excludePatterns` default:
+    -   `**/__pycache__/**`, `**/.venv/**`, `**/.terraform/**`, `**/.gradle/**`, `**/bin/**`, `**/obj/**`.
+2.  **Update Logic**: In `configUtils.ts`, ensure user-defined excludes are *merged* with essential defaults if not already doing so (or document behavior). Currently VS Code settings overwrite defaults. Leave as overwrite-behavior if that is standard, but ensure the *default list* is comprehensive.
+
+**Verification:**
+-   `pnpm run compile`
+
+After completing this prompt, proceed to Final Completion.
+
+---
+
+## ✅ Final Completion
+
+> **ALL PROMPTS COMPLETED.**
+
+1.  **Verify**: Run `pnpm run test` one last time to ensure no regressions.
+2.  **Report**: Print the following message:
     
-    // Extract line metrics from gitChanges if available
-    if (gitChanges?.lineMetrics) {
-      for (const metric of gitChanges.lineMetrics) {
-        linesAdded += metric.added;
-        linesRemoved += metric.deleted;
-      }
-    }
-  }
-
-  return {
-    // ... existing fields ...
-    gitChanges,
-    linesAdded: linesAdded > 0 ? linesAdded : undefined,
-    linesRemoved: linesRemoved > 0 ? linesRemoved : undefined,
-    linesTotal: (linesAdded + linesRemoved) > 0 ? linesAdded + linesRemoved : undefined,
-  };
-}
-```
-
-```typescript
-// src/views/SummaryViewProvider.ts - Display line metrics
-private formatDiffSummary(diff: SnapshotDiff): string {
-  let summary = `Changes: ${diff.totalChanges}`;
-  
-  if (diff.linesTotal) {
-    summary += ` | Lines: +${diff.linesAdded || 0} / -${diff.linesRemoved || 0}`;
-  }
-  
-  return summary;
-}
-```
-
-#### Definition of Done:
-- [ ] `SnapshotDiff` interface includes `linesAdded`, `linesRemoved`, `linesTotal` optional fields
-- [ ] `SnapshotService.compareSnapshots()` populates line metrics from Git diff
-- [ ] Summary view displays line metrics when available
-- [ ] `pnpm compile` passes
-- [ ] `pnpm test` passes
-
-**🎉 ALL PROMPTS COMPLETED!**
+    ```
+    ALL PROMPTS COMPLETED. All pending improvement and optimization items from the latest report have been applied.
+    ```

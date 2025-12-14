@@ -1,16 +1,18 @@
 {
   "lastSnapshot": {
-    "generatedAt": "2025-12-06T11:19:15.819Z",
+    "generatedAt": "2025-12-14T19:34:05.137Z",
     "rootPath": "c:\\Users\\송용준\\Desktop\\Dev\\projectmanager",
     "projectName": "projectmanager",
-    "filesCount": 55,
-    "dirsCount": 16,
+    "filesCount": 73,
+    "dirsCount": 17,
     "languageStats": {
-      "ts": 34,
+      "ts": 44,
       "md": 8,
       "json": 4,
+      "js": 3,
+      "yaml": 1,
       "yml": 1,
-      "yaml": 1
+      "css": 1
     },
     "mainConfigFiles": {
       "otherConfigs": []
@@ -22,56 +24,74 @@
       "LICENSE",
       ".vscode/settings.json",
       ".vscode/vibereport-state.json",
-      "vibereport-extension/CHANGELOG.md",
-      "vibereport-extension/.vscodeignore",
-      "vibereport-extension/.gitignore",
+      "devplan/Project_Evaluation_Report.md",
+      "vibereport-extension/eslint.config.js",
       "vibereport-extension/vitest.config.ts",
-      "vibereport-extension/vibereport-0.3.14.vsix",
+      "vibereport-extension/vibereport-0.4.9.vsix",
+      "vibereport-extension/vibereport-0.4.13.vsix",
+      "vibereport-extension/vibereport-0.4.12.vsix",
+      "vibereport-extension/vibereport-0.4.11.vsix",
+      "vibereport-extension/vibereport-0.4.10.vsix",
+      "vibereport-extension/images/icon.png",
       "vibereport-extension/tsconfig.json",
-      "vibereport-extension/src/utils/markerUtils.ts",
-      "vibereport-extension/src/utils/timeUtils.ts",
-      "vibereport-extension/src/utils/markdownUtils.ts",
-      "vibereport-extension/src/utils/logger.ts",
-      "vibereport-extension/src/utils/__tests__/markdownUtils.test.ts",
-      "vibereport-extension/src/views/__tests__/SummaryViewProvider.test.ts",
-      "vibereport-extension/src/views/__tests__/HistoryViewProvider.test.ts",
-      "vibereport-extension/src/utils/index.ts",
-      "vibereport-extension/src/utils/configUtils.ts",
+      "vibereport-extension/test-output.txt",
+      "vibereport-extension/README.md",
+      "vibereport-extension/pnpm-lock.yaml",
+      "vibereport-extension/package.json",
+      "vibereport-extension/src/views/HistoryViewProvider.ts",
+      "vibereport-extension/src/views/index.ts",
+      "vibereport-extension/src/commands/__tests__/generatePrompt.test.ts",
+      "vibereport-extension/src/commands/__tests__/setProjectVision.test.ts",
       "vibereport-extension/src/views/SummaryViewProvider.ts",
       "vibereport-extension/src/views/SettingsViewProvider.ts",
-      "vibereport-extension/src/views/index.ts",
-      "vibereport-extension/src/views/HistoryViewProvider.ts",
+      "vibereport-extension/src/commands/updateReports.ts",
+      "vibereport-extension/src/commands/__tests__/shareReportPreview.test.ts",
+      "vibereport-extension/src/commands/shareReportPreview.ts",
+      "vibereport-extension/src/commands/shareReport.ts",
+      "vibereport-extension/src/commands/setProjectVision.ts",
+      "vibereport-extension/src/commands/openReportPreview.ts",
+      "vibereport-extension/src/commands/__tests__/updateReports.test.ts",
+      "vibereport-extension/src/commands/index.ts",
+      "vibereport-extension/src/commands/generatePrompt.ts",
+      "vibereport-extension/src/views/__tests__/SummaryViewProvider.test.ts",
+      "vibereport-extension/src/views/__tests__/HistoryViewProvider.test.ts",
+      "vibereport-extension/src/utils/timeUtils.ts",
+      "vibereport-extension/src/utils/previewColors.ts",
       "vibereport-extension/src/models/types.ts",
+      "vibereport-extension/src/utils/markerUtils.ts",
       "vibereport-extension/src/services/workspaceScanner.ts",
       "vibereport-extension/src/models/index.ts",
       "vibereport-extension/src/services/snapshotService.ts",
+      "vibereport-extension/src/utils/markdownUtils.ts",
       "vibereport-extension/src/models/errors.ts",
       "vibereport-extension/src/services/snapshotCache.ts",
       "vibereport-extension/src/services/reportService.ts",
       "vibereport-extension/src/models/constants.ts",
+      "vibereport-extension/src/services/previewStyleService.ts",
+      "vibereport-extension/src/utils/logger.ts",
       "vibereport-extension/src/services/index.ts",
-      "vibereport-extension/.github/workflows/ci.yml",
+      "vibereport-extension/src/utils/index.ts",
+      "vibereport-extension/src/services/aiService.ts",
+      "vibereport-extension/src/utils/htmlEscape.ts",
+      "vibereport-extension/src/utils/configUtils.ts",
+      "vibereport-extension/src/utils/analysisPromptTemplate.ts",
+      "vibereport-extension/src/markdownPlugin.ts",
       "vibereport-extension/src/extension.ts",
-      "vibereport-extension/src/commands/setProjectVision.ts",
-      "vibereport-extension/src/commands/updateReports.ts",
-      "vibereport-extension/src/commands/index.ts",
-      "vibereport-extension/src/commands/generatePrompt.ts",
       "vibereport-extension/src/services/__tests__/workspaceScanner.test.ts",
       "vibereport-extension/src/services/__tests__/snapshotService.test.ts",
       "vibereport-extension/src/services/__tests__/reportService.test.ts",
-      "vibereport-extension/README.md",
-      "vibereport-extension/pnpm-lock.yaml",
-      "vibereport-extension/package.json",
-      "vibereport-extension/src/commands/__tests__/updateReports.test.ts",
-      "vibereport-extension/src/commands/__tests__/setProjectVision.test.ts",
-      "vibereport-extension/src/commands/__tests__/generatePrompt.test.ts",
+      "vibereport-extension/src/utils/__tests__/markdownUtils.test.ts",
+      "vibereport-extension/.github/workflows/ci.yml",
       "vibereport-extension/LICENSE",
-      "vibereport-extension/images/icon.png",
+      "vibereport-extension/CHANGELOG.md",
+      "vibereport-extension/.vscodeignore",
+      "vibereport-extension/.gitignore",
       "devplan/Session_History.md",
       "devplan/Prompt.md",
       "devplan/Project_Improvement_Exploration_Report.md",
-      "devplan/Project_Evaluation_Report.pdf",
-      "devplan/Project_Evaluation_Report.md"
+      "vibereport-extension/media/report-preview.css",
+      "vibereport-extension/media/mermaid.min.js",
+      "vibereport-extension/media/mermaid-init.js"
     ],
     "structureSummary": [
       {
@@ -82,11 +102,6 @@
             "name": "Project_Evaluation_Report.md",
             "type": "file",
             "extension": "md"
-          },
-          {
-            "name": "Project_Evaluation_Report.pdf",
-            "type": "file",
-            "extension": "pdf"
           },
           {
             "name": "Project_Improvement_Exploration_Report.md",
@@ -121,6 +136,27 @@
             ]
           },
           {
+            "name": "media",
+            "type": "directory",
+            "children": [
+              {
+                "name": "mermaid-init.js",
+                "type": "file",
+                "extension": "js"
+              },
+              {
+                "name": "mermaid.min.js",
+                "type": "file",
+                "extension": "js"
+              },
+              {
+                "name": "report-preview.css",
+                "type": "file",
+                "extension": "css"
+              }
+            ]
+          },
+          {
             "name": "src",
             "type": "directory",
             "children": [
@@ -143,7 +179,22 @@
                     "extension": "ts"
                   },
                   {
+                    "name": "openReportPreview.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
                     "name": "setProjectVision.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "shareReport.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "shareReportPreview.ts",
                     "type": "file",
                     "extension": "ts"
                   },
@@ -189,7 +240,17 @@
                     "type": "directory"
                   },
                   {
+                    "name": "aiService.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
                     "name": "index.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "previewStyleService.ts",
                     "type": "file",
                     "extension": "ts"
                   },
@@ -224,7 +285,17 @@
                     "type": "directory"
                   },
                   {
+                    "name": "analysisPromptTemplate.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
                     "name": "configUtils.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "htmlEscape.ts",
                     "type": "file",
                     "extension": "ts"
                   },
@@ -245,6 +316,11 @@
                   },
                   {
                     "name": "markerUtils.ts",
+                    "type": "file",
+                    "extension": "ts"
+                  },
+                  {
+                    "name": "previewColors.ts",
                     "type": "file",
                     "extension": "ts"
                   },
@@ -289,6 +365,11 @@
                 "name": "extension.ts",
                 "type": "file",
                 "extension": "ts"
+              },
+              {
+                "name": "markdownPlugin.ts",
+                "type": "file",
+                "extension": "ts"
               }
             ]
           },
@@ -296,6 +377,11 @@
             "name": "CHANGELOG.md",
             "type": "file",
             "extension": "md"
+          },
+          {
+            "name": "eslint.config.js",
+            "type": "file",
+            "extension": "js"
           },
           {
             "name": "LICENSE",
@@ -317,12 +403,37 @@
             "extension": "md"
           },
           {
+            "name": "test-output.txt",
+            "type": "file",
+            "extension": "txt"
+          },
+          {
             "name": "tsconfig.json",
             "type": "file",
             "extension": "json"
           },
           {
-            "name": "vibereport-0.3.14.vsix",
+            "name": "vibereport-0.4.10.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
+            "name": "vibereport-0.4.11.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
+            "name": "vibereport-0.4.12.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
+            "name": "vibereport-0.4.13.vsix",
+            "type": "file",
+            "extension": "vsix"
+          },
+          {
+            "name": "vibereport-0.4.9.vsix",
             "type": "file",
             "extension": "vsix"
           },
@@ -347,7 +458,8 @@
         "type": "file",
         "extension": "md"
       }
-    ]
+    ],
+    "structureDiagram": "### 📐 기능 기반 프로젝트 구조\n\n**프로젝트**: `projectmanager`\n**타입**: 🔌 VS Code 확장\n\n| 기능 영역 | 설명 | 파일 수 |\n|:---|:---|:---:|\n| 📊 **devplan/** | 개발 계획 및 보고서 | 4 |\n\n#### 주요 진입점\n- _(엔트리포인트 자동 감지 실패)_\n"
   },
   "sessions": [
     {
@@ -716,9 +828,273 @@
         "changedConfigsCount": 0,
         "totalChanges": 9
       }
+    },
+    {
+      "id": "session_miubkt18_ki6661",
+      "timestamp": "2025-12-06T13:18:43.964Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T11:19:15.819Z 이후)\n\n**새 파일 (5개):**\n- vibereport-extension/vibereport-0.3.16.vsix\n- vibereport-extension/vibereport-0.3.15.vsix\n- vibereport-extension/src/services/previewStyleService.ts\n- vibereport-extension/src/commands/shareReport.ts\n- vibereport-extension/media/report-preview.css\n\n**언어별 파일 수 변화:**\n- ts: +2\n- css: +1\n",
+      "diffSummary": {
+        "newFilesCount": 5,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 5
+      }
+    },
+    {
+      "id": "session_miue31jt_mp3575",
+      "timestamp": "2025-12-06T14:28:54.041Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T13:18:43.931Z 이후)\n\n**새 파일 (2개):**\n- vibereport-extension/vibereport-0.3.17.vsix\n- vibereport-extension/src/utils/analysisPromptTemplate.ts\n\n**언어별 파일 수 변화:**\n- ts: +1\n",
+      "diffSummary": {
+        "newFilesCount": 2,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 2
+      }
+    },
+    {
+      "id": "session_miuermwl_ybjzhy",
+      "timestamp": "2025-12-06T14:48:01.461Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T14:28:54.012Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.3.18.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 1
+      }
+    },
+    {
+      "id": "session_miues35y_dx1twi",
+      "timestamp": "2025-12-06T14:48:22.534Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "변경사항 없음",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      }
+    },
+    {
+      "id": "session_miuesv9s_zrb4wl",
+      "timestamp": "2025-12-06T14:48:58.960Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "변경사항 없음",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      }
+    },
+    {
+      "id": "session_miuf6d40_b1i16o",
+      "timestamp": "2025-12-06T14:59:28.608Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "변경사항 없음",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      }
+    },
+    {
+      "id": "session_miufa82u_qkfw6q",
+      "timestamp": "2025-12-06T15:02:28.710Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T14:59:28.580Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.3.19.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 1
+      }
+    },
+    {
+      "id": "session_miufutko_20z55e",
+      "timestamp": "2025-12-06T15:18:29.688Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T15:02:28.679Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.3.20.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 1
+      }
+    },
+    {
+      "id": "session_miugcb2l_la2jpq",
+      "timestamp": "2025-12-06T15:32:05.517Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T15:18:29.657Z 이후)\n\n**새 파일 (2개):**\n- vibereport-extension/vibereport-0.3.22.vsix\n- vibereport-extension/vibereport-0.3.21.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 2,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 2
+      }
+    },
+    {
+      "id": "session_miugzspv_qqcw27",
+      "timestamp": "2025-12-06T15:50:21.475Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T15:32:05.487Z 이후)\n\n**새 파일 (2개):**\n- vibereport-extension/vibereport-0.3.24.vsix\n- vibereport-extension/vibereport-0.3.23.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 2,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 2
+      }
+    },
+    {
+      "id": "session_miypjevz_0j0zql",
+      "timestamp": "2025-12-09T15:00:38.303Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-06T15:50:21.444Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.3.25.vsix\n\n**삭제된 파일 (11개):**\n- vibereport-extension/vibereport-0.3.17.vsix\n- vibereport-extension/vibereport-0.3.22.vsix\n- vibereport-extension/vibereport-0.3.21.vsix\n- vibereport-extension/vibereport-0.3.20.vsix\n- vibereport-extension/vibereport-0.3.19.vsix\n- vibereport-extension/vibereport-0.3.23.vsix\n- vibereport-extension/vibereport-0.3.18.vsix\n- vibereport-extension/vibereport-0.3.16.vsix\n- vibereport-extension/vibereport-0.3.15.vsix\n- vibereport-extension/vibereport-0.3.14.vsix\n- ... 외 1개\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 11,
+        "changedConfigsCount": 0,
+        "totalChanges": 12
+      }
+    },
+    {
+      "id": "session_mj2lf124_99qiia",
+      "timestamp": "2025-12-12T08:16:19.996Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-09T15:00:38.270Z 이후)\n\n**새 파일 (2개):**\n- vibereport-extension/vibereport-0.3.26.vsix\n- vibereport-extension/test-output.txt\n",
+      "diffSummary": {
+        "newFilesCount": 2,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 2
+      }
+    },
+    {
+      "id": "session_mj2orjjz_k1ic2s",
+      "timestamp": "2025-12-12T09:50:02.687Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-12T08:16:19.950Z 이후)\n\n**삭제된 파일 (1개):**\n- vibereport-extension/vibereport-0.3.25.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 1,
+        "changedConfigsCount": 0,
+        "totalChanges": 1
+      }
+    },
+    {
+      "id": "session_mj2psmvg_ytctz0",
+      "timestamp": "2025-12-12T10:18:53.260Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "변경사항 없음",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      }
+    },
+    {
+      "id": "session_mj5khgss_khbvqz",
+      "timestamp": "2025-12-14T10:13:32.620Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-12T10:18:53.212Z 이후)\n\n**새 파일 (2개):**\n- vibereport-extension/vibereport-0.3.28.vsix\n- vibereport-extension/vibereport-0.3.27.vsix\n\n**삭제된 파일 (1개):**\n- devplan/Project_Evaluation_Report.pdf\n",
+      "diffSummary": {
+        "newFilesCount": 2,
+        "removedFilesCount": 1,
+        "changedConfigsCount": 0,
+        "totalChanges": 3
+      }
+    },
+    {
+      "id": "session_mj5v2zju_ajnra1",
+      "timestamp": "2025-12-14T15:10:12.858Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-14T10:13:32.596Z 이후)\n\n**새 파일 (6개):**\n- vibereport-extension/src/utils/previewColors.ts\n- vibereport-extension/src/utils/htmlEscape.ts\n- vibereport-extension/src/services/aiService.ts\n- vibereport-extension/src/commands/__tests__/shareReportPreview.test.ts\n- vibereport-extension/src/commands/shareReportPreview.ts\n- vibereport-extension/eslint.config.js\n\n**언어별 파일 수 변화:**\n- ts: +5\n- js: +1\n",
+      "diffSummary": {
+        "newFilesCount": 6,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 6
+      }
+    },
+    {
+      "id": "session_mj5vic70_hxw3sd",
+      "timestamp": "2025-12-14T15:22:09.084Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "변경사항 없음",
+      "diffSummary": {
+        "newFilesCount": 0,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 0
+      }
+    },
+    {
+      "id": "session_mj5vy8bk_85abw0",
+      "timestamp": "2025-12-14T15:34:30.560Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-14T15:22:09.056Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.3.29.vsix\n\n**삭제된 파일 (3개):**\n- vibereport-extension/vibereport-0.3.27.vsix\n- vibereport-extension/vibereport-0.3.28.vsix\n- vibereport-extension/vibereport-0.3.26.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 3,
+        "changedConfigsCount": 0,
+        "totalChanges": 4
+      }
+    },
+    {
+      "id": "session_mj5xh5nm_0mac00",
+      "timestamp": "2025-12-14T16:17:13.186Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-14T15:34:30.535Z 이후)\n\n**새 파일 (5개):**\n- vibereport-extension/vibereport-0.4.0.vsix\n- vibereport-extension/src/markdownPlugin.ts\n- vibereport-extension/src/commands/openReportPreview.ts\n- vibereport-extension/media/mermaid.min.js\n- vibereport-extension/media/mermaid-init.js\n\n**언어별 파일 수 변화:**\n- ts: +2\n- js: +2\n",
+      "diffSummary": {
+        "newFilesCount": 5,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 5
+      }
+    },
+    {
+      "id": "session_mj5yamem_9e9f9v",
+      "timestamp": "2025-12-14T16:40:07.918Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-14T16:17:13.159Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.4.1.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 1
+      }
+    },
+    {
+      "id": "session_mj63o7ha_1uted4",
+      "timestamp": "2025-12-14T19:10:39.838Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-14T16:40:07.891Z 이후)\n\n**새 파일 (4개):**\n- vibereport-extension/vibereport-0.4.10.vsix\n- vibereport-extension/vibereport-0.4.12.vsix\n- vibereport-extension/vibereport-0.4.11.vsix\n- vibereport-extension/vibereport-0.4.9.vsix\n\n**삭제된 파일 (3개):**\n- vibereport-extension/vibereport-0.4.1.vsix\n- vibereport-extension/vibereport-0.4.0.vsix\n- vibereport-extension/vibereport-0.3.29.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 4,
+        "removedFilesCount": 3,
+        "changedConfigsCount": 0,
+        "totalChanges": 7
+      }
+    },
+    {
+      "id": "session_mj64ibu4_4f1pdh",
+      "timestamp": "2025-12-14T19:34:05.164Z",
+      "userPrompt": "보고서 업데이트",
+      "changesSummary": "### 변경 요약 (2025-12-14T19:10:39.813Z 이후)\n\n**새 파일 (1개):**\n- vibereport-extension/vibereport-0.4.13.vsix\n",
+      "diffSummary": {
+        "newFilesCount": 1,
+        "removedFilesCount": 0,
+        "changedConfigsCount": 0,
+        "totalChanges": 1
+      }
     }
   ],
   "appliedImprovements": [],
-  "lastUpdated": "2025-12-06T11:19:15.847Z",
+  "lastUpdated": "2025-12-14T19:34:05.164Z",
   "version": 1
 }

@@ -21,5 +21,10 @@
     "vibereport.language": "ko",
     "kiroAgent.enableDebugLogs": true,
     "kiroAgent.enableCodebaseIndexing": true,
-    "kiroAgent.enableTabAutocomplete": true
+    "kiroAgent.enableTabAutocomplete": true,
+    "vibereport.projectVisionMode": "auto",
+    "vibereport.defaultProjectType": "auto-detect",
+    "vibereport.defaultQualityFocus": "development",
+    "vibereport.previewBackgroundColor": "white",
+    "vibereport.reportOpenMode": "previewOnly"
 }
