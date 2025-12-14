@@ -9,43 +9,62 @@
 </p>
 
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=vibe-coding.vibereport">
-    <img src="https://img.shields.io/visual-studio-marketplace/v/vibe-coding.vibereport" alt="Version">
+  <a href="https://marketplace.visualstudio.com/items?itemName=stankjedi.vibereport">
+    <img src="https://img.shields.io/visual-studio-marketplace/v/stankjedi.vibereport" alt="Version">
   </a>
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
+  <img src="https://img.shields.io/badge/version-0.4.13-brightgreen" alt="Current Version">
 </p>
 
 ---
 
 바이브 코딩(AI 페어 프로그래밍)을 통해 프로그램을 제작할 때, 프로젝트 상태를 분석하고 AI 에이전트에게 전달할 개선 프롬프트를 자동으로 생성하는 확장 프로그램입니다.
 
+> **🚀 v0.4.13 주요 업데이트**: 로컬 Mermaid 번들링으로 오프라인 환경 완벽 지원, CSP 보안 강화, 보고서 프리뷰 기능 대폭 개선
+
 ## ✨ Features
 
 ### 📊 삼중 보고서 시스템
-- **Project Evaluation Report** - 프로젝트 현황 평가 (10개 카테고리 점수)
-- **Project Improvement Exploration Report** - 개선 사항 탐색 및 추적
-- **Prompt.md** - AI 에이전트용 실행 프롬프트
+| 보고서 | 설명 |
+|--------|------|
+| **Project Evaluation Report** | 프로젝트 현황 평가 (10개 카테고리 점수 + A~F 등급) |
+| **Project Improvement Report** | 개선 사항 탐색 및 우선순위별 추적 |
+| **Prompt.md** | AI 에이전트용 실행 프롬프트 (영어) |
+
+### 📈 Mermaid 다이어그램 지원 (v0.4.x 신기능)
+- **로컬 Mermaid 번들링**: 외부 CDN 의존성 완전 제거
+- **오프라인 동작**: 인터넷 없이도 다이어그램 렌더링 가능
+- **빠른 프리뷰**: 로컬 라이브러리로 즉시 로딩
+- **기능 기반 패키지 구조도**: 아키텍처 다이어그램 자동 생성
+
+### 🔒 보안 강화 (CSP)
+- Webview에 엄격한 Content Security Policy 적용
+- `script-src 'nonce-...'` 적용으로 외부 스크립트 실행 차단
+- 안전한 로컬 리소스만 허용
 
 ### 🔄 증분 업데이트
 - 마커 기반 섹션 업데이트 (전체 덮어쓰기 X)
 - 이전 세션 내용 보존
 - 변경된 부분만 AI에게 전달
 
-### ✅ 적용된 개선사항 추적
-- 이미 적용된 개선사항 자동 제외
-- 우선순위(P1/P2/P3)별 분류
-- 다음 보고서에서 중복 제안 방지
+### ✅ 스마트 개선사항 추적
+- 이미 적용된 개선사항 자동 필터링
+- 우선순위(P1/P2/P3) 및 최적화 항목(OPT) 분류
+- 완료된 항목 자동 제외로 중복 제안 방지
+- 다중 프롬프트 선택 및 일괄 복사 지원
 
 ### 📋 AI 친화적 출력
 - 클립보드에 분석 프롬프트 자동 복사
-- Copilot Chat에 바로 붙여넣기 가능
-- 순차 실행 가능한 프롬프트 구조
+- Copilot Chat / Claude / ChatGPT에 바로 붙여넣기 가능
+- 10개 TODO 체크리스트 기반 순차 실행 구조
+- 파트별 분리 작성 지침 (150줄 단위)
 
 ### 🖥️ 사이드바 UI
-- 프로젝트 요약 Webview (CSP 보안 적용)
-- 세션 히스토리 TreeView
+- **Summary**: 프로젝트 요약 Webview (CSP 보안 적용)
+- **Session History**: 세션별 스냅샷 관리 TreeView
+- **Settings**: 프로젝트 비전 및 환경 설정 패널
 - 자동 새로고침 (devplan/*.md 변경 감지)
 
 ## 🚀 Installation
@@ -65,20 +84,20 @@ GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니�
 #### 방법 2: 명령줄에서 설치
 ```bash
 # VSIX 파일 다운로드 후
-code --install-extension vibereport-0.1.0.vsix
+code --install-extension vibereport-0.4.13.vsix
 ```
 
 #### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
 ```powershell
 # GitHub에서 직접 다운로드 (PowerShell)
-Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.1.0/vibereport-0.1.0.vsix" -OutFile "vibereport-0.1.0.vsix"
-code --install-extension vibereport-0.1.0.vsix
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.13/vibereport-0.4.13.vsix" -OutFile "vibereport-0.4.13.vsix"
+code --install-extension vibereport-0.4.13.vsix
 ```
 
 ```bash
 # Linux/Mac
-curl -L -o vibereport-0.1.0.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.1.0/vibereport-0.1.0.vsix
-code --install-extension vibereport-0.1.0.vsix
+curl -L -o vibereport-0.4.13.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.13/vibereport-0.4.13.vsix
+code --install-extension vibereport-0.4.13.vsix
 ```
 
 ### Development (개발자용)
@@ -99,14 +118,18 @@ pnpm run compile
 
 ### 명령어 목록
 
-| 명령어 | 설명 |
-|--------|------|
-| `VibeCoding: Update Project Reports` | 프로젝트 분석 및 보고서 업데이트 |
-| `VibeCoding: Open Evaluation Report` | 평가 보고서 열기 |
-| `VibeCoding: Open Improvement Report` | 개선 보고서 열기 |
-| `VibeCoding: Open Prompt File` | AI 프롬프트 파일 열기 |
-| `VibeCoding: Initialize Project Reports` | 보고서 초기화 |
-| `VibeCoding: Show Last Run Summary` | 마지막 실행 요약 보기 |
+| 명령어 | 설명 | 단축키 |
+|--------|------|--------|
+| `VibeCoding: Update Project Reports` | 프로젝트 분석 및 보고서 업데이트 | - |
+| `VibeCoding: Open Evaluation Report` | 평가 보고서 열기 | - |
+| `VibeCoding: Open Improvement Report` | 개선 보고서 열기 | - |
+| `VibeCoding: Open Prompt File` | AI 프롬프트 파일 열기 | - |
+| `VibeCoding: Initialize Project Reports` | 보고서 초기화 | - |
+| `VibeCoding: Set Project Vision` | 프로젝트 비전 설정 | - |
+| `VibeCoding: Open Session History` | 세션 히스토리 열기 | - |
+| `VibeCoding: Generate Improvement Prompt` | 개선 프롬프트 생성 | - |
+| `VibeCoding: Open Report Preview` | Mermaid 지원 보고서 프리뷰 | `Ctrl+K M` |
+| `VibeCoding: Share Report Preview` | 보고서 공유 | - |
 
 ## ⚙️ Configuration
 
@@ -119,6 +142,12 @@ pnpm run compile
 | `vibereport.maxFilesToScan` | 최대 스캔 파일 수 | `5000` |
 | `vibereport.autoOpenReports` | 업데이트 후 자동 열기 | `true` |
 | `vibereport.language` | 보고서 언어 (`ko` / `en`) | `ko` |
+| `vibereport.projectVisionMode` | 프로젝트 비전 모드 (`auto` / `custom`) | `auto` |
+| `vibereport.defaultProjectType` | 기본 프로젝트 유형 | `auto-detect` |
+| `vibereport.defaultQualityFocus` | 기본 품질 우선순위 | `development` |
+| `vibereport.preferredMarkdownViewer` | 마크다운 뷰어 (`mermaid` / `standard`) | `mermaid` |
+| `vibereport.previewBackgroundColor` | 프리뷰 배경색 (`ide` / `white` / `black`) | `ide` |
+| `vibereport.reportOpenMode` | 보고서 열기 방식 (`previewOnly` / `both` / `editorOnly`) | `previewOnly` |
 
 ## 📁 Generated Files
 
@@ -211,43 +240,35 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.1.0.vsix 생성
+# vibereport-0.4.13.vsix 생성
 ```
 
 ## 📝 Changelog
 
-### v0.3.11 (2025-12-04)
-- **Command Layer 테스트 확장**: SetProjectVisionCommand, UpdateReportsCommand 테스트 추가 (86 → 102 테스트)
-- **markerUtils 분리**: SRP 원칙에 따라 마커 처리 로직을 별도 모듈로 분리
-- **스냅샷 캐싱**: 30초 TTL 캐시로 연속 스캔 성능 향상
-- **Git 라인 메트릭**: 파일별 추가/삭제 라인 수 추적 기능 추가
+### v0.4.13 (2025-12-15) - 🚀 Major Update
 
-### v0.3.10 (2025-12-04)
-- **TODO 기반 프롬프트 구조**: 분석 프롬프트에 10개 TODO 체크리스트 추가
-- AI 에이전트가 반드시 순차적으로 TODO를 실행하도록 강화
-- AGENTS.md에 Anti-Stalling 규칙 추가 (멈춤 방지)
+#### 📦 로컬 Mermaid 번들링 및 오프라인 지원
+- **Local Mermaid Integration**: 외부 CDN 의존성 완전 제거, 확장 프로그램 내부에 Mermaid.js 번들링
+- 오프라인 환경에서도 보고서 프리뷰가 완벽하게 동작
+- 프리뷰 로딩 속도 획기적 개선
 
-### v0.3.9 (2025-12-04)
-- **Prompt.md 예시 코드 작성**: 보고서 업데이트 시 Prompt.md에 실제 구현 예시 코드가 포함되도록 개선
-- AI 에이전트가 프롬프트를 받을 때 참고할 수 있는 코드 예시 제공
-- 코드 작성 가이드라인 추가
+#### 🔒 보안 강화 (CSP)
+- **Strict Content Security Policy**: Webview에 엄격한 CSP 적용
+- `script-src 'nonce-...'` 적용으로 보안성 극대화
 
-### v0.3.8 (2025-12-04)
-- **OPT 항목 영어 출력**: Prompt.md에 OPT 항목을 영어로 작성하고, 이를 파싱하여 클립보드에 복사
-- 개선 보고서의 한글 OPT 내용 대신 Prompt.md의 영어 OPT 항목 사용
-- OPT 상태(pending/done) 기반 정렬 추가
+#### 📊 보고서 시스템 고도화
+- **기능 기반 패키지 구조도**: Mermaid 기반 아키텍처 다이어그램 자동 생성
+- **상세 평가 지표**: 10개 항목에 대한 정량적 점수와 등급(A~F) 제공
+- **개선 보고서 필터링**: 적용된 항목 자동 제외, 미완료 작업만 표시
 
-### v0.3.7 (2025-12-04)
-- **다중 선택 지원**: 여러 개의 프롬프트 또는 OPT 항목을 동시에 선택하여 클립보드에 복사
-- 선택한 항목들이 구분선과 함께 결합되어 복사됨
+#### 🛠 기타 개선사항
+- Session History 안정화
+- 주요 명령어 UX 개선
+- 프리뷰 테마 완전 지원 (white/black/ide)
 
-### v0.3.6 (2025-12-04)
-- **OPT 항목 선택**: 개선 프롬프트 생성 시 코드 품질 및 성능 최적화 항목(OPT) 선택 가능
-- 프롬프트와 OPT 항목이 구분되어 표시
+---
 
-### v0.3.5 (2025-12-03)
-- **UX 단순화**: 새 프롬프트 생성 기능 제거, 기존 프롬프트 선택식 복사 기능만 유지
-- 선택 가능한 항목 없을 때 명확한 안내 메시지 표시
+이전 버전 히스토리는 [CHANGELOG.md](CHANGELOG.md)를 참고하세요.
 
 ## 📝 License
 
@@ -265,7 +286,7 @@ MIT
 
 - [GitHub Repository](https://github.com/Stankjedi/projectmanager)
 - [Issue Tracker](https://github.com/Stankjedi/projectmanager/issues)
-- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vibe-coding.vibereport)
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=stankjedi.vibereport)
 
 ---
 
