@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import type { SessionRecord, VibeReportConfig } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { formatRelativeTime, loadConfig } from '../utils/index.js';
+import { formatRelativeTime, loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath } from '../utils/index.js';
 
 /**
  * 히스토리 아이템 타입
@@ -194,6 +194,19 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
               new vscode.ThemeIcon('diff')
             ));
           }
+          if (session.diffSummary.linesTotal !== undefined && session.diffSummary.linesTotal > 0) {
+            const added = session.diffSummary.linesAdded ?? 0;
+            const removed = session.diffSummary.linesRemoved ?? 0;
+            items.push(new HistoryItem(
+              `+${added} / -${removed} (총 ${session.diffSummary.linesTotal}줄)`,
+              '',
+              vscode.TreeItemCollapsibleState.None,
+              'detail',
+              undefined,
+              undefined,
+              new vscode.ThemeIcon('list-unordered')
+            ));
+          }
         }
         if (items.length === 0) {
           items.push(new HistoryItem(
@@ -269,13 +282,9 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
   }
 
   private getRootPath(): string | null {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      return null;
-    }
-    return workspaceFolders[0].uri.fsPath;
+    return getLastSelectedWorkspaceRoot() ?? getWorkspaceRootPath();
   }
-}
+} 
 
 class HistoryItem extends vscode.TreeItem {
   public readonly session?: SessionRecord;

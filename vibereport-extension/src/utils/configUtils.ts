@@ -8,6 +8,16 @@
 import * as vscode from 'vscode';
 import type { VibeReportConfig, ProjectType, QualityFocus } from '../models/types.js';
 
+// Cache last selected workspace root for multi-root UX.
+let lastSelectedWorkspaceRoot: string | null = null;
+
+/**
+ * Get last selected workspace root (in-memory for current session)
+ */
+export function getLastSelectedWorkspaceRoot(): string | null {
+  return lastSelectedWorkspaceRoot;
+}
+
 /**
  * Default configuration values
  */
@@ -31,6 +41,7 @@ export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
   ],
   maxFilesToScan: 5000,
   autoOpenReports: true,
+  enableDirectAi: false,
   language: 'ko',
   projectVisionMode: 'auto',
   defaultProjectType: 'auto-detect',
@@ -57,6 +68,7 @@ export function loadConfig(): VibeReportConfig {
     excludePatterns: config.get<string[]>('excludePatterns', [...DEFAULT_CONFIG.excludePatterns]),
     maxFilesToScan: config.get<number>('maxFilesToScan', DEFAULT_CONFIG.maxFilesToScan),
     autoOpenReports: config.get<boolean>('autoOpenReports', DEFAULT_CONFIG.autoOpenReports),
+    enableDirectAi: config.get<boolean>('enableDirectAi', DEFAULT_CONFIG.enableDirectAi),
     language: config.get<'ko' | 'en'>('language', DEFAULT_CONFIG.language),
     projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', DEFAULT_CONFIG.projectVisionMode),
     defaultProjectType: config.get<ProjectType | 'auto-detect'>('defaultProjectType', DEFAULT_CONFIG.defaultProjectType),
@@ -88,7 +100,7 @@ export function getRootPath(): string | null {
  */
 export async function selectWorkspaceRoot(): Promise<string | null> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
-  
+
   if (!workspaceFolders || workspaceFolders.length === 0) {
     vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
     return null;
@@ -96,7 +108,8 @@ export async function selectWorkspaceRoot(): Promise<string | null> {
 
   // Single workspace - return directly
   if (workspaceFolders.length === 1) {
-    return workspaceFolders[0].uri.fsPath;
+    lastSelectedWorkspaceRoot = workspaceFolders[0].uri.fsPath;
+    return lastSelectedWorkspaceRoot;
   }
 
   // Multiple workspaces - show picker
@@ -104,6 +117,7 @@ export async function selectWorkspaceRoot(): Promise<string | null> {
     label: folder.name,
     description: folder.uri.fsPath,
     folder,
+    picked: folder.uri.fsPath === lastSelectedWorkspaceRoot,
   }));
 
   const selected = await vscode.window.showQuickPick(items, {
@@ -115,5 +129,6 @@ export async function selectWorkspaceRoot(): Promise<string | null> {
     return null; // User cancelled
   }
 
-  return selected.folder.uri.fsPath;
+  lastSelectedWorkspaceRoot = selected.folder.uri.fsPath;
+  return lastSelectedWorkspaceRoot;
 }

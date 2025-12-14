@@ -79,10 +79,10 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     try {
       const config = vscode.workspace.getConfiguration('vibereport');
       await config.update(key, value, vscode.ConfigurationTarget.Workspace);
-      
+
       this.log(`설정 업데이트: ${key} = ${JSON.stringify(value)}`);
       vscode.window.showInformationMessage(`설정이 저장되었습니다: ${key}`);
-      
+
       // 설정 변경 후 UI 업데이트
       await this.sendCurrentSettings();
     } catch (error) {
@@ -109,6 +109,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       projectVisionMode: config.get<string>('projectVisionMode', 'auto'),
       defaultProjectType: config.get<string>('defaultProjectType', 'auto-detect'),
       defaultQualityFocus: config.get<string>('defaultQualityFocus', 'development'),
+      previewBackgroundColor: config.get<string>('previewBackgroundColor', 'ide'),
+      reportOpenMode: config.get<string>('reportOpenMode', 'previewOnly'),
     };
 
     await this._view.webview.postMessage({
@@ -122,7 +124,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
    */
   private async resetToDefaults(): Promise<void> {
     const config = vscode.workspace.getConfiguration('vibereport');
-    
+
     const defaults = {
       reportDirectory: 'devplan',
       snapshotFile: '.vscode/vibereport-state.json',
@@ -140,6 +142,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       projectVisionMode: 'auto',
       defaultProjectType: 'auto-detect',
       defaultQualityFocus: 'development',
+      previewBackgroundColor: 'ide',
+      reportOpenMode: 'previewOnly',
     };
 
     for (const [key, value] of Object.entries(defaults)) {
@@ -367,6 +371,29 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     </select>
   </div>
 
+  <!-- 프리뷰 설정 -->
+  <div class="section-title">🎨 프리뷰 설정</div>
+
+  <div class="setting-group">
+    <div class="setting-label">프리뷰 배경색</div>
+    <div class="setting-description">Share Report Preview 미리보기 배경색</div>
+    <select class="setting-select" id="previewBackgroundColor">
+      <option value="ide">🖥️ IDE 테마 색상 (기본값)</option>
+      <option value="white">⬜ 흰색 배경</option>
+      <option value="black">⬛ 검은색 배경</option>
+    </select>
+  </div>
+
+  <div class="setting-group">
+    <div class="setting-label">보고서 열기 모드</div>
+    <div class="setting-description">보고서 열기 버튼 클릭 시 표시 방식</div>
+    <select class="setting-select" id="reportOpenMode">
+      <option value="previewOnly">🔍 Mermaid 프리뷰만 (권장)</option>
+      <option value="both">📑 에디터 + 프리뷰</option>
+      <option value="editorOnly">📝 에디터만</option>
+    </select>
+  </div>
+
   <!-- 프로젝트 비전 설정 -->
   <div class="section-title">🎯 프로젝트 비전 설정</div>
 
@@ -438,6 +465,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       projectVisionMode: document.getElementById('projectVisionMode'),
       defaultProjectType: document.getElementById('defaultProjectType'),
       defaultQualityFocus: document.getElementById('defaultQualityFocus'),
+      previewBackgroundColor: document.getElementById('previewBackgroundColor'),
+      reportOpenMode: document.getElementById('reportOpenMode'),
     };
 
     // 설정 로드
@@ -452,6 +481,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       elements.projectVisionMode.value = settings.projectVisionMode || 'auto';
       elements.defaultProjectType.value = settings.defaultProjectType || 'auto-detect';
       elements.defaultQualityFocus.value = settings.defaultQualityFocus || 'development';
+      elements.previewBackgroundColor.value = settings.previewBackgroundColor || 'ide';
+      elements.reportOpenMode.value = settings.reportOpenMode || 'previewOnly';
     }
 
     // 모든 설정 저장
@@ -467,6 +498,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
         projectVisionMode: elements.projectVisionMode.value,
         defaultProjectType: elements.defaultProjectType.value,
         defaultQualityFocus: elements.defaultQualityFocus.value,
+        previewBackgroundColor: elements.previewBackgroundColor.value,
+        reportOpenMode: elements.reportOpenMode.value,
       };
 
       for (const [key, value] of Object.entries(settings)) {

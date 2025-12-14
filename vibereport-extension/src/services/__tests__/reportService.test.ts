@@ -51,6 +51,7 @@ describe('ReportService', () => {
     excludePatterns: [],
     maxFilesToScan: 5000,
     autoOpenReports: true,
+    enableDirectAi: false,
     language: 'ko',
     projectVisionMode: 'auto',
     defaultProjectType: 'auto-detect',
@@ -147,10 +148,9 @@ describe('ReportService', () => {
       expect(template).toContain(MARKERS.OVERVIEW_END);
       expect(template).toContain(MARKERS.SCORE_START);
       expect(template).toContain(MARKERS.SCORE_END);
-      expect(template).toContain(MARKERS.SUMMARY_START);
-      expect(template).toContain(MARKERS.SUMMARY_END);
-      // 세션 로그는 Session_History.md를 참조하도록 변경됨
-      expect(template).toContain('Session_History.md');
+      // 프로젝트 구조 섹션 추가됨
+      expect(template).toContain('<!-- AUTO-STRUCTURE-START -->');
+      expect(template).toContain('<!-- AUTO-TREND-START -->');
     });
 
     it('should create English template when language is en', () => {
@@ -190,8 +190,7 @@ describe('ReportService', () => {
       expect(template).toContain(MARKERS.SUMMARY_END);
       expect(template).toContain(MARKERS.IMPROVEMENT_LIST_START);
       expect(template).toContain(MARKERS.IMPROVEMENT_LIST_END);
-      // 세션 로그는 Session_History.md를 참조하도록 변경됨
-      expect(template).toContain('Session_History.md');
+      // 분석 이력 섹션은 제거됨
     });
 
     it('should create English template when language is en', () => {
@@ -356,7 +355,7 @@ describe('ReportService', () => {
 
       expect(writeFileMock).toHaveBeenCalled();
       const writtenContent = writeFileMock.mock.calls[0][1] as string;
-      
+
       // New session should be at the top
       expect(writtenContent).toContain('session-001');
       // Stats should be updated
@@ -384,7 +383,7 @@ describe('ReportService', () => {
 
       const writtenContent = writeFileMock.mock.calls[0][1] as string;
       expect(writtenContent).toContain('| **총 세션 수** | 5 |');
-      expect(writtenContent).toContain('| **적용 완료** | 3 |');
+      // 적용 완료 필드는 템플릿에서 제거됨
     });
   });
 

@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { resolvePreviewColors, type PreviewBackgroundSetting } from '../utils/previewColors.js';
 
 export class PreviewStyleService {
   private outputChannel: vscode.OutputChannel;
@@ -57,14 +58,25 @@ export class PreviewStyleService {
   /**
    * 커스텀 CSS 변수 섹션 생성
    */
-  private generateCustomVarsSection(backgroundColor: string): string {
-    if (!backgroundColor) {
+  private generateCustomVarsSection(backgroundSetting: string): string {        
+    const setting: PreviewBackgroundSetting =
+      backgroundSetting === 'white' || backgroundSetting === 'black' || backgroundSetting === 'ide'
+        ? backgroundSetting
+        : 'ide';
+
+    const colors = resolvePreviewColors(setting);
+
+    if (!colors) {
+      // ide 모드: 커스텀 변수 없이 기본 CSS 변수 사용
       return '';
     }
 
     return `/* ===== CUSTOM VARIABLES START ===== */
 :root {
-  --vibe-preview-background: ${backgroundColor};
+  --vibe-preview-background: ${colors.bg};
+  --vibe-preview-foreground: ${colors.fg};
+  --vibe-preview-card-background: ${colors.cardBg};
+  --vibe-preview-border: ${colors.border};
 }
 /* ===== CUSTOM VARIABLES END ===== */
 `;

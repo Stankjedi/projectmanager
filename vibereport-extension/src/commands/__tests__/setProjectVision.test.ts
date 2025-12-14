@@ -127,11 +127,11 @@ describe('SetProjectVisionCommand', () => {
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
-      
+
       // User selects project type but cancels core goals
-      vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({ 
-        label: 'VS Code Extension', 
-        value: 'vscode-extension' 
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({
+        label: 'VS Code Extension',
+        value: 'vscode-extension'
       } as any);
       vi.mocked(vscode.window.showInputBox).mockResolvedValueOnce(undefined);
 
@@ -150,11 +150,11 @@ describe('SetProjectVisionCommand', () => {
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
-      
+
       // User completes project type and core goals but cancels target users
-      vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({ 
-        label: 'VS Code Extension', 
-        value: 'vscode-extension' 
+      vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({
+        label: 'VS Code Extension',
+        value: 'vscode-extension'
       } as any);
       vi.mocked(vscode.window.showInputBox)
         .mockResolvedValueOnce('Goal 1, Goal 2') // core goals
@@ -175,7 +175,7 @@ describe('SetProjectVisionCommand', () => {
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
       ];
-      
+
       vi.mocked(vscode.window.showQuickPick)
         .mockResolvedValueOnce({ label: 'VS Code Extension', value: 'vscode-extension' } as any)
         .mockResolvedValueOnce(undefined); // quality focus cancelled
@@ -286,6 +286,92 @@ describe('SetProjectVisionCommand', () => {
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
         expect.stringContaining('프로젝트 비전 설정 실패')
       );
+    });
+
+    it('should log error to output channel when save fails', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      // Mock all user inputs for complete flow
+      vi.mocked(vscode.window.showQuickPick)
+        .mockResolvedValueOnce({ label: 'VS Code Extension', value: 'vscode-extension' } as any)
+        .mockResolvedValueOnce({ label: 'Development', value: 'development' } as any)
+        .mockResolvedValueOnce([{ label: 'Testing', value: 'testing' }] as any)
+        .mockResolvedValueOnce([] as any);
+
+      vi.mocked(vscode.window.showInputBox)
+        .mockResolvedValueOnce('Goal 1, Goal 2')
+        .mockResolvedValueOnce('VS Code users')
+        .mockResolvedValueOnce('TypeScript, VS Code API');
+
+      // Mock SnapshotService to throw on saveState
+      vi.doMock('../../services/index.js', () => ({
+        SnapshotService: class MockSnapshotService {
+          loadState = vi.fn().mockResolvedValue(null);
+          saveState = vi.fn().mockRejectedValue(new Error('Disk full'));
+          createInitialState = vi.fn().mockReturnValue({
+            version: '1.0.0',
+            lastSnapshot: null,
+            sessions: [],
+            appliedImprovements: [],
+            lastUpdated: new Date().toISOString(),
+          });
+        },
+      }));
+
+      const { SetProjectVisionCommand } = await import('../setProjectVision.js');
+      const command = new SetProjectVisionCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert - error message should be shown
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringMatching(/실패|오류|error/i)
+      );
+      // Output channel should receive log
+      expect(mockOutputChannel.appendLine).toHaveBeenCalled();
+    });
+
+    it('should handle workspace configuration update failure gracefully', async () => {
+      // Arrange - clear mocks first to avoid interference
+      vi.clearAllMocks();
+
+      const mockUpdate = vi.fn().mockRejectedValue(new Error('Config write failed'));
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn().mockReturnValue('auto'),
+        update: mockUpdate,
+      } as any);
+
+      // Mock all user inputs for complete flow - ensure fresh mocks
+      vi.mocked(vscode.window.showQuickPick)
+        .mockResolvedValueOnce({ label: 'CLI Tool', value: 'cli-tool' } as any)
+        .mockResolvedValueOnce({ label: 'Prototype', value: 'prototype' } as any)
+        .mockResolvedValueOnce([{ label: 'Performance', value: 'performance' }] as any)
+        .mockResolvedValueOnce([] as any);
+
+      vi.mocked(vscode.window.showInputBox)
+        .mockResolvedValueOnce('Fast CLI')
+        .mockResolvedValueOnce('Developers')
+        .mockResolvedValueOnce('Node.js');
+
+      // Reset modules to get fresh command instance
+      vi.resetModules();
+      const { SetProjectVisionCommand } = await import('../setProjectVision.js');
+      const command = new SetProjectVisionCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert - the command should have attempted to update config
+      // Note: since config update throws, error should be caught and shown
+      // Just verify the command completed and showed an error
+      expect(vscode.window.showErrorMessage).toHaveBeenCalled();
     });
   });
 });

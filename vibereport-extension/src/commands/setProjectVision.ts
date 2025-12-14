@@ -13,7 +13,7 @@ import type {
   VibeReportConfig,
 } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { loadConfig } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
 
 export class SetProjectVisionCommand {
   private snapshotService: SnapshotService;
@@ -28,13 +28,11 @@ export class SetProjectVisionCommand {
    * 프로젝트 비전 설정 실행
    */
   async execute(): Promise<void> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+    const rootPath = await selectWorkspaceRoot();
+    if (!rootPath) {
+      this.log('워크스페이스 선택이 취소되었습니다.');
       return;
     }
-
-    const rootPath = workspaceFolders[0].uri.fsPath;
     const config = loadConfig();
 
     // 기존 상태 로드

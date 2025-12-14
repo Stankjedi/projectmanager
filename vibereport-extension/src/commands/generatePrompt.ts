@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { loadConfig } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
 
 /**
  * Prompt.md에서 파싱된 프롬프트 항목
@@ -53,13 +53,11 @@ export class GeneratePromptCommand {
    * 메인 실행: Prompt.md에서 프롬프트와 OPT 항목을 선택하여 클립보드에 복사
    */
   async execute(): Promise<void> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+    const rootPath = await selectWorkspaceRoot();
+    if (!rootPath) {
+      this.log('워크스페이스 선택이 취소되었습니다.');
       return;
     }
-
-    const rootPath = workspaceFolders[0].uri.fsPath;
     const config = loadConfig();
     const promptPath = path.join(rootPath, config.reportDirectory, 'Prompt.md');
 
@@ -340,7 +338,23 @@ ${opt.fullContent}
     this.log(`[parseOptimizationItemsFromPromptMd] Status map: ${JSON.stringify([...statusMap.entries()])}`);
 
     // OPT 섹션 파싱: ## 🔧 Optimization Items (OPT) 이후의 ### [OPT-X] 항목들
-    const optSectionMatch = content.match(/## 🔧 Optimization Items[\s\S]*$/i);
+    // 다양한 형식 지원: ## 🔧 Optimization Items, ## 🔧 OPT, ## Optimization Items 등
+    let optSectionMatch = content.match(/##\s*(?:🔧\s*)?Optimization\s*Items?(?:\s*\(OPT\))?[\s\S]*$/i);
+
+    // 대체 패턴: OPT 헤더가 다른 형식인 경우
+    if (!optSectionMatch) {
+      optSectionMatch = content.match(/##\s*(?:🔧\s*)?OPT(?:imization)?(?:\s*Items?)?[\s\S]*$/i);
+    }
+
+    // 여전히 없으면, ### [OPT-로 시작하는 섹션을 직접 찾아서 해당 지점부터 끝까지 사용
+    if (!optSectionMatch) {
+      const optHeaderIndex = content.search(/###\s*\[OPT-\d/i);
+      if (optHeaderIndex !== -1) {
+        optSectionMatch = [content.substring(optHeaderIndex)];
+        this.log('[parseOptimizationItemsFromPromptMd] OPT section found via direct header search');
+      }
+    }
+
     if (!optSectionMatch) {
       this.log('[parseOptimizationItemsFromPromptMd] No OPT section found');
       return items;
@@ -349,8 +363,8 @@ ${opt.fullContent}
     const optContent = optSectionMatch[0];
 
     // OPT 항목 패턴: ### [OPT-XXX] Title
-    // 종료 조건을 더 명확하게: 다음 OPT 헤더, 다른 ## 섹션, 🎉 마커, 또는 문서 끝
-    const optPattern = /###\s*\[(OPT-\d{1,3})\]\s*([^\n]+)\n([\s\S]*?)(?=\n###\s*\[(OPT-|PROMPT-)|\n##\s+[^#\n]|\n?\*?\*?🎉|$)/gi;
+    // 종료 조건을 더 명확하게: 다음 OPT 헤더, 다른 ## 섹션, 🎉 마커, ✅ Final Completion, 또는 문서 끝
+    const optPattern = /###\s*\[(OPT-\d{1,3})\]\s*([^\n]+)\n([\s\S]*?)(?=\n###\s*\[(?:OPT-|PROMPT-)|\n##\s+[^\n]|\n?\*?\*?🎉|\n##\s*✅|$)/gi;
 
     let match;
     while ((match = optPattern.exec(optContent)) !== null) {

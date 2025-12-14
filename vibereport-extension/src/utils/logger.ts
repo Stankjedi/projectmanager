@@ -42,7 +42,6 @@ export class Logger {
     if (this.outputChannel) {
       this.outputChannel.appendLine(message);
     }
-    console.log(message);
   }
 
   debug(context: string, message: string): void {

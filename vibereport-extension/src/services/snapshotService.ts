@@ -127,7 +127,7 @@ export class SnapshotService {
 
     // 파일 목록 비교를 위해 현재 파일 목록 수집
     const currentFiles = await this.collectFileList(rootPath, config);
-    
+
     // 이전 파일 목록 로드 (저장된 목록이 있으면 사용, 없으면 importantFiles 사용)
     const previousFileList = previous.fileList || previous.importantFiles;
     const previousFilesSet = new Set(previousFileList);
@@ -142,7 +142,7 @@ export class SnapshotService {
     const removedFiles = previousFileList
       .filter(f => !currentFilesSet.has(f))
       .slice(0, 50);
-    
+
     // 파일/디렉토리 수 변화
     const filesCountDiff = current.filesCount - previous.filesCount;
     const dirsCountDiff = current.dirsCount - previous.dirsCount;
@@ -171,6 +171,17 @@ export class SnapshotService {
       gitChanges = await this.getGitChanges(rootPath);
     }
 
+    // Compute aggregate line metrics from Git diff
+    let linesAdded: number | undefined;
+    let linesRemoved: number | undefined;
+    let linesTotal: number | undefined;
+
+    if (gitChanges?.lineMetrics && gitChanges.lineMetrics.length > 0) {
+      linesAdded = gitChanges.lineMetrics.reduce((sum, m) => sum + m.added, 0);
+      linesRemoved = gitChanges.lineMetrics.reduce((sum, m) => sum + m.deleted, 0);
+      linesTotal = linesAdded + linesRemoved;
+    }
+
     const totalChanges =
       newFiles.length +
       removedFiles.length +
@@ -187,6 +198,9 @@ export class SnapshotService {
       languageStatsDiff,
       gitChanges,
       totalChanges,
+      linesAdded,
+      linesRemoved,
+      linesTotal,
     };
   }
 
@@ -198,7 +212,7 @@ export class SnapshotService {
     config: VibeReportConfig
   ): Promise<string[]> {
     const excludePattern = `{${config.excludePatterns.join(',')}}`;
-    
+
     const uris = await vscode.workspace.findFiles(
       '**/*',
       excludePattern,
@@ -278,7 +292,7 @@ export class SnapshotService {
 
       for (const file of status.files) {
         const filePath = file.path;
-        
+
         switch (file.working_dir) {
           case 'M':
           case ' ':
@@ -315,7 +329,7 @@ export class SnapshotService {
       try {
         const diffSummary = await git.diffSummary();
         const lineMetrics: GitLineMetric[] = diffSummary.files
-          .filter((file): file is typeof file & { insertions: number; deletions: number } => 
+          .filter((file): file is typeof file & { insertions: number; deletions: number } =>
             'insertions' in file && 'deletions' in file
           )
           .map((file) => ({
@@ -407,6 +421,43 @@ export class SnapshotService {
   }
 
   /**
+   * 메이저 버전 변경 여부 확인
+   * 
+   * @description 0.X.Y → 0.Z.W 형태에서 X !== Z 인 경우 메이저 변경으로 판단
+   * 패치 버전 변경(0.3.26 → 0.3.27)은 false, 마이너 버전 변경(0.3.27 → 0.4.0)은 true
+   * 
+   * @param oldVersion 이전 버전 문자열
+   * @param newVersion 새 버전 문자열
+   * @returns 메이저 버전 변경 여부
+   */
+  static isMajorVersionChange(oldVersion: string | undefined, newVersion: string | undefined): boolean {
+    if (!oldVersion || !newVersion) {
+      return false;
+    }
+
+    // 버전 파싱: 0.X.Y 형식
+    const parseVersion = (v: string): { major: number; minor: number; patch: number } | null => {
+      const match = v.match(/^(\d+)\.(\d+)\.(\d+)/);
+      if (!match) return null;
+      return {
+        major: parseInt(match[1], 10),
+        minor: parseInt(match[2], 10),
+        patch: parseInt(match[3], 10),
+      };
+    };
+
+    const oldParsed = parseVersion(oldVersion);
+    const newParsed = parseVersion(newVersion);
+
+    if (!oldParsed || !newParsed) {
+      return false;
+    }
+
+    // major가 다르거나 (예: 0.x → 1.x), minor가 다르면 (예: 0.3.x → 0.4.x) 메이저 변경
+    return oldParsed.major !== newParsed.major || oldParsed.minor !== newParsed.minor;
+  }
+
+  /**
    * Diff를 텍스트 요약으로 변환
    */
   static diffToSummary(diff: SnapshotDiff): string {
@@ -415,7 +466,7 @@ export class SnapshotService {
     }
 
     const lines: string[] = [];
-    
+
     lines.push(`### 변경 요약 (${diff.previousSnapshotTime} 이후)`);
     lines.push('');
 
@@ -458,6 +509,12 @@ export class SnapshotService {
         lines.push(`**Git 변경사항:** 수정 ${gc.modified.length}, 추가 ${gc.added.length}, 삭제 ${gc.deleted.length}`);
         lines.push('');
       }
+    }
+
+    // Display aggregate line metrics when available
+    if (diff.linesTotal !== undefined && diff.linesTotal > 0) {
+      lines.push(`**라인 변경:** +${diff.linesAdded ?? 0} / -${diff.linesRemoved ?? 0} (총 ${diff.linesTotal}줄)`);
+      lines.push('');
     }
 
     if (lines.length === 2) {

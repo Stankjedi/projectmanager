@@ -81,7 +81,7 @@ export class ReportService {
     const paths = this.getReportPaths(rootPath, config);
     const appliedIds = new Set(appliedImprovements.map(i => i.id));
     const appliedTitles = new Set(appliedImprovements.map(i => i.title.toLowerCase()));
-    
+
     let improvementRemoved = 0;
     let promptRemoved = 0;
 
@@ -94,7 +94,7 @@ export class ReportService {
         appliedTitles,
         'improvement'
       );
-      
+
       if (impCount > 0) {
         await fs.writeFile(paths.improvement, cleanedImprovement, 'utf-8');
         improvementRemoved = impCount;
@@ -113,7 +113,7 @@ export class ReportService {
         appliedTitles,
         'prompt'
       );
-      
+
       if (promptCount > 0) {
         await fs.writeFile(paths.prompt, cleanedPrompt, 'utf-8');
         promptRemoved = promptCount;
@@ -146,7 +146,7 @@ export class ReportService {
         `(###[^#]*?\\|\\s*\\*\\*ID\\*\\*\\s*\\|\\s*\`${this.escapeRegex(id)}\`[\\s\\S]*?)(?=\\n###|\\n## |$)`,
         'gi'
       );
-      
+
       if (idPattern.test(result)) {
         result = result.replace(idPattern, '');
         removedCount++;
@@ -160,7 +160,7 @@ export class ReportService {
         `(###\\s*\\[(?:PROMPT-\\d+|OPT-\\d+)\\]\\s*${this.escapeRegex(title)}[\\s\\S]*?)(?=\\n###\\s*\\[(?:PROMPT-|OPT-)|\\n##\\s+|\\*\\*🎉|$)`,
         'gi'
       );
-      
+
       if (promptTitlePattern.test(result)) {
         const before = result;
         result = result.replace(promptTitlePattern, '');
@@ -174,7 +174,7 @@ export class ReportService {
         `((?:###|####)\\s*(?:\\[P[123]-\\d+\\]|[🔴🟡🟢⚡].*?)\\s*${this.escapeRegex(title)}[\\s\\S]*?)(?=\\n(?:###|####)|\\n## |$)`,
         'gi'
       );
-      
+
       if (improvementTitlePattern.test(result)) {
         const before = result;
         result = result.replace(improvementTitlePattern, '');
@@ -351,27 +351,11 @@ export class ReportService {
   createEvaluationTemplate(snapshot: ProjectSnapshot, language: 'ko' | 'en'): string {
     const now = formatDateTimeKorean(new Date());
     const version = snapshot.mainConfigFiles.packageJson?.version || '-';
-    
+
     if (language === 'ko') {
       return `# 📊 프로젝트 종합 평가 보고서
 
-> 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.  
-> 수동 수정 시 확장의 동작에 영향을 줄 수 있습니다.
-
----
-
-<!-- AUTO-TLDR-START -->
-## 🎯 TL;DR (한눈에 보기)
-
-| 항목 | 값 |
-|------|-----|
-| **전체 등급** | - |
-| **전체 점수** | -/100 |
-| **가장 큰 리스크** | 첫 분석 후 표시됩니다 |
-| **권장 최우선 작업** | 첫 분석 후 표시됩니다 |
-
-*첫 번째 분석 후 요약이 표시됩니다.*
-<!-- AUTO-TLDR-END -->
+> 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.
 
 ---
 
@@ -389,6 +373,14 @@ ${MARKERS.OVERVIEW_START}
 | **주요 언어** | ${this.getMainLanguage(snapshot)} |
 | **프레임워크** | ${this.getFramework(snapshot)} |
 ${MARKERS.OVERVIEW_END}
+
+---
+
+<!-- AUTO-STRUCTURE-START -->
+## 📐 프로젝트 구조
+
+${snapshot.structureDiagram || '*프로젝트 구조 다이어그램이 생성 중입니다...*'}
+<!-- AUTO-STRUCTURE-END -->
 
 ---
 
@@ -414,76 +406,30 @@ ${MARKERS.SCORE_END}
 
 ---
 
-<!-- AUTO-RISK-SUMMARY-START -->
-## ⚠️ 리스크 요약
+<!-- AUTO-DETAIL-START -->
+## 🔍 기능별 상세 평가
 
-| 리스크 레벨 | 항목 | 관련 개선 ID |
-|------------|------|-------------|
-| - | 첫 분석 후 표시됩니다 | - |
-
-*첫 번째 분석 후 리스크가 표시됩니다.*
-<!-- AUTO-RISK-SUMMARY-END -->
-
----
-
-<!-- AUTO-SCORE-MAPPING-START -->
-## 🎯 점수 ↔ 개선 항목 매핑
-
-| 카테고리 | 현재 점수 | 주요 리스크 | 관련 개선 항목 ID |
-|----------|----------|------------|------------------|
-| - | - | 첫 분석 후 표시됩니다 | - |
-
-*첫 번째 분석 후 매핑이 표시됩니다.*
-<!-- AUTO-SCORE-MAPPING-END -->
+*첫 번째 분석 후 상세 평가가 표시됩니다.*
+<!-- AUTO-DETAIL-END -->
 
 ---
 
 <!-- AUTO-TREND-START -->
-## 📈 평가 트렌드 (최근 5회)
+## 📈 버전별 점수 추이
 
-| 회차 | 날짜 | 총점 | 코드품질 | 테스트 | 보안 |
-|------|------|------|---------|--------|------|
-| - | - | - | - | - | - |
+| 버전 | 날짜 | 총점 | 주요 변경 |
+|------|------|------|----------|
+| - | - | - | - |
 
-*평가 이력이 쌓이면 트렌드가 표시됩니다.*
+*버전 업데이트 시 점수 추이가 기록됩니다.*
 <!-- AUTO-TREND-END -->
-
----
-
-${MARKERS.SUMMARY_START}
-## 📈 현재 상태 요약
-
-*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
-${MARKERS.SUMMARY_END}
-
----
-
-## 📝 세션 기록
-
-> 📌 상세 세션 기록은 [\`Session_History.md\`](./Session_History.md) 파일을 참조하세요.
 `;
     }
 
     // English version
     return `# 📊 Project Evaluation Report
 
-> This document is automatically managed by Vibe Coding Report VS Code extension.  
-> Manual modifications may affect the extension's behavior.
-
----
-
-<!-- AUTO-TLDR-START -->
-## 🎯 TL;DR (At a Glance)
-
-| Item | Value |
-|------|-------|
-| **Overall Grade** | - |
-| **Overall Score** | -/100 |
-| **Top Risk** | Will be displayed after first analysis |
-| **Recommended Priority Action** | Will be displayed after first analysis |
-
-*Summary will be displayed after the first analysis.*
-<!-- AUTO-TLDR-END -->
+> This document is automatically managed by Vibe Coding Report VS Code extension.
 
 ---
 
@@ -501,6 +447,14 @@ ${MARKERS.OVERVIEW_START}
 | **Main Language** | ${this.getMainLanguage(snapshot)} |
 | **Framework** | ${this.getFramework(snapshot)} |
 ${MARKERS.OVERVIEW_END}
+
+---
+
+<!-- AUTO-STRUCTURE-START -->
+## 📐 Project Structure
+
+${snapshot.structureDiagram || '*Project structure diagram is being generated...*'}
+<!-- AUTO-STRUCTURE-END -->
 
 ---
 
@@ -526,53 +480,23 @@ ${MARKERS.SCORE_END}
 
 ---
 
-<!-- AUTO-RISK-SUMMARY-START -->
-## ⚠️ Risk Summary
+<!-- AUTO-DETAIL-START -->
+## 🔍 Detailed Feature Evaluation
 
-| Risk Level | Item | Related Improvement ID |
-|------------|------|------------------------|
-| - | Will be displayed after first analysis | - |
-
-*Risks will be displayed after the first analysis.*
-<!-- AUTO-RISK-SUMMARY-END -->
-
----
-
-<!-- AUTO-SCORE-MAPPING-START -->
-## 🎯 Score ↔ Improvement Mapping
-
-| Category | Current Score | Main Risk | Related Improvement IDs |
-|----------|--------------|-----------|------------------------|
-| - | - | Will be displayed after first analysis | - |
-
-*Mapping will be displayed after the first analysis.*
-<!-- AUTO-SCORE-MAPPING-END -->
+*Detailed evaluation will be displayed after the first analysis.*
+<!-- AUTO-DETAIL-END -->
 
 ---
 
 <!-- AUTO-TREND-START -->
-## 📈 Evaluation Trend (Last 5)
+## 📈 Version Score Trend
 
-| # | Date | Total | Code Quality | Test | Security |
-|---|------|-------|--------------|------|----------|
-| - | - | - | - | - | - |
+| Version | Date | Total | Major Changes |
+|---------|------|-------|---------------|
+| - | - | - | - |
 
-*Trends will be displayed as evaluation history accumulates.*
+*Score trends will be recorded with version updates.*
 <!-- AUTO-TREND-END -->
-
----
-
-${MARKERS.SUMMARY_START}
-## 📈 Current Status Summary
-
-*Not analyzed yet. Please run the first report update.*
-${MARKERS.SUMMARY_END}
-
----
-
-## 📝 Session Log
-
-> 📌 For detailed session history, please refer to [\`Session_History.md\`](./Session_History.md).
 `;
   }
 
@@ -585,7 +509,7 @@ ${MARKERS.SUMMARY_END}
    */
   createImprovementTemplate(snapshot: ProjectSnapshot, language: 'ko' | 'en'): string {
     const now = formatDateTimeKorean(new Date());
-    
+
     if (language === 'ko') {
       return `# 🚀 프로젝트 개선 탐색 보고서
 
@@ -653,7 +577,6 @@ ${MARKERS.SUMMARY_START}
 | 🟡 중요 (P2) | 0 |
 | 🟢 개선 (P3) | 0 |
 | 🚀 최적화 | 0 |
-| ✅ 적용 완료 | 0 |
 ${MARKERS.SUMMARY_END}
 
 ---
@@ -673,12 +596,6 @@ ${MARKERS.OPTIMIZATION_START}
 
 *아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
 ${MARKERS.OPTIMIZATION_END}
-
----
-
-## 📜 분석 이력
-
-> 📌 상세 분석 이력은 [\`Session_History.md\`](./Session_History.md) 파일을 참조하세요.
 `;
     }
 
@@ -749,7 +666,6 @@ ${MARKERS.SUMMARY_START}
 | 🟡 Important (P2) | 0 |
 | 🟢 Nice to have (P3) | 0 |
 | 🚀 Optimization | 0 |
-| ✅ Applied | 0 |
 ${MARKERS.SUMMARY_END}
 
 ---
@@ -769,12 +685,6 @@ ${MARKERS.OPTIMIZATION_START}
 
 *Not analyzed yet. Please run the first report update.*
 ${MARKERS.OPTIMIZATION_END}
-
----
-
-## 📜 Analysis History
-
-> 📌 For detailed analysis history, please refer to [\`Session_History.md\`](./Session_History.md).
 `;
   }
 
@@ -836,11 +746,11 @@ ${MARKERS.OPTIMIZATION_END}
   ): string {
     const now = formatDateTimeKorean(new Date());
     const version = snapshot.mainConfigFiles.packageJson?.version || '-';
-    
+
     // 기존 개요에서 최초 분석일 추출
     const existingOverview = extractBetweenMarkers(content, MARKERS.OVERVIEW_START, MARKERS.OVERVIEW_END);
     let firstAnalyzedDate = now;
-    
+
     if (existingOverview) {
       // 최초 분석일 패턴 매칭
       const firstAnalyzedMatch = existingOverview.match(/\*\*(?:최초 분석일|First Analyzed)\*\*\s*\|\s*(.+?)\s*\|/);
@@ -883,11 +793,11 @@ ${MARKERS.OPTIMIZATION_END}
       const overviewPattern = language === 'ko'
         ? /## 📋 프로젝트 개요[\s\S]*?(?=\n---|\n##|\n<!-- AUTO)/
         : /## 📋 Project Overview[\s\S]*?(?=\n---|\n##|\n<!-- AUTO)/;
-      
+
       if (overviewPattern.test(content)) {
         return content.replace(overviewPattern, `${MARKERS.OVERVIEW_START}\n${overviewContent}\n${MARKERS.OVERVIEW_END}`);
       }
-      
+
       return content;
     }
   }
@@ -928,7 +838,7 @@ ${MARKERS.OPTIMIZATION_END}
 
     // AI 응답에서 개선 항목 파싱
     const newItems = parseImprovementItems(aiContent);
-    
+
     // 기존 개선 목록 가져오기
     const existingContent = extractBetweenMarkers(
       content,
@@ -951,7 +861,7 @@ ${MARKERS.OPTIMIZATION_END}
 
     // 개선 목록 재구성 (새 항목 + 기존 미적용 항목)
     const allPendingItems = [...newUniqueItems, ...pendingExistingItems];
-    
+
     // 우선순위별 정렬
     allPendingItems.sort((a, b) => {
       const priorityOrder: Record<string, number> = { P1: 0, P2: 1, P3: 2, OPT: 3 };
@@ -959,7 +869,7 @@ ${MARKERS.OPTIMIZATION_END}
     });
 
     // 개선 목록 마크다운 생성
-    const improvementListMd = this.formatImprovementList(allPendingItems, config.language);
+    const improvementListMd = this.formatImprovementList(allPendingItems, config.language, rootPath);
 
     // 개선 목록 섹션 업데이트
     content = replaceBetweenMarkers(
@@ -982,6 +892,9 @@ ${MARKERS.OPTIMIZATION_END}
       summaryMd
     );
 
+    // 저장 전 테이블 내 파일 경로도 링크화
+    content = this.linkifyTableFilePaths(content, rootPath);
+
     // 파일 저장 (세션 로그는 Session_History.md에서 관리)
     await fs.writeFile(paths.improvement, content, 'utf-8');
     this.log(`개선 보고서 업데이트 완료: ${paths.improvement}`);
@@ -992,16 +905,17 @@ ${MARKERS.OPTIMIZATION_END}
    */
   private formatImprovementList(
     items: Array<{ id: string; priority: 'P1' | 'P2' | 'P3' | 'OPT'; title: string; description: string }>,
-    language: 'ko' | 'en'
+    language: 'ko' | 'en',
+    rootPath: string
   ): string {
     if (items.length === 0) {
-      return language === 'ko' 
+      return language === 'ko'
         ? '모든 개선 항목이 적용되었습니다! 🎉\n\n다음 분석에서 새로운 개선점이 발견될 수 있습니다.'
         : 'All improvements have been applied! 🎉\n\nNew improvements may be found in the next analysis.';
     }
 
     const lines: string[] = [];
-    
+
     // 우선순위별 그룹
     const byPriority: Record<string, typeof items> = { P1: [], P2: [], P3: [], OPT: [] };
     items.forEach(item => {
@@ -1026,7 +940,7 @@ ${MARKERS.OPTIMIZATION_END}
           lines.push('');
           lines.push(`> 항목 ID: \`${item.id}\``);
           lines.push('');
-          lines.push(item.description);
+          lines.push(this.linkifyCodeReferences(item.description, rootPath));
           lines.push('');
           lines.push('---');
           lines.push('');
@@ -1035,6 +949,90 @@ ${MARKERS.OPTIMIZATION_END}
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Convert file/function references in AI text to VS Code command links.
+   *
+   * Supported patterns:
+   * - src/path/file.ts
+   * - src/path/file.ts:myFunction
+   * - src/path/file.ts#myFunction
+   * - src/__tests__/file.test.ts (double underscore paths)
+   */
+  private linkifyCodeReferences(description: string, rootPath: string): string {
+    // Skip if already contains command links
+    if (description.includes('command:vibereport.openFunctionInFile')) {
+      return description;
+    }
+
+    // Improved pattern: supports double underscores (__tests__), more extensions
+    const refPattern = /`([A-Za-z0-9_./-]+\.(?:ts|tsx|js|jsx|py|go|rs|java|cs|cpp|c|h|md|json))`(?:[:#]([A-Za-z0-9_$]+))?/g;
+
+    return description.replace(refPattern, (_full, relPath: string, symbolName?: string) => {
+      const absPath = path.join(rootPath, relPath);
+      const args = symbolName ? [absPath, symbolName] : [absPath];
+      const encodedArgs = encodeURIComponent(JSON.stringify(args));
+      const label = symbolName ? `${relPath}#${symbolName}` : relPath;
+      return `[${label}](command:vibereport.openFunctionInFile?${encodedArgs})`;
+    });
+  }
+
+  /**
+   * Convert file paths in markdown table "대상 파일" column to clickable links.
+   */
+  private linkifyTableFilePaths(content: string, rootPath: string): string {
+    // Pattern for "대상 파일" table row: | **대상 파일** | paths |
+    const targetFileRowPattern = /(\|\s*\*\*대상 파일\*\*\s*\|\s*)([^|\n]+)(\|)/g;
+
+    return content.replace(targetFileRowPattern, (_full, prefix: string, pathsCell: string, suffix: string) => {
+      const linkedPaths = this.linkifyMultiplePaths(pathsCell.trim(), rootPath);
+      return `${prefix}${linkedPaths} ${suffix}`;
+    });
+  }
+
+  /**
+   * Convert multiple comma/newline-separated file paths to links.
+   */
+  private linkifyMultiplePaths(pathsStr: string, rootPath: string): string {
+    // Skip if already contains command links
+    if (pathsStr.includes('command:vibereport.openFunctionInFile')) {
+      return pathsStr;
+    }
+
+    // Handle multiple paths separated by comma or newline
+    // Also handle paths with annotations like "(신규)"
+    const pathSegments = pathsStr.split(/[,、]+/).map(p => p.trim()).filter(Boolean);
+
+    return pathSegments.map(segment => {
+      return this.linkifySinglePath(segment, rootPath);
+    }).join(', ');
+  }
+
+  /**
+   * Convert a single file path (with optional annotation) to a link.
+   */
+  private linkifySinglePath(pathStr: string, rootPath: string): string {
+    // Extract path and annotation (e.g., "path/to/file.ts(신규)" -> "path/to/file.ts", "(신규)")
+    const annotationMatch = pathStr.match(/^(.+?)(\([^)]+\))?\s*$/);
+    if (!annotationMatch) return pathStr;
+
+    let filePath = annotationMatch[1].trim();
+    const annotation = annotationMatch[2] || '';
+
+    // Remove backticks if present
+    filePath = filePath.replace(/`/g, '');
+    if (!filePath) return pathStr;
+
+    // Check for valid file extension
+    const extMatch = filePath.match(/\.(?:ts|tsx|js|jsx|py|go|rs|java|cs|cpp|c|h|md|json)$/);
+    if (!extMatch) return pathStr;
+
+    const absPath = path.join(rootPath, filePath);
+    const encodedArgs = encodeURIComponent(JSON.stringify([absPath]));
+    const linkedPath = `[${filePath}](command:vibereport.openFunctionInFile?${encodedArgs})`;
+
+    return annotation ? `${linkedPath}${annotation}` : linkedPath;
   }
 
   /**
@@ -1113,10 +1111,10 @@ ${MARKERS.OPTIMIZATION_END}
   private getMainLanguage(snapshot: ProjectSnapshot): string {
     const stats = Object.entries(snapshot.languageStats);
     if (stats.length === 0) return 'Unknown';
-    
+
     stats.sort((a, b) => b[1] - a[1]);
     const top = stats[0][0];
-    
+
     const langMap: Record<string, string> = {
       ts: 'TypeScript',
       tsx: 'TypeScript (React)',
@@ -1125,7 +1123,7 @@ ${MARKERS.OPTIMIZATION_END}
       rs: 'Rust',
       go: 'Go',
     };
-    
+
     return langMap[top] || top.toUpperCase();
   }
 
@@ -1134,7 +1132,7 @@ ${MARKERS.OPTIMIZATION_END}
    */
   private getFramework(snapshot: ProjectSnapshot): string {
     const configs = snapshot.mainConfigFiles;
-    
+
     if (configs.tauriConfig) return 'Tauri';
     if (configs.packageJson) {
       const deps = [...configs.packageJson.dependencies, ...configs.packageJson.devDependencies];
@@ -1145,7 +1143,7 @@ ${MARKERS.OPTIMIZATION_END}
       if (deps.includes('fastify')) return 'Fastify';
     }
     if (configs.cargoToml) return 'Rust/Cargo';
-    
+
     return '-';
   }
 
@@ -1183,7 +1181,7 @@ ${MARKERS.OPTIMIZATION_END}
    */
   async reportsExist(rootPath: string, config: VibeReportConfig): Promise<boolean> {
     const paths = this.getReportPaths(rootPath, config);
-    
+
     try {
       await fs.access(paths.evaluation);
       await fs.access(paths.improvement);
@@ -1249,7 +1247,6 @@ ${MARKERS.OPTIMIZATION_END}
 | 항목 | 값 |
 |------|-----|
 | **총 세션 수** | 0 |
-| **적용 완료** | 0 |
 | **마지막 업데이트** | - |
 <!-- STATS-END -->
 
@@ -1277,7 +1274,6 @@ ${MARKERS.OPTIMIZATION_END}
 | 항목 | 값 |
 |------|-----|
 | **총 세션 수** | ${totalSessions} |
-| **적용 완료** | ${appliedCount} |
 | **마지막 업데이트** | ${now} |`;
 
     if (content.includes('<!-- STATS-START -->')) {
@@ -1318,7 +1314,7 @@ ${MARKERS.OPTIMIZATION_END}
       entry += `
 | **개선 제안** | ${session.aiMetadata.improvementsProposed || 0}개 |
 | **리스크 감지** | ${session.aiMetadata.risksIdentified || 0}개 |`;
-      
+
       if (session.aiMetadata.overallScore) {
         entry += `
 | **품질 점수** | ${session.aiMetadata.overallScore}/100 |`;
@@ -1350,7 +1346,7 @@ ${MARKERS.OPTIMIZATION_END}
           return `${before}\n${entry}\n${after}`;
         }
       }
-      
+
       // 마커도 레거시 헤더도 없으면 파일 끝에 추가
       return `${content}\n\n---\n\n${entry}`;
     }

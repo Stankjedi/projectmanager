@@ -21,8 +21,9 @@ import {
   WorkspaceScanner,
   SnapshotService,
   ReportService,
+  AiService,
 } from '../services/index.js';
-import { generateImprovementId, loadConfig } from '../utils/index.js';
+import { generateImprovementId, loadConfig, buildAnalysisPrompt, selectWorkspaceRoot } from '../utils/index.js';
 import {
   VibeReportError,
   WorkspaceScanError,
@@ -42,6 +43,7 @@ export class UpdateReportsCommand {
   private workspaceScanner: WorkspaceScanner;
   private snapshotService: SnapshotService;
   private reportService: ReportService;
+  private aiService: AiService;
   private outputChannel: vscode.OutputChannel;
 
   constructor(outputChannel: vscode.OutputChannel) {
@@ -49,6 +51,7 @@ export class UpdateReportsCommand {
     this.workspaceScanner = new WorkspaceScanner(outputChannel);
     this.snapshotService = new SnapshotService(outputChannel);
     this.reportService = new ReportService(outputChannel);
+    this.aiService = new AiService(outputChannel);
   }
 
   /**
@@ -57,15 +60,17 @@ export class UpdateReportsCommand {
    * @description Run a full scan, generate prompt, persist snapshot, and notify user.
    */
   async execute(): Promise<void> {
-    // 워크스페이스 확인
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다. 프로젝트 폴더를 열어주세요.');
+    // 워크스페이스 선택 (multi-root 지원)
+    const rootPath = await selectWorkspaceRoot();
+    if (!rootPath) {
+      this.log('워크스페이스 선택이 취소되었습니다.');
       return;
     }
 
-    const rootPath = workspaceFolders[0].uri.fsPath;
-    const projectName = workspaceFolders[0].name;
+    const workspaceFolders = vscode.workspace.workspaceFolders || [];
+    const selectedFolder =
+      workspaceFolders.find(f => f.uri.fsPath === rootPath) ?? workspaceFolders[0];
+    const projectName = selectedFolder?.name || 'Unknown Workspace';
 
     // 설정 로드
     const config = loadConfig();
@@ -137,8 +142,7 @@ export class UpdateReportsCommand {
       }
     } catch (error) {
       this.log(
-        `Prompt.md 기반 적용 완료 항목 추출 실패 (계속 진행): ${
-          error instanceof Error ? error.message : String(error)
+        `Prompt.md 기반 적용 완료 항목 추출 실패 (계속 진행): ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -197,7 +201,7 @@ export class UpdateReportsCommand {
     reportProgress('프로젝트 구조 스캔 중...', 20);
     let snapshot: ProjectSnapshot;
     try {
-      snapshot = await this.workspaceScanner.scan(config, reportProgress);
+      snapshot = await this.workspaceScanner.scan(rootPath, config, reportProgress);
     } catch (error) {
       throw new WorkspaceScanError(
         '프로젝트 구조 스캔 실패',
@@ -322,7 +326,7 @@ export class UpdateReportsCommand {
 
     // projectVisionMode에 따라 비전 결정
     let projectVision: import('../models/types.js').ProjectVision | undefined;
-    
+
     if (config.projectVisionMode === 'custom' && state.projectVision) {
       // 사용자 정의 비전 사용
       projectVision = state.projectVision;
@@ -334,17 +338,48 @@ export class UpdateReportsCommand {
       projectVision = undefined;
     }
 
-    const prompt = this.buildAnalysisPrompt(
+    // 보고서 파일 경로 계산
+    const reportPaths = {
+      evaluation: `${config.reportDirectory}/Project_Evaluation_Report.md`,
+      improvement: `${config.reportDirectory}/Project_Improvement_Exploration_Report.md`,
+      prompt: `${config.reportDirectory}/Prompt.md`,
+    };
+
+    const prompt = buildAnalysisPrompt(
       snapshot,
       diff,
       state.appliedImprovements,
       isFirstRun,
       config,
+      reportPaths,
       projectVision
     );
 
     try {
-      await vscode.env.clipboard.writeText(prompt);
+      // Use the already-loaded VibeReportConfig (passed into _executeWithProgress/_generateAndCopyPrompt)
+      if (config.enableDirectAi) {
+        const aiResponse = await this.aiService.runAnalysisPrompt(prompt);
+
+        if (aiResponse) {
+          // Make the response easy to consume: open it and also copy it.
+          await vscode.env.clipboard.writeText(aiResponse);
+
+          const doc = await vscode.workspace.openTextDocument({
+            language: 'markdown',
+            content: aiResponse,
+          });
+          await vscode.window.showTextDocument(doc, { preview: false });
+
+          this.log('Direct AI analysis completed (response copied to clipboard).');
+        } else {
+          // Fallback: copy the prompt for manual execution
+          await vscode.env.clipboard.writeText(prompt);
+          vscode.window.showInformationMessage('Direct AI unavailable. Prompt copied to clipboard.');
+        }
+      } else {
+        // Standard clipboard-only workflow
+        await vscode.env.clipboard.writeText(prompt);
+      }
     } catch (error) {
       this.log(`클립보드 복사 실패: ${error}`);
       vscode.window.showWarningMessage('클립보드 복사에 실패했습니다. 프롬프트가 생성되었지만 수동으로 복사해야 합니다.');
@@ -378,6 +413,9 @@ export class UpdateReportsCommand {
         removedFilesCount: diff.removedFiles.length,
         changedConfigsCount: diff.changedConfigs.length,
         totalChanges: diff.totalChanges,
+        linesAdded: diff.linesAdded,
+        linesRemoved: diff.linesRemoved,
+        linesTotal: diff.linesTotal,
       },
     };
 
@@ -395,17 +433,29 @@ export class UpdateReportsCommand {
       );
     }
 
-    // 세션 히스토리 파일 업데이트 (실패해도 계속 진행)
-    try {
-      await this.reportService.updateSessionHistoryFile(
-        rootPath,
-        config,
-        sessionRecord,
-        updatedState.sessions.length,
-        updatedState.appliedImprovements.length
-      );
-    } catch (error) {
-      this.log(`세션 히스토리 파일 업데이트 실패: ${error}`);
+    // 세션 히스토리 파일 업데이트 - 메이저 버전 변경 시에만
+    // 패치 버전 변경(0.3.26 → 0.3.27)은 스킵, 마이너 버전 변경(0.3.27 → 0.4.0)은 기록
+    const previousVersion = state.lastSnapshot?.mainConfigFiles.packageJson?.version;
+    const currentVersion = snapshot.mainConfigFiles.packageJson?.version;
+    const isMajorChange = SnapshotService.isMajorVersionChange(previousVersion, currentVersion);
+
+    if (isFirstRun || isMajorChange) {
+      try {
+        await this.reportService.updateSessionHistoryFile(
+          rootPath,
+          config,
+          sessionRecord,
+          updatedState.sessions.length,
+          updatedState.appliedImprovements.length
+        );
+        if (isMajorChange) {
+          this.log(`메이저 버전 변경 감지 (${previousVersion} → ${currentVersion}), 세션 히스토리에 기록`);
+        }
+      } catch (error) {
+        this.log(`세션 히스토리 파일 업데이트 실패: ${error}`);
+      }
+    } else {
+      this.log(`패치 버전 변경 (${previousVersion} → ${currentVersion}), 세션 히스토리 스킵`);
     }
 
     return updatedState;
@@ -567,834 +617,6 @@ export class UpdateReportsCommand {
     }
   }
 
-  /**
-   * 분석 프롬프트 생성
-   */
-  private buildAnalysisPrompt(
-    snapshot: ProjectSnapshot,
-    diff: SnapshotDiff,
-    appliedImprovements: import('../models/types.js').AppliedImprovement[],
-    isFirstRun: boolean,
-    config: VibeReportConfig,
-    projectVision?: import('../models/types.js').ProjectVision
-  ): string {
-    const lines: string[] = [];
-
-    // 보고서 파일 경로 계산
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    const reportDir = workspaceFolder 
-      ? `${workspaceFolder.uri.fsPath.replace(/\\/g, '/')}/${config.reportDirectory}`
-      : config.reportDirectory;
-    const evaluationPath = `${reportDir}/Project_Evaluation_Report.md`;
-    const improvementPath = `${reportDir}/Project_Improvement_Exploration_Report.md`;
-    const promptPath = `${reportDir}/Prompt.md`;
-
-    lines.push('# 🔧 프로젝트 분석 및 보고서 작성 요청');
-    lines.push('');
-    lines.push(`현재 열린 **${snapshot.projectName}** 프로젝트를 분석하고, **아래 세 파일에 직접 보고서를 작성**해주세요.`);
-    lines.push('');
-    lines.push('## 🚨🚨🚨 필수: TODO 리스트 기반 순차 실행');
-    lines.push('');
-    lines.push('> **⛔ 경고: 이 프롬프트를 받으면 즉시 아래 TODO 항목들을 순서대로 실행하세요.**');
-    lines.push('> **⛔ "검토하겠습니다", "분석하겠습니다" 같은 말만 하고 멈추지 마세요.**');
-    lines.push('> **⛔ 각 TODO를 완료할 때마다 파일을 실제로 수정해야 합니다.**');
-    lines.push('');
-    lines.push('### 📋 TODO 체크리스트 (순서대로 실행 필수)');
-    lines.push('');
-    lines.push('> **📝 작성 언어 규칙:**');
-    lines.push('> - **평가 보고서 (TODO 1-4)**: 🇰🇷 **한국어**로 작성');
-    lines.push('> - **개선 보고서 (TODO 5-7)**: 🇰🇷 **한국어**로 작성');
-    lines.push('> - **Prompt.md (TODO 8-10)**: 🇺🇸 **영어**로 작성 (필수!)');
-    lines.push('');
-    lines.push('```');
-    lines.push('[ ] TODO-1: 평가 보고서 파트1 - 프로젝트 개요 섹션 수정 [한국어]');
-    lines.push('[ ] TODO-2: 평가 보고서 파트2 - 종합 점수 테이블 수정 [한국어]');
-    lines.push('[ ] TODO-3: 평가 보고서 파트3 - 기능별 상세 평가 수정 [한국어]');
-    lines.push('[ ] TODO-4: 평가 보고서 파트4 - 현재 상태 요약 수정 [한국어]');
-    lines.push('[ ] TODO-5: 개선 보고서 파트1 - 개선 현황 요약 수정 [한국어]');
-    lines.push('[ ] TODO-6: 개선 보고서 파트2 - P1/P2 개선 항목 수정 [한국어]');
-    lines.push('[ ] TODO-7: 개선 보고서 파트3 - P3/OPT 항목 수정 [한국어]');
-    lines.push('[ ] TODO-8: Prompt.md 파트1 - 헤더 및 체크리스트 수정 [영어 ONLY]');
-    lines.push('[ ] TODO-9: Prompt.md 파트2 - P2 프롬프트들 수정 [영어 ONLY]');
-    lines.push('[ ] TODO-10: Prompt.md 파트3 - P3/OPT 프롬프트들 수정 [영어 ONLY]');
-    lines.push('```');
-    lines.push('');
-    lines.push('**🚨 각 TODO 완료 후:**');
-    lines.push('1. `[x] TODO-N: 완료` 형식으로 체크');
-    lines.push('2. 수정한 파일과 섹션 명시');
-    lines.push('3. 즉시 다음 TODO로 진행');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🚨 필수 규칙: 파일 직접 수정 (텍스트 응답 금지)');
-    lines.push('');
-    lines.push('> **⛔ 절대 금지 사항:**');
-    lines.push('> - 채팅으로 코드나 보고서 내용을 텍스트로 보여주는 것');
-    lines.push('> - "다음과 같이 수정하세요" 라고 말만 하는 것');
-    lines.push('> - 코드 블록으로 변경사항을 표시만 하는 것');
-    lines.push('> - **평가 보고서만 작성하고 개선 보고서/프롬프트 파일을 건너뛰는 것**');
-    lines.push('> - **"검토하겠습니다" 또는 "분석하겠습니다" 라고만 말하고 멈추는 것**');
-    lines.push('> ');
-    lines.push('> **✅ 반드시 해야 하는 것:**');
-    lines.push('> - `replace_string_in_file` 또는 `create_file` 도구를 사용하여 **직접 파일 수정**');
-    lines.push('> - **세 파일 모두 반드시 수정** (평가 보고서 → 개선 보고서 → 프롬프트 파일 순서)');
-    lines.push('> - 모든 변경사항을 **실제 파일에 반영**');
-    lines.push('> - 파일 수정 후 "파일을 수정했습니다" 라고 확인');
-    lines.push('> - **TODO 리스트의 모든 항목을 순서대로 완료**');
-    lines.push('');
-    lines.push('### 🚨 중요: 세 파일 모두 필수 수정');
-    lines.push('');
-    lines.push('| # | 파일 | 설명 | 상태 |');
-    lines.push('|:---:|:---|:---|:---:|');
-    lines.push(`| 1 | \`${evaluationPath}\` | 종합 평가 보고서 (한국어) | ⬜ 필수 |`);
-    lines.push(`| 2 | \`${improvementPath}\` | 개선 제안 보고서 (한국어) | ⬜ 필수 |`);
-    lines.push(`| 3 | \`${promptPath}\` | AI 실행 프롬프트 (영어) | ⬜ 필수 |`);
-    lines.push('');
-    lines.push('**❗ 이 프롬프트를 받으면 세 파일 모두 순서대로 수정하세요. 하나라도 건너뛰면 안 됩니다.**');
-    lines.push('');
-    lines.push('## 🚨🚨🚨 매우 중요: 파트별 순차 작성 (길이 제한 방지)');
-    lines.push('');
-    lines.push('> **⚠️ AI 에이전트의 출력 길이 제한으로 인해 한 번에 전체 파일을 작성하면 중간에 잘릴 수 있습니다!**');
-    lines.push('> **반드시 아래 지침을 따라 파트별로 나눠서 순차적으로 작성하세요.**');
-    lines.push('');
-    lines.push('### 📋 파트별 순차 작성 규칙');
-    lines.push('');
-    lines.push('1. **한 번의 파일 수정에 최대 150줄까지만 작성**');
-    lines.push('2. **각 파일을 여러 파트로 나눠서 순차적으로 수정**');
-    lines.push('3. **마커(`<!-- AUTO-*-START/END -->`) 기준으로 섹션 분리**');
-    lines.push('4. **이전 파트 작성 완료 후 다음 파트 진행**');
-    lines.push('');
-    lines.push('### 📝 파일별 작성 순서');
-    lines.push('');
-    lines.push('#### 1️⃣ 평가 보고서 (4~5 파트로 분리)');
-    lines.push('```');
-    lines.push('파트 1: 프로젝트 개요 섹션 (<!-- AUTO-OVERVIEW-START --> ~ <!-- AUTO-OVERVIEW-END -->)');
-    lines.push('파트 2: 종합 점수 섹션 (<!-- AUTO-SCORE-START --> ~ <!-- AUTO-SCORE-END -->)');
-    lines.push('파트 3: 기능별 상세 평가 (테이블 + 설명)');
-    lines.push('파트 4: 현재 상태 요약 (<!-- AUTO-SUMMARY-START --> ~ <!-- AUTO-SUMMARY-END -->)');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 2️⃣ 개선 보고서 (3~4 파트로 분리)');
-    lines.push('```');
-    lines.push('파트 1: 개선 현황 요약 (<!-- AUTO-SUMMARY-START --> ~ <!-- AUTO-SUMMARY-END -->)');
-    lines.push('파트 2: P1/P2 개선 항목 (<!-- AUTO-IMPROVEMENT-LIST-START --> 전반부)');
-    lines.push('파트 3: P3 기능 추가 항목 (<!-- AUTO-FEATURE-LIST-START --> ~ <!-- AUTO-FEATURE-LIST-END -->)');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 3️⃣ 프롬프트 파일 (개선 항목 개수에 따라 분리)');
-    lines.push('```');
-    lines.push('파트 1: 헤더 + Execution Checklist + P1 프롬프트들');
-    lines.push('파트 2: P2 프롬프트들 (3~4개씩)');
-    lines.push('파트 3: P3 프롬프트들 + 마무리');
-    lines.push('```');
-    lines.push('');
-    lines.push('### ⚡ 작성 예시');
-    lines.push('');
-    lines.push('**잘못된 방법 ❌:**');
-    lines.push('```');
-    lines.push('한 번의 replace_string_in_file로 300줄 이상 작성 → 중간에 잘림!');
-    lines.push('```');
-    lines.push('');
-    lines.push('**올바른 방법 ✅:**');
-    lines.push('```');
-    lines.push('1차 수정: 프로젝트 개요 섹션만 작성 (50줄)');
-    lines.push('2차 수정: 종합 점수 테이블 작성 (30줄)');
-    lines.push('3차 수정: 기능별 평가 작성 (80줄)');
-    lines.push('4차 수정: 요약 섹션 작성 (40줄)');
-    lines.push('→ 총 4번의 수정으로 완성!');
-    lines.push('```');
-    lines.push('');
-    lines.push('### 🔧 수정 도구 사용 팁');
-    lines.push('');
-    lines.push('- **`replace_string_in_file`**: oldString은 3~5줄의 고유한 컨텍스트만 포함');
-    lines.push('- **`multi_replace_string_in_file`**: 같은 파일의 여러 작은 섹션을 한 번에 수정 가능');
-    lines.push('- **섹션 마커 활용**: `<!-- AUTO-*-START/END -->` 마커 사이의 내용만 교체');
-    lines.push('');
-
-    // 프로젝트 요약 정보
-    lines.push('---');
-    lines.push('');
-    lines.push('## 📋 프로젝트 현황');
-    lines.push('');
-    lines.push(`- **프로젝트명**: ${snapshot.projectName}`);
-    
-    // 파일/디렉토리 수와 변화량 표시
-    const filesChange = diff.filesCountDiff !== undefined && diff.filesCountDiff !== 0 
-      ? ` (${diff.filesCountDiff > 0 ? '+' : ''}${diff.filesCountDiff})` 
-      : '';
-    const dirsChange = diff.dirsCountDiff !== undefined && diff.dirsCountDiff !== 0 
-      ? ` (${diff.dirsCountDiff > 0 ? '+' : ''}${diff.dirsCountDiff})` 
-      : '';
-    
-    lines.push(`- **파일 수**: ${snapshot.filesCount}개${filesChange}`);
-    lines.push(`- **디렉토리 수**: ${snapshot.dirsCount}개${dirsChange}`);
-    
-    const topLanguages = Object.entries(snapshot.languageStats)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([lang, count]) => `${lang}(${count})`)
-      .join(', ');
-    lines.push(`- **주요 언어**: ${topLanguages || '감지 안됨'}`);
-    
-    if (snapshot.mainConfigFiles.packageJson) {
-      const pkg = snapshot.mainConfigFiles.packageJson;
-      lines.push(`- **프로젝트 버전**: ${pkg.version || '-'}`);
-      const mainDeps = pkg.dependencies.slice(0, 8).join(', ');
-      if (mainDeps) {
-        lines.push(`- **주요 의존성**: ${mainDeps}${pkg.dependencies.length > 8 ? '...' : ''}`);
-      }
-    }
-    lines.push('');
-
-    // 프로젝트 비전 정보 (설정된 경우)
-    if (projectVision) {
-      lines.push('## 🎯 프로젝트 비전 (개선 방향 지침)');
-      lines.push('');
-      lines.push('> ⚠️ **중요**: 아래 프로젝트 비전에 맞는 개선사항만 제안해야 합니다.');
-      lines.push('> 비전에 명시된 목표, 우선순위, 기술 스택에 부합하지 않는 개선은 제외하세요.');
-      lines.push('');
-      
-      if (projectVision.coreGoals && projectVision.coreGoals.length > 0) {
-        lines.push('### 프로젝트 핵심 목표');
-        projectVision.coreGoals.forEach(goal => {
-          lines.push(`- ${goal}`);
-        });
-        lines.push('');
-      }
-
-      if (projectVision.targetUsers) {
-        lines.push('### 대상 사용자');
-        lines.push(`- ${projectVision.targetUsers}`);
-        lines.push('');
-      }
-
-      if (projectVision.projectType) {
-        lines.push('### 프로젝트 유형');
-        lines.push(`- ${this.formatProjectType(projectVision.projectType)}`);
-        lines.push('');
-      }
-
-      if (projectVision.techStackPriorities && projectVision.techStackPriorities.length > 0) {
-        lines.push('### 기술 스택 우선순위');
-        lines.push(`기술: ${projectVision.techStackPriorities.join(', ')}`);
-        lines.push('');
-      }
-
-      if (projectVision.qualityFocus) {
-        lines.push('### 현재 개발 단계');
-        const focusDescription = this.getQualityFocusDescription(projectVision.qualityFocus);
-        lines.push(`- **${projectVision.qualityFocus}**: ${focusDescription}`);
-        lines.push('');
-      }
-
-      if (projectVision.constraints && projectVision.constraints.length > 0) {
-        lines.push('### 제약 조건');
-        projectVision.constraints.forEach(constraint => {
-          lines.push(`- ⚠️ ${constraint}`);
-        });
-        lines.push('');
-      }
-
-      if (projectVision.focusCategories && projectVision.focusCategories.length > 0) {
-        lines.push('### ✅ 개선 집중 영역 (이 카테고리 우선 제안)');
-        projectVision.focusCategories.forEach(category => {
-          lines.push(`- **${this.formatCategory(category)}**`);
-        });
-        lines.push('');
-      }
-
-      if (projectVision.excludeCategories && projectVision.excludeCategories.length > 0) {
-        lines.push('### ❌ 개선 제외 영역 (이 카테고리는 제안하지 마세요)');
-        projectVision.excludeCategories.forEach(category => {
-          lines.push(`- ~~${this.formatCategory(category)}~~`);
-        });
-        lines.push('');
-      }
-
-      lines.push('---');
-      lines.push('');
-    }
-
-    // 변경사항 (업데이트인 경우)
-    if (!isFirstRun && !diff.isInitial) {
-      lines.push('## 📝 이전 분석 이후 변경사항');
-      lines.push('');
-      if (diff.totalChanges === 0 && (diff.filesCountDiff === undefined || diff.filesCountDiff === 0)) {
-        lines.push('- 변경사항 없음');
-      } else {
-        if (diff.filesCountDiff !== undefined && diff.filesCountDiff !== 0) {
-          const changeType = diff.filesCountDiff > 0 ? '증가' : '감소';
-          lines.push(`- 파일 수 ${changeType}: ${Math.abs(diff.filesCountDiff)}개`);
-        }
-        if (diff.newFiles.length > 0) {
-          lines.push(`- 새 파일: ${diff.newFiles.length}개`);
-          // 새 파일 목록 (최대 10개)
-          diff.newFiles.slice(0, 10).forEach(f => {
-            lines.push(`  - \`${f}\``);
-          });
-          if (diff.newFiles.length > 10) {
-            lines.push(`  - ... 외 ${diff.newFiles.length - 10}개`);
-          }
-        }
-        if (diff.removedFiles.length > 0) {
-          lines.push(`- 삭제된 파일: ${diff.removedFiles.length}개`);
-        }
-        if (diff.changedConfigs.length > 0) {
-          lines.push(`- 설정 변경: ${diff.changedConfigs.join(', ')}`);
-        }
-      }
-      lines.push('');
-    }
-
-    // 적용된 개선사항
-    if (appliedImprovements.length > 0) {
-      lines.push('## ✅ 이미 적용된 개선사항 (제외 필수)');
-      lines.push('');
-      appliedImprovements.forEach(imp => {
-        lines.push(`- ${imp.title}`);
-      });
-      lines.push('');
-    }
-
-    // ===== 평가 보고서 작성 요청 =====
-    lines.push('---');
-    lines.push('');
-    lines.push('## 📊 작성 요청 1: 종합 평가 보고서');
-    lines.push('');
-    lines.push(`**파일 경로**: \`${evaluationPath}\``);
-    lines.push('');
-    lines.push('### 필수 포함 섹션:');
-    lines.push('');
-    lines.push('#### 1. 프로젝트 목표 및 비전');
-    lines.push('- 프로젝트의 목적과 핵심 목표');
-    lines.push('- 대상 사용자');
-    lines.push('');
-    lines.push('#### 2. 현재 구현된 기능');
-    lines.push('테이블 형식으로 작성:');
-    lines.push('```');
-    lines.push('| 기능 | 상태 | 설명 | 평가 |');
-    lines.push('|------|------|------|------|');
-    lines.push('| 기능명 | ✅ 완료/🔄 부분/❌ 미구현 | 설명 | 🟢 우수/🟡 양호/🔴 미흡 |');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 3. 종합 점수 테이블');
-    lines.push('`<!-- AUTO-SCORE-START -->` 와 `<!-- AUTO-SCORE-END -->` 마커 사이에 작성:');
-    lines.push('');
-    lines.push('**🚨 필수: 아래 점수-등급 기준을 정확히 적용하세요!**');
-    lines.push('');
-    lines.push('| 점수 범위 | 등급 | 색상 | 의미 |');
-    lines.push('|:---:|:---:|:---:|:---|');
-    lines.push('| 97-100 | A+ | 🟢 | 최우수 |');
-    lines.push('| 93-96 | A | 🟢 | 우수 |');
-    lines.push('| 90-92 | A- | 🟢 | 우수 |');
-    lines.push('| 87-89 | B+ | 🔵 | 양호 |');
-    lines.push('| 83-86 | B | 🔵 | 양호 |');
-    lines.push('| 80-82 | B- | 🔵 | 양호 |');
-    lines.push('| 77-79 | C+ | 🟡 | 보통 |');
-    lines.push('| 73-76 | C | 🟡 | 보통 |');
-    lines.push('| 70-72 | C- | 🟡 | 보통 |');
-    lines.push('| 67-69 | D+ | 🟠 | 미흡 |');
-    lines.push('| 63-66 | D | 🟠 | 미흡 |');
-    lines.push('| 60-62 | D- | 🟠 | 미흡 |');
-    lines.push('| 0-59 | F | 🔴 | 부족 |');
-    lines.push('');
-    lines.push('**예시:**');
-    lines.push('- 점수 85 → 등급 B (83-86 범위)');
-    lines.push('- 점수 72 → 등급 C- (70-72 범위)');
-    lines.push('- 점수 88 → 등급 B+ (87-89 범위)');
-    lines.push('- 점수 91 → 등급 A- (90-92 범위)');
-    lines.push('');
-    lines.push('**테이블 형식:**');
-    lines.push('```');
-    lines.push('| 항목 | 점수 (100점 만점) | 등급 | 변화 |');
-    lines.push('|------|------------------|------|------|');
-    lines.push('| 코드 품질 | 85 | 🔵 B | ⬆️ +7 |');
-    lines.push('| 테스트 커버리지 | 72 | 🟡 C- | ⬆️ +27 |');
-    lines.push('| ... | ... | ... | ... |');
-    lines.push('```');
-    lines.push('');
-    lines.push('**⚠️ 점수와 등급이 일치하지 않으면 잘못된 평가입니다!**');
-    lines.push('');
-    lines.push('#### 4. 기능별 상세 평가');
-    lines.push('각 주요 모듈/서비스별로:');
-    lines.push('- 기능 완성도, 코드 품질, 에러 처리, 성능 점수');
-    lines.push('- 강점과 약점');
-    lines.push('');
-    lines.push('#### 5. TL;DR (한눈에 보기) 섹션');
-    lines.push('`<!-- AUTO-TLDR-START -->` 와 `<!-- AUTO-TLDR-END -->` 마커 사이에 작성:');
-    lines.push('```');
-    lines.push('| 항목 | 값 |');
-    lines.push('|------|-----|');
-    lines.push('| **전체 등급** | B (83점) |');
-    lines.push('| **전체 점수** | 83/100 |');
-    lines.push('| **가장 큰 리스크** | 명령 레이어 회귀 테스트 부족 |');
-    lines.push('| **권장 최우선 작업** | test-commands-001: 명령 레이어 테스트 확장 |');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 6. 리스크 요약 섹션');
-    lines.push('`<!-- AUTO-RISK-SUMMARY-START -->` 와 `<!-- AUTO-RISK-SUMMARY-END -->` 마커 사이에 작성:');
-    lines.push('```');
-    lines.push('| 리스크 레벨 | 항목 | 관련 개선 ID |');
-    lines.push('|------------|------|-------------|');
-    lines.push('| 🔴 High | 명령 레이어 회귀 위험 | test-commands-001 |');
-    lines.push('| 🟡 Medium | AI 연동 미비 | feat-ai-integration-001 |');
-    lines.push('| 🟢 Low | 멀티 워크스페이스 미지원 | feat-multi-workspace-001 |');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 7. 점수 ↔ 개선 항목 매핑');
-    lines.push('`<!-- AUTO-SCORE-MAPPING-START -->` 와 `<!-- AUTO-SCORE-MAPPING-END -->` 마커 사이에 작성:');
-    lines.push('```');
-    lines.push('| 카테고리 | 현재 점수 | 주요 리스크 | 관련 개선 항목 ID |');
-    lines.push('|----------|----------|------------|------------------|');
-    lines.push('| 테스트 커버리지 | 85 (B) | 명령 레이어 회귀 | test-commands-001 |');
-    lines.push('| 프로덕션 준비도 | 78 (C+) | AI 연동 미비 | feat-ai-integration-001 |');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 8. 평가 트렌드 (세션 히스토리 기반)');
-    lines.push('`<!-- AUTO-TREND-START -->` 와 `<!-- AUTO-TREND-END -->` 마커 사이에 작성:');
-    lines.push('- 이전 평가 점수들이 있다면 최근 5회의 점수 트렌드를 표시');
-    lines.push('- 각 카테고리별 점수 변화 추이');
-    lines.push('');
-    lines.push('#### 9. 현재 상태 요약');
-    lines.push('`<!-- AUTO-SUMMARY-START -->` 와 `<!-- AUTO-SUMMARY-END -->` 마커 사이에 작성');
-    lines.push('');
-    lines.push('> ⚠️ **세션 로그는 `Session_History.md` 파일에서 자동 관리됩니다.**');
-    lines.push('> 평가 보고서에는 세션 로그를 작성하지 마세요.');
-    lines.push('');
-
-    // ===== 개선 보고서 작성 요청 =====
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🚀 작성 요청 2: 개선 제안 보고서');
-    lines.push('');
-    lines.push(`**파일 경로**: \`${improvementPath}\``);
-    lines.push('');
-    lines.push('### ⚠️ 핵심 원칙: 미적용 항목만 표시');
-    lines.push('');
-    lines.push('**❌ 절대 금지:**');
-    lines.push('- 이미 적용 완료된 항목을 보고서에 표시하지 마세요');
-    lines.push('- "✅ 적용 완료" 섹션을 만들지 마세요');
-    lines.push('- 완료된 항목의 히스토리를 개선 목록에 남기지 마세요');
-    lines.push('');
-    lines.push('**✅ 올바른 방법:**');
-    lines.push('- 현재 시점에서 **아직 적용되지 않은** 개선 항목만 작성');
-    lines.push('- 코드를 분석하여 **새로운 개선점** 발굴');
-    lines.push('- 기존 미적용 항목 + 새 발견 항목만 포함');
-    lines.push('');
-    lines.push('### 🔍 오류 탐색 절차 (신뢰할 수 있는 개선 항목 도출)');
-    lines.push('');
-    lines.push('개선 항목은 단순 아이디어가 아니라 **실제 프로젝트에서 관찰된 문제점**에서 도출되어야 합니다.');
-    lines.push('');
-    lines.push('**1. 데이터 수집:**');
-    lines.push('- VS Code 문제 패널 확인 (컴파일 에러, lint 경고)');
-    lines.push('- 테스트 실행 결과 분석 (실패/스킵 케이스)');
-    lines.push('- Git 변경 이력 검토 (빈번히 수정되는 파일)');
-    lines.push('- TODO/FIXME 주석 스캔');
-    lines.push('');
-    lines.push('**2. 자동 분석:**');
-    lines.push('- 테스트 커버리지가 낮은 모듈 식별');
-    lines.push('- 복잡도가 높은 함수/클래스 탐지');
-    lines.push('- 타입 안전성이 약한 부분 (any 타입 사용)');
-    lines.push('');
-    lines.push('**3. 개선 후보 도출:**');
-    lines.push('- Origin 필드로 출처 명시 (test-failure, build-error, static-analysis, manual-idea)');
-    lines.push('- 리스크 레벨 지정 (low/medium/high/critical)');
-    lines.push('- 관련 평가 카테고리 매핑');
-    lines.push('');
-    lines.push('### 필수 포함 섹션:');
-    lines.push('');
-    lines.push('#### 1. 전체 개선 현황 요약');
-    lines.push('`<!-- AUTO-SUMMARY-START -->` 마커 사이에:');
-    lines.push('- 현황 개요 테이블 (P1/P2/P3 **미적용** 개수만)');
-    lines.push('- **항목별 분포 테이블** (아래 형식 필수):');
-    lines.push('```');
-    lines.push('| # | 항목명 | 우선순위 | 카테고리 |');
-    lines.push('|:---:|:---|:---:|:---|');
-    lines.push('| 1 | loadConfig 리팩토링 | P2 | 🧹 코드 품질 |');
-    lines.push('| 2 | 명령 레이어 테스트 | P2 | 🧪 테스트 |');
-    lines.push('| 3 | AI 직접 연동 | P3 | ✨ 기능 추가 |');
-    lines.push('```');
-    lines.push('- 우선순위별 한줄 요약');
-    lines.push('- **적용 완료 항목 개수는 세션 로그에만 기록** (요약에서는 총 개수만 언급)');
-    lines.push('');
-    lines.push('#### 2. 🔧 기능 개선 항목 (기존 기능 개선)');
-    lines.push('`<!-- AUTO-IMPROVEMENT-LIST-START -->` 마커 사이에:');
-    lines.push('');
-    lines.push('**미적용 항목만** 아래 형식으로 작성 (**코드 제외, 설명만**):');
-    lines.push('```');
-    lines.push('### 🟡 중요 (P2)');
-    lines.push('');
-    lines.push('#### [P2-1] 항목명');
-    lines.push('| 항목 | 내용 |');
-    lines.push('|------|------|');
-    lines.push('| **ID** | `고유-id` |');
-    lines.push('| **카테고리** | 🧪 테스트 / 🔒 보안 / 🧹 코드 품질 등 |');
-    lines.push('| **복잡도** | Low / Medium / High |');
-    lines.push('| **대상 파일** | 파일 경로 |');
-    lines.push('| **Origin** | test-failure / build-error / static-analysis / manual-idea |');
-    lines.push('| **리스크 레벨** | low / medium / high / critical |');
-    lines.push('| **관련 평가 카테고리** | testCoverage, codeQuality 등 |');
-    lines.push('');
-    lines.push('**현재 상태:** ...');
-    lines.push('**문제점 (Problem):** ...');
-    lines.push('**영향 (Impact):** ...');
-    lines.push('**원인 (Cause):** ...');
-    lines.push('**개선 내용 (Proposed Solution):** ...');
-    lines.push('**기대 효과:** ...');
-    lines.push('');
-    lines.push('**Definition of Done:**');
-    lines.push('- [ ] 체크리스트 항목 1');
-    lines.push('- [ ] 체크리스트 항목 2');
-    lines.push('- [ ] 테스트 통과 확인');
-    lines.push('```');
-    lines.push('');
-    lines.push('#### 3. ✨ 기능 추가 항목 (새 기능)');
-    lines.push('`<!-- AUTO-FEATURE-LIST-START -->` 마커 사이에:');
-    lines.push('- 위와 동일한 형식으로 새 기능 제안 (**미적용 항목만**)');
-    lines.push('');
-    lines.push('#### 4. 🚀 코드 품질 및 성능 최적화 섹션 (필수)');
-    lines.push('`<!-- AUTO-OPTIMIZATION-START -->` 와 `<!-- AUTO-OPTIMIZATION-END -->` 마커 사이에:');
-    lines.push('');
-    lines.push('> **🚨 중요**: 이 섹션은 **반드시 작성**해야 합니다!');
-    lines.push('> - OPT 항목은 Prompt.md에 포함되어 AI 에이전트가 실행할 수 있어야 합니다');
-    lines.push('> - 최소 1개 이상의 OPT 항목을 제안하세요');
-    lines.push('> - 기존 기능을 해치지 않으면서 코드 품질과 성능을 향상시킬 수 있는 개선점을 분석하세요');
-    lines.push('');
-    lines.push('**분석 및 제안 항목:**');
-    lines.push('');
-    lines.push('##### 🔍 코드 품질 분석');
-    lines.push('- **중복 코드 제거**: 비슷한 로직이 여러 곳에 있다면 공통 유틸리티로 추출');
-    lines.push('- **타입 안전성 강화**: any 타입 제거, 엄격한 타입 정의');
-    lines.push('- **코드 가독성**: 복잡한 함수 분리, 명확한 변수/함수 네이밍');
-    lines.push('- **에러 처리 개선**: try-catch 누락, 에러 메시지 명확화');
-    lines.push('- **코드 구조 개선**: SRP(단일 책임 원칙) 적용, 모듈 분리');
-    lines.push('');
-    lines.push('##### ⚡ 성능 최적화 분석');
-    lines.push('- **불필요한 연산 제거**: 반복 계산, 불필요한 객체 생성');
-    lines.push('- **비동기 처리 최적화**: Promise.all 활용, 병렬 처리 가능 작업 식별');
-    lines.push('- **메모리 사용 최적화**: 대용량 데이터 처리, 메모리 누수 방지');
-    lines.push('- **캐싱 전략**: 반복 호출되는 비용이 큰 작업에 캐싱 적용');
-    lines.push('- **지연 로딩**: 필요할 때만 로드하는 lazy loading 패턴');
-    lines.push('');
-    lines.push('##### 📝 제안 형식');
-    lines.push('```');
-    lines.push('### 🚀 코드 최적화 (OPT-1)');
-    lines.push('| 항목 | 내용 |');
-    lines.push('|------|------|');
-    lines.push('| **ID** | `opt-고유id` |');
-    lines.push('| **카테고리** | 🚀 코드 최적화 / ⚙️ 성능 튜닝 |');
-    lines.push('| **영향 범위** | 성능 / 품질 / 둘 다 |');
-    lines.push('| **대상 파일** | 파일 경로 |');
-    lines.push('');
-    lines.push('**현재 상태:** [현재 코드의 문제점 설명]');
-    lines.push('**최적화 내용:** [구체적인 개선 방법]');
-    lines.push('**예상 효과:**');
-    lines.push('- 성능: [예: API 응답 시간 30% 단축, 메모리 사용량 20% 감소]');
-    lines.push('- 품질: [예: 코드 라인 수 50% 감소, 유지보수성 향상]');
-    lines.push('**측정 가능한 지표:** [벤치마크 방법 또는 측정 기준]');
-    lines.push('```');
-    lines.push('');
-    lines.push('> ⚠️ **세션 로그는 `Session_History.md` 파일에서 자동 관리됩니다.**');
-    lines.push('> 개선 보고서에는 세션 로그를 작성하지 마세요.');
-    lines.push('');
-
-    // ===== 프롬프트 파일 작성 요청 (영어) =====
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🤖 Request 3: AI Prompt File (Write in English)');
-    lines.push('');
-    lines.push(`**File Path**: \`${promptPath}\``);
-    lines.push('');
-    lines.push('### 🚨🚨🚨 MANDATORY: ALL CONTENT IN ENGLISH');
-    lines.push('');
-    lines.push('> **⛔ CRITICAL LANGUAGE RULE:**');
-    lines.push('> - **EVERY SINGLE WORD in Prompt.md MUST be in English**');
-    lines.push('> - **DO NOT write ANY Korean text (한글) in this file**');
-    lines.push('> - This includes: titles, descriptions, code comments, table content, everything');
-    lines.push('> - Translate all content from the Korean Improvement Report to English');
-    lines.push('> - If you write Korean, the prompt file is INVALID');
-    lines.push('');
-    lines.push('### ⚠️ CRITICAL: Based on Improvement Report');
-    lines.push('');
-    lines.push('**Prompt.md MUST be generated from the Improvement Report\'s pending items:**');
-    lines.push('- Read `Project_Improvement_Exploration_Report.md` first');
-    lines.push('- Extract ONLY the pending (not applied) items from P1/P2/P3 sections');
-    lines.push('- **MANDATORY: Extract ALL OPT items from `<!-- AUTO-OPTIMIZATION-START/END -->` section**');
-    lines.push('- **OPT items MUST be included in Prompt.md - do NOT skip them**');
-    lines.push('- Create prompts for EACH pending item with complete implementation code');
-    lines.push('- **Translate ALL Korean content to English when writing to Prompt.md**');
-    lines.push('- DO NOT include prompts for already completed items');
-    lines.push('');
-    lines.push('### ⚠️ CRITICAL: Sequential Execution Structure');
-    lines.push('');
-    lines.push('The Prompt.md file MUST be structured so that when copied entirely and given to an AI agent,');
-    lines.push('the agent will execute ALL prompts sequentially without stopping after the first one.');
-    lines.push('');
-    lines.push('### ⚠️ CRITICAL: No Useless Headers or Descriptions');
-    lines.push('');
-    lines.push('**DO NOT include any of these at the top of Prompt.md:**');
-    lines.push('- Generic descriptions like "This file contains ready-to-use prompts"');
-    lines.push('- Instructions like "Copy any section and paste it into Copilot Chat"');
-    lines.push('- Any introductory text that is not directly actionable');
-    lines.push('');
-    lines.push('**START DIRECTLY with the mandatory execution rules.**');
-    lines.push('');
-    lines.push('### Required File Structure:');
-    lines.push('');
-    lines.push('````markdown');
-    lines.push('# 🤖 AI Agent Improvement Prompts');
-    lines.push('');
-    lines.push('> ## 🚨 MANDATORY: FILE MODIFICATION REQUIRED');
-    lines.push('> ');
-    lines.push('> **⛔ DO NOT just respond with text or code blocks.**');
-    lines.push('> **⛔ DO NOT say "you can modify like this" without actually modifying.**');
-    lines.push('> **⛔ DO NOT explain what needs to be done without doing it.**');
-    lines.push('> ');
-    lines.push('> **✅ YOU MUST use file editing tools (`replace_string_in_file`, `create_file`, `multi_replace_string_in_file`) to directly modify files.**');
-    lines.push('> **✅ After each prompt, confirm "I have modified the file(s)" with the actual changes made.**');
-    lines.push('> ');
-    lines.push('> ---');
-    lines.push('> ');
-    lines.push('> **Process ALL prompts below SEQUENTIALLY. Do NOT stop after completing one prompt.**');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('## 📋 Execution Checklist');
-    lines.push('');
-    lines.push('| # | Prompt ID | Title | Priority | Status |');
-    lines.push('|:---:|:---|:---|:---:|:---:|');
-    lines.push('| 1 | PROMPT-001 | [Title from P2-1 in Improvement Report] | P2 | ⬜ Pending |');
-    lines.push('| 2 | PROMPT-002 | [Title from P2-2 in Improvement Report] | P2 | ⬜ Pending |');
-    lines.push('| 3 | PROMPT-003 | [Title from P3-1 in Improvement Report] | P3 | ⬜ Pending |');
-    lines.push('| 4 | OPT-1 | [Code Optimization from AUTO-OPTIMIZATION section] | OPT | ⬜ Pending |');
-    lines.push('| 5 | OPT-2 | [Performance Tuning from AUTO-OPTIMIZATION section] | OPT | ⬜ Pending |');
-    lines.push('| ... | ... | ... | ... | ... |');
-    lines.push('');
-    lines.push('**Total: X prompts** | **Completed: 0** | **Remaining: X**');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🔴 Priority 1 (Critical) - Execute First');
-    lines.push('');
-    lines.push('### [PROMPT-001] Title Here');
-    lines.push('');
-    lines.push('> **🚨 REQUIRED: Use `replace_string_in_file` or `create_file` to make changes. Do NOT just show code.**');
-    lines.push('');
-    lines.push('**Task**: Clear one-sentence description of what needs to be done');
-    lines.push('**Files to Modify**: `src/path/to/file.ts`');
-    lines.push('');
-    lines.push('#### Instructions:');
-    lines.push('');
-    lines.push('1. Open `src/path/to/file.ts`');
-    lines.push('2. Locate the specific section to modify');
-    lines.push('3. Apply the changes shown below');
-    lines.push('');
-    lines.push('#### Implementation Code:');
-    lines.push('');
-    lines.push('> **📝 IMPORTANT: Write ACTUAL implementation code based on the Improvement Report.**');
-    lines.push('> Extract the improvement details and generate working TypeScript code that the AI agent can reference.');
-    lines.push('> DO NOT just write placeholder comments - provide real, executable code examples.');
-    lines.push('');
-    lines.push('```typescript');
-    lines.push('// Example for a test file creation prompt:');
-    lines.push('import { describe, it, expect, vi, beforeEach } from "vitest";');
-    lines.push('import * as vscode from "vscode";');
-    lines.push('');
-    lines.push('// Mock VS Code API');
-    lines.push('vi.mock("vscode", () => ({');
-    lines.push('  window: {');
-    lines.push('    showErrorMessage: vi.fn(),');
-    lines.push('    showInformationMessage: vi.fn(),');
-    lines.push('    showQuickPick: vi.fn(),');
-    lines.push('  },');
-    lines.push('  workspace: {');
-    lines.push('    workspaceFolders: undefined,');
-    lines.push('  },');
-    lines.push('}));');
-    lines.push('');
-    lines.push('describe("CommandName", () => {');
-    lines.push('  beforeEach(() => {');
-    lines.push('    vi.clearAllMocks();');
-    lines.push('  });');
-    lines.push('');
-    lines.push('  it("should handle case X", async () => {');
-    lines.push('    // Arrange');
-    lines.push('    // Act');
-    lines.push('    // Assert');
-    lines.push('  });');
-    lines.push('});');
-    lines.push('```');
-    lines.push('');
-    lines.push('> **⚠️ The above is just an EXAMPLE format. Generate ACTUAL code based on the specific improvement item.**');
-    lines.push('> Read the Improvement Report details (Current State, Problem, Proposed Solution) and write corresponding implementation.');
-    lines.push('');
-    lines.push('#### Verification:');
-    lines.push('- Run: `pnpm run compile`');
-    lines.push('- Expected: No compilation errors');
-    lines.push('');
-    lines.push('**✅ After completing this prompt, proceed to [PROMPT-002]**');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('### [PROMPT-002] Next Title');
-    lines.push('');
-    lines.push('**⏱️ Execute this prompt now, then proceed to PROMPT-003**');
-    lines.push('');
-    lines.push('[Continue with same structure...]');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🟡 Priority 2 (High) - Execute Second');
-    lines.push('');
-    lines.push('[P2 prompts with same structure...]');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🟢 Priority 3 (Medium) - Execute Last');
-    lines.push('');
-    lines.push('[P3 prompts with same structure...]');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('## 🔧 Optimization Items (OPT) - MANDATORY SECTION');
-    lines.push('');
-    lines.push('> **🚨 This section is REQUIRED - extract from AUTO-OPTIMIZATION section in Improvement Report**');
-    lines.push('> Translate Korean content to English. Include implementation code for each OPT item.');
-    lines.push('');
-    lines.push('### [OPT-1] Code Optimization Title');
-    lines.push('');
-    lines.push('**⏱️ Execute this OPT prompt now**');
-    lines.push('');
-    lines.push('| Field | Value |');
-    lines.push('|:---|:---|');
-    lines.push('| **ID** | `opt-xxx-001` |');
-    lines.push('| **Category** | 🚀 Code Optimization |');
-    lines.push('| **Target Files** | `src/path/to/file.ts` |');
-    lines.push('');
-    lines.push('**Current State:** [Description of current situation - translate from Korean report]');
-    lines.push('');
-    lines.push('**Optimization:** [What should be done - translate from Korean report]');
-    lines.push('');
-    lines.push('**Expected Effect:** [Benefits of this optimization]');
-    lines.push('');
-    lines.push('#### Implementation Code:');
-    lines.push('');
-    lines.push('```typescript');
-    lines.push('// Write actual implementation code here');
-    lines.push('// Based on the optimization described above');
-    lines.push('```');
-    lines.push('');
-    lines.push('---');
-    lines.push('');
-    lines.push('### [OPT-2] Performance Tuning Title');
-    lines.push('');
-    lines.push('[Same structure as OPT-1 with actual implementation code...]');
-    lines.push('');
-    lines.push('**🎉 ALL PROMPTS COMPLETED! Run final verification.**');
-    lines.push('````');
-    lines.push('');
-    lines.push('### ⚠️ MANDATORY Requirements for Each Prompt:');
-    lines.push('');
-    lines.push('1. **Header**: `**⏱️ Execute this prompt now, then proceed to PROMPT-XXX**`');
-    lines.push('2. **Complete Code**: Write ACTUAL implementation code based on the Improvement Report');
-    lines.push('3. **Full Context**: Include imports, class definitions, everything needed to understand the change');
-    lines.push('4. **Verification Step**: Include command to run after implementation');
-    lines.push('5. **Footer**: `**✅ After completing this prompt, proceed to [PROMPT-XXX]**`');
-    lines.push('6. **Final Prompt**: End with `**🎉 ALL PROMPTS COMPLETED!**`');
-    lines.push('');
-    lines.push('### ✅ Code Writing Guidelines for Prompt.md:');
-    lines.push('');
-    lines.push('- **DO write real TypeScript/JavaScript code** that demonstrates the implementation');
-    lines.push('- **DO include all necessary imports** at the top of code blocks');
-    lines.push('- **DO show complete function/class structures** (not just signatures)');
-    lines.push('- **DO base the code on Improvement Report details** (Current State, Problem, Proposed Solution)');
-    lines.push('- **DO provide enough context** so the AI agent can understand and apply the changes');
-    lines.push('');
-    lines.push('### ❌ NEVER Include:');
-    lines.push('- Placeholder comments like `// FULL implementation code here`');
-    lines.push('- Empty code blocks with only comments');
-    lines.push('- `// ... existing code ...` or `/* omitted */` without actual code');
-    lines.push('- References to "see above" or "similar to previous"');
-    lines.push('- Incomplete function bodies without implementation');
-    lines.push('- "Previously Completed Prompts" section or any completed prompt history');
-    lines.push('- Any list or mention of already completed/applied improvements');
-    lines.push('- Historical data about past prompts or previous sessions');
-    lines.push('');
-    lines.push('### 📌 IMPORTANT: Prompt.md Content Rule');
-    lines.push('- Prompt.md should ONLY contain PENDING prompts that need to be executed');
-    lines.push('- DO NOT add any section showing completed or previously applied prompts');
-    lines.push('- Each run should generate fresh prompts based on current improvement report');
-    lines.push('- No historical tracking of completed prompts in this file');
-    lines.push('');
-    lines.push('### 🚨 CRITICAL: Write Prompt.md in Multiple Parts');
-    lines.push('');
-    lines.push('**Due to output length limits, write Prompt.md in sequential parts:**');
-    lines.push('');
-    lines.push('```');
-    lines.push('Part 1: Header + Execution Checklist + First 2-3 prompts');
-    lines.push('Part 2: Next 2-3 prompts');
-    lines.push('Part 3: Remaining prompts + Final verification section');
-    lines.push('```');
-    lines.push('');
-    lines.push('**Each prompt section should be ~50-80 lines max.**');
-    lines.push('**If there are 6+ prompts, split into 3+ parts.**');
-    lines.push('');
-
-    // ===== 완료 확인 =====
-    lines.push('---');
-    lines.push('');
-    lines.push('## ✅ 작성 완료 체크리스트');
-    lines.push('');
-    lines.push('### 🚨 필수: 세 파일 모두 수정 확인');
-    lines.push('');
-    lines.push(`| # | 파일 | 완료 확인 |`);
-    lines.push(`|:---:|:---|:---:|`);
-    lines.push(`| 1 | \`${evaluationPath}\` | [ ] 평가 보고서 수정 완료 |`);
-    lines.push(`| 2 | \`${improvementPath}\` | [ ] 개선 보고서 수정 완료 |`);
-    lines.push(`| 3 | \`${promptPath}\` | [ ] 프롬프트 파일 수정 완료 |`);
-    lines.push('');
-    lines.push('**⚠️ 세 파일 모두 수정해야 작업이 완료됩니다. 평가 보고서만 수정하고 끝내지 마세요!**');
-    lines.push('');
-    lines.push('### 각 파일 검증 항목:');
-    lines.push('');
-    lines.push('**평가 보고서:**');
-    lines.push('- [ ] 프로젝트 목표 및 비전 작성');
-    lines.push('- [ ] 기능 테이블 작성');
-    lines.push('- [ ] 종합 점수 테이블 작성');
-    lines.push('- [ ] 기능별 상세 평가 작성');
-    lines.push('- [ ] 현재 상태 요약 작성');
-    lines.push('');
-    lines.push('**개선 보고서:**');
-    lines.push('- [ ] 개선 현황 요약 (항목별 분포 테이블 포함)');
-    lines.push('- [ ] 기능 개선 항목 (P1/P2)');
-    lines.push('- [ ] 기능 추가 항목 (P3)');
-    lines.push('- [ ] **OPT 항목 필수 포함** (AUTO-OPTIMIZATION 섹션)');
-    lines.push('- [ ] 미적용 항목만 표시 (적용 완료 항목 제외)');
-    lines.push('');
-    lines.push('**프롬프트 파일 (영어로 작성!):**');
-    lines.push('- [ ] **모든 내용이 영어로 작성됨 (한글 없음)**');
-    lines.push('- [ ] Execution Checklist 테이블');
-    lines.push('- [ ] 각 프롬프트에 순차 실행 헤더/푸터');
-    lines.push('- [ ] 완전한 구현 코드 (축약 없음)');
-    lines.push('- [ ] **OPT 항목이 Prompt.md에 포함됨**');
-    lines.push('- [ ] 마지막에 "ALL PROMPTS COMPLETED"');
-    lines.push('');
-    lines.push('### 🚨 파트별 순차 작성 확인');
-    lines.push('');
-    lines.push('각 파일 작성 시 **한 번에 150줄 이상 작성하지 마세요!**');
-    lines.push('');
-    lines.push('```');
-    lines.push('✅ 올바른 작성 순서:');
-    lines.push('1. 평가 보고서 파트1 → 파트2 → 파트3 → 파트4 (완료)');
-    lines.push('2. 개선 보고서 파트1 → 파트2 → 파트3 (완료)');
-    lines.push('3. 프롬프트 파일 파트1 → 파트2 → 파트3 (완료)');
-    lines.push('');
-    lines.push('❌ 잘못된 작성:');
-    lines.push('- 한 번에 전체 파일 작성 시도 → 중간에 잘림!');
-    lines.push('```');
-
-    return lines.join('\n');
-  }
 
   /**
    * 프로젝트 유형 포맷
@@ -1512,13 +734,12 @@ export class MarkImprovementAppliedCommand {
     const title = titleMatch ? titleMatch[1].trim() : '알 수 없음';
     const id = idMatch ? idMatch[1] : generateImprovementId(title, selectedText);
 
-    // 워크스페이스 확인
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
+    // 워크스페이스 선택 (multi-root 지원)
+    const rootPath = await selectWorkspaceRoot();
+    if (!rootPath) {
+      this.log('워크스페이스 선택이 취소되었습니다.');
       return;
     }
-
-    const rootPath = workspaceFolders[0].uri.fsPath;
     const config = loadConfig();
 
     // 상태 로드

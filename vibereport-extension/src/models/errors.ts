@@ -61,3 +61,21 @@ export class FileOperationError extends VibeReportError {
     Object.setPrototypeOf(this, FileOperationError.prototype);
   }
 }
+
+/**
+ * Standardized error message formatter for consistent UX across the extension.
+ * 
+ * @param area - The area or component where the error occurred (e.g., 'UpdateReports', 'WorkspaceScan')
+ * @param message - The specific error message
+ * @returns Formatted error message with [VibeReport] prefix
+ * 
+ * @example
+ * ```typescript
+ * const msg = formatErrorMessage('UpdateReports', 'Failed to create directory');
+ * // Returns: "[VibeReport] UpdateReports: Failed to create directory"
+ * ```
+ */
+export function formatErrorMessage(area: string, message: string): string {
+  return `[VibeReport] ${area}: ${message}`;
+}
+

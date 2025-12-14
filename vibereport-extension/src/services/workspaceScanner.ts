@@ -43,15 +43,10 @@ export class WorkspaceScanner {
    * @returns ProjectSnapshot
    */
   async scan(
+    rootPath: string,
     config: VibeReportConfig,
     onProgress?: ProgressCallback
   ): Promise<ProjectSnapshot> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      throw new Error('워크스페이스가 열려있지 않습니다.');
-    }
-
-    const rootPath = workspaceFolders[0].uri.fsPath;
     const projectName = path.basename(rootPath);
 
     onProgress?.('파일 목록 수집 중...', 10);
@@ -84,6 +79,9 @@ export class WorkspaceScanner {
     // 디렉토리 구조 요약 (상위 3레벨)
     const structureSummary = await this.buildStructureSummary(rootPath, config, 3);
 
+    // 기능 기반 프로젝트 구조 다이어그램 생성
+    const structureDiagram = this.generateFunctionBasedStructure(files, rootPath, mainConfigFiles);
+
     onProgress?.('Git 정보 수집 중...', 85);
 
     // Git 정보
@@ -105,6 +103,7 @@ export class WorkspaceScanner {
       importantFiles,
       fileList: files, // 전체 파일 목록 저장 (스냅샷 비교용)
       structureSummary,
+      structureDiagram,
       gitInfo,
     };
 
@@ -123,14 +122,14 @@ export class WorkspaceScanner {
   ): Promise<string[]> {
     const cacheKey = createCacheKey('file-list', rootPath, config.maxFilesToScan);
     const cached = getCachedValue<string[]>(cacheKey);
-    
+
     if (cached) {
       this.log(`[WorkspaceScanner] Using cached file list for ${rootPath}`);
       return cached;
     }
 
     const excludePattern = `{${config.excludePatterns.join(',')}}`;
-    
+
     const uris = await vscode.workspace.findFiles(
       '**/*',
       excludePattern,
@@ -320,7 +319,7 @@ export class WorkspaceScanner {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       if (trimmed.startsWith('name = ')) {
         name = trimmed.replace('name = ', '').replace(/"/g, '');
       } else if (trimmed.startsWith('version = ')) {
@@ -345,7 +344,7 @@ export class WorkspaceScanner {
    */
   private identifyImportantFiles(files: string[], rootPath: string): string[] {
     const important: string[] = [];
-    
+
     const patterns = [
       /^src\/(main|index|app)\.(ts|tsx|js|jsx)$/,
       /^src\/lib\.(rs)$/,
@@ -463,7 +462,7 @@ export class WorkspaceScanner {
 
       const branch = await git.branch();
       const status = await git.status();
-      
+
       let lastCommit: { hash?: string; message?: string; date?: string } = {};
       try {
         const log = await git.log({ maxCount: 1 });
@@ -490,6 +489,184 @@ export class WorkspaceScanner {
       this.log(`Git 정보 수집 실패: ${error}`);
       return undefined;
     }
+  }
+
+  /**
+   * 기능 기반 프로젝트 구조 다이어그램 생성
+   *
+   * @description 디렉토리 구조를 기능 단위로 분류하여 마크다운 형식의 구조도를 생성합니다.
+   * @param files 전체 파일 목록
+   * @param rootPath 워크스페이스 루트 경로
+   * @param mainConfigFiles 주요 설정 파일 정보
+   * @returns 마크다운 형식의 프로젝트 구조 다이어그램
+   */
+  private generateFunctionBasedStructure(
+    files: string[],
+    rootPath: string,
+    mainConfigFiles: MainConfigFiles
+  ): string {
+    const lines: string[] = [];
+    const projectName = path.basename(rootPath);
+
+    // 기능별 디렉토리 분류 (일반적인 프로젝트 구조)
+    const functionalCategories: Record<string, { icon: string; description: string; files: string[] }> = {
+      // 핵심 소스 코드
+      'commands': { icon: '⚡', description: '명령 처리 및 액션', files: [] },
+      'services': { icon: '⚙️', description: '비즈니스 로직 및 서비스', files: [] },
+      'controllers': { icon: '🎮', description: '요청 처리 컨트롤러', files: [] },
+      'routes': { icon: '🛤️', description: 'API 라우트 정의', files: [] },
+      'api': { icon: '🌐', description: 'API 엔드포인트', files: [] },
+      'views': { icon: '👁️', description: 'UI 뷰 컴포넌트', files: [] },
+      'components': { icon: '🧩', description: 'UI 컴포넌트', files: [] },
+      'pages': { icon: '📄', description: '페이지 컴포넌트', files: [] },
+      'models': { icon: '📦', description: '데이터 모델 및 타입', files: [] },
+      'types': { icon: '📝', description: '타입 정의', files: [] },
+      'utils': { icon: '🔧', description: '유틸리티 함수', files: [] },
+      'helpers': { icon: '🤝', description: '헬퍼 함수', files: [] },
+      'lib': { icon: '📚', description: '라이브러리 및 공통 모듈', files: [] },
+      'hooks': { icon: '🪝', description: 'React 훅', files: [] },
+      'store': { icon: '🗄️', description: '상태 관리', files: [] },
+      'redux': { icon: '🗄️', description: 'Redux 상태 관리', files: [] },
+      'middleware': { icon: '🔌', description: '미들웨어', files: [] },
+      'config': { icon: '🔧', description: '설정 파일', files: [] },
+      'constants': { icon: '📋', description: '상수 정의', files: [] },
+      // 테스트
+      '__tests__': { icon: '🧪', description: '테스트 파일', files: [] },
+      'tests': { icon: '🧪', description: '테스트 파일', files: [] },
+      'test': { icon: '🧪', description: '테스트 파일', files: [] },
+      'spec': { icon: '🧪', description: '테스트 스펙', files: [] },
+      // 리소스
+      'assets': { icon: '🖼️', description: '정적 리소스', files: [] },
+      'public': { icon: '🌍', description: '공개 정적 파일', files: [] },
+      'static': { icon: '📁', description: '정적 파일', files: [] },
+      'styles': { icon: '🎨', description: '스타일 파일', files: [] },
+      'css': { icon: '🎨', description: 'CSS 스타일', files: [] },
+      // 문서
+      'docs': { icon: '📖', description: '문서', files: [] },
+      'devplan': { icon: '📊', description: '개발 계획 및 보고서', files: [] },
+    };
+
+    // 파일을 기능별로 분류
+    for (const file of files) {
+      const parts = file.split('/');
+      const firstDir = parts[0];
+      const secondDir = parts.length > 1 ? parts[1] : null;
+
+      // src 하위 디렉토리 우선 확인
+      if (firstDir === 'src' && secondDir && functionalCategories[secondDir]) {
+        functionalCategories[secondDir].files.push(file);
+      } else if (functionalCategories[firstDir]) {
+        functionalCategories[firstDir].files.push(file);
+      }
+    }
+
+    // 프로젝트 헤더
+    lines.push(`### 📐 기능 기반 프로젝트 구조`);
+    lines.push('');
+    lines.push(`**프로젝트**: \`${projectName}\``);
+
+    // 프로젝트 타입 추론
+    const projectType = this.inferProjectType(mainConfigFiles, files);
+    lines.push(`**타입**: ${projectType}`);
+    lines.push('');
+
+    // 기능별 구조 테이블
+    lines.push('| 기능 영역 | 설명 | 파일 수 |');
+    lines.push('|:---|:---|:---:|');
+
+    // 파일이 있는 카테고리만 표시 (파일 수 내림차순)
+    const sortedCategories = Object.entries(functionalCategories)
+      .filter(([_, info]) => info.files.length > 0)
+      .sort((a, b) => b[1].files.length - a[1].files.length);
+
+    for (const [category, info] of sortedCategories) {
+      lines.push(`| ${info.icon} **${category}/** | ${info.description} | ${info.files.length} |`);
+    }
+
+    lines.push('');
+
+    // 주요 엔트리포인트
+    lines.push('#### 주요 진입점');
+    const entryPoints = files.filter(f =>
+      /^(src\/)?(main|index|app|extension|server)\.(ts|tsx|js|jsx)$/.test(f)
+    ).slice(0, 5);
+
+    if (entryPoints.length > 0) {
+      for (const entry of entryPoints) {
+        lines.push(`- \`${entry}\``);
+      }
+    } else {
+      lines.push('- _(엔트리포인트 자동 감지 실패)_');
+    }
+    lines.push('');
+
+    // 데이터 흐름 요약 (Mermaid flowchart)
+    if (sortedCategories.length >= 2) {
+      lines.push('#### 데이터 흐름');
+      lines.push('');
+      const hasCommands = functionalCategories['commands'].files.length > 0;
+      const hasServices = functionalCategories['services'].files.length > 0;
+      const hasViews = functionalCategories['views'].files.length > 0 ||
+        functionalCategories['components'].files.length > 0;
+      const hasModels = functionalCategories['models'].files.length > 0 ||
+        functionalCategories['types'].files.length > 0;
+      const hasControllers = functionalCategories['controllers'].files.length > 0;
+      const hasRoutes = functionalCategories['routes'].files.length > 0 ||
+        functionalCategories['api'].files.length > 0;
+
+      // Mermaid flowchart 생성
+      lines.push('```mermaid');
+      lines.push('flowchart LR');
+
+      // 노드 정의 (존재하는 것만)
+      const nodes: { id: string; label: string }[] = [];
+      if (hasViews) nodes.push({ id: 'Views', label: '👁️ Views/Components' });
+      if (hasCommands) nodes.push({ id: 'Commands', label: '⚡ Commands' });
+      if (hasControllers) nodes.push({ id: 'Controllers', label: '🎮 Controllers' });
+      if (hasRoutes) nodes.push({ id: 'Routes', label: '🛤️ Routes/API' });
+      if (hasServices) nodes.push({ id: 'Services', label: '⚙️ Services' });
+      if (hasModels) nodes.push({ id: 'Models', label: '📦 Models/Types' });
+
+      if (nodes.length >= 2) {
+        // 노드 정의
+        for (const node of nodes) {
+          lines.push(`    ${node.id}["${node.label}"]`);
+        }
+        // 연결 (순서대로)
+        for (let i = 0; i < nodes.length - 1; i++) {
+          lines.push(`    ${nodes[i].id} --> ${nodes[i + 1].id}`);
+        }
+      }
+
+      lines.push('```');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 설정 파일 기반 프로젝트 타입 추론
+   */
+  private inferProjectType(mainConfigFiles: MainConfigFiles, files: string[]): string {
+    const hasVsCodeExtension = files.some(f => f.includes('extension.ts') || f.includes('extension.js'));
+    const hasTauri = !!mainConfigFiles.tauriConfig;
+    const hasCargo = !!mainConfigFiles.cargoToml;
+    const hasNext = files.some(f => f.includes('next.config'));
+    const hasVite = files.some(f => f.includes('vite.config'));
+    const hasReact = !!mainConfigFiles.packageJson?.dependencies.includes('react');
+    const hasVue = !!mainConfigFiles.packageJson?.dependencies.includes('vue');
+
+    if (hasVsCodeExtension) return '🔌 VS Code 확장';
+    if (hasTauri) return '🖥️ Tauri 데스크톱 앱';
+    if (hasNext) return '⚡ Next.js 앱';
+    if (hasVite && hasReact) return '⚛️ React (Vite)';
+    if (hasVite && hasVue) return '💚 Vue (Vite)';
+    if (hasVite) return '⚡ Vite 프로젝트';
+    if (hasCargo) return '🦀 Rust 프로젝트';
+    if (hasReact) return '⚛️ React 앱';
+    if (hasVue) return '💚 Vue 앱';
+
+    return '📦 일반 프로젝트';
   }
 
   /**

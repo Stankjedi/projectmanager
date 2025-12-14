@@ -31,7 +31,7 @@ export interface ProjectVision {
 /**
  * 프로젝트 유형
  */
-export type ProjectType = 
+export type ProjectType =
   | 'vscode-extension'    // VS Code 확장
   | 'web-frontend'        // 웹 프론트엔드
   | 'web-backend'         // 웹 백엔드
@@ -47,7 +47,7 @@ export type ProjectType =
 /**
  * 품질 우선순위 단계
  */
-export type QualityFocus = 
+export type QualityFocus =
   | 'prototype'           // 프로토타입: 빠른 구현 우선, 품질 후순위
   | 'development'         // 개발 중: 기능 완성도 + 기본 품질
   | 'stabilization'       // 안정화: 테스트, 에러 처리, 문서화 집중
@@ -102,6 +102,8 @@ export interface ProjectSnapshot {
   fileList?: string[];
   /** 프로젝트 구조 요약 (디렉토리 트리) */
   structureSummary: DirectoryNode[];
+  /** 기능 기반 프로젝트 구조 다이어그램 (마크다운) */
+  structureDiagram?: string;
   /** Git 정보 (optional) */
   gitInfo?: GitInfo;
 }
@@ -212,6 +214,12 @@ export interface SnapshotDiff {
   filesCountDiff?: number;
   /** 디렉토리 수 변화량 */
   dirsCountDiff?: number;
+  /** 총 추가된 라인 수 (Git diff 기준) */
+  linesAdded?: number;
+  /** 총 삭제된 라인 수 (Git diff 기준) */
+  linesRemoved?: number;
+  /** 총 변경 라인 수 (linesAdded + linesRemoved) */
+  linesTotal?: number;
 }
 
 /**
@@ -360,7 +368,7 @@ export interface EvaluationScore {
 /**
  * 점수 등급
  */
-export type ScoreGrade = 
+export type ScoreGrade =
   | 'A+' | 'A' | 'A-'
   | 'B+' | 'B' | 'B-'
   | 'C+' | 'C' | 'C-'
@@ -373,18 +381,18 @@ export type ScoreGrade =
  */
 export const SCORE_GRADE_CRITERIA = {
   'A+': { min: 97, max: 100, color: '🟢', label: '최우수' },
-  'A':  { min: 93, max: 96,  color: '🟢', label: '우수' },
-  'A-': { min: 90, max: 92,  color: '🟢', label: '우수' },
-  'B+': { min: 87, max: 89,  color: '🔵', label: '양호' },
-  'B':  { min: 83, max: 86,  color: '🔵', label: '양호' },
-  'B-': { min: 80, max: 82,  color: '🔵', label: '양호' },
-  'C+': { min: 77, max: 79,  color: '🟡', label: '보통' },
-  'C':  { min: 73, max: 76,  color: '🟡', label: '보통' },
-  'C-': { min: 70, max: 72,  color: '🟡', label: '보통' },
-  'D+': { min: 67, max: 69,  color: '🟠', label: '미흡' },
-  'D':  { min: 63, max: 66,  color: '🟠', label: '미흡' },
-  'D-': { min: 60, max: 62,  color: '🟠', label: '미흡' },
-  'F':  { min: 0,  max: 59,  color: '🔴', label: '부족' },
+  'A': { min: 93, max: 96, color: '🟢', label: '우수' },
+  'A-': { min: 90, max: 92, color: '🟢', label: '우수' },
+  'B+': { min: 87, max: 89, color: '🔵', label: '양호' },
+  'B': { min: 83, max: 86, color: '🔵', label: '양호' },
+  'B-': { min: 80, max: 82, color: '🔵', label: '양호' },
+  'C+': { min: 77, max: 79, color: '🟡', label: '보통' },
+  'C': { min: 73, max: 76, color: '🟡', label: '보통' },
+  'C-': { min: 70, max: 72, color: '🟡', label: '보통' },
+  'D+': { min: 67, max: 69, color: '🟠', label: '미흡' },
+  'D': { min: 63, max: 66, color: '🟠', label: '미흡' },
+  'D-': { min: 60, max: 62, color: '🟠', label: '미흡' },
+  'F': { min: 0, max: 59, color: '🔴', label: '부족' },
 } as const;
 
 /**
@@ -464,6 +472,12 @@ export interface SnapshotDiffSummary {
   removedFilesCount: number;
   changedConfigsCount: number;
   totalChanges: number;
+  /** 총 추가된 라인 수 (Git diff 기준) */
+  linesAdded?: number;
+  /** 총 삭제된 라인 수 (Git diff 기준) */
+  linesRemoved?: number;
+  /** 총 변경 라인 수 (linesAdded + linesRemoved) */
+  linesTotal?: number;
 }
 
 // ===== State Types =====
@@ -570,6 +584,7 @@ export interface VibeReportConfig {
   excludePatterns: string[];
   maxFilesToScan: number;
   autoOpenReports: boolean;
+  enableDirectAi: boolean;
   language: 'ko' | 'en';
   /** 프로젝트 비전 모드: 'auto'는 전체 파일 기반 자동 분석, 'custom'은 사용자 설정 비전 사용 */
   projectVisionMode: 'auto' | 'custom';

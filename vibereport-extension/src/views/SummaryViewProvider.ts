@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import type { VibeReportConfig, VibeReportState } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { loadConfig } from '../utils/index.js';
+import { loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath } from '../utils/index.js';
 
 export class SummaryViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'vibereport.summary';
@@ -97,10 +97,20 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     
     const sessionsCount = state?.sessions.length || 0;
     const appliedCount = state?.appliedImprovements.length || 0;
-    const lastUpdate = state?.lastUpdated 
-      ? new Date(state.lastUpdated).toLocaleString() 
+    const lastUpdate = state?.lastUpdated
+      ? new Date(state.lastUpdated).toLocaleString()
       : '없음';
-    const projectName = state?.lastSnapshot?.projectName || '프로젝트 미설정';
+    const projectName = state?.lastSnapshot?.projectName || '프로젝트 미설정';  
+
+    const lastSession = state?.sessions[state.sessions.length - 1];
+    const lineMetrics =
+      lastSession?.diffSummary?.linesTotal !== undefined && lastSession.diffSummary.linesTotal > 0
+        ? {
+            added: lastSession.diffSummary.linesAdded ?? 0,
+            removed: lastSession.diffSummary.linesRemoved ?? 0,
+            total: lastSession.diffSummary.linesTotal,
+          }
+        : null;
 
     return `<!DOCTYPE html>
 <html lang="ko">
@@ -204,6 +214,12 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     <div class="last-update">
       마지막 업데이트: ${lastUpdate}
     </div>
+
+    ${lineMetrics ? `
+    <div class="last-update">
+      최근 라인 변경: +${lineMetrics.added} / -${lineMetrics.removed} (총 ${lineMetrics.total}줄)
+    </div>
+    ` : ''}
   ` : `
     <div class="no-data">
       아직 보고서가 생성되지 않았습니다.
@@ -263,10 +279,6 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getRootPath(): string | null {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      return null;
-    }
-    return workspaceFolders[0].uri.fsPath;
+    return getLastSelectedWorkspaceRoot() ?? getWorkspaceRootPath();
   }
 }

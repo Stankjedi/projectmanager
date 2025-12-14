@@ -8,4 +8,6 @@ export {
 } from './markerUtils.js';
 export * from './timeUtils.js';
 export * from './logger.js';
-export { loadConfig, getRootPath, selectWorkspaceRoot, DEFAULT_CONFIG } from './configUtils.js';
+export { escapeHtml } from './htmlEscape.js';
+export { loadConfig, getRootPath, selectWorkspaceRoot, getLastSelectedWorkspaceRoot, DEFAULT_CONFIG } from './configUtils.js';
+export { buildAnalysisPrompt } from './analysisPromptTemplate.js';

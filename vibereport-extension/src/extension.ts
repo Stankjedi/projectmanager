@@ -5,25 +5,24 @@
 
 import * as vscode from 'vscode';
 import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand, ShareReportCommand } from './commands/index.js';
+import { OpenReportPreviewCommand } from './commands/openReportPreview.js';
 import { ReportService } from './services/index.js';
 import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
-import { loadConfig } from './utils/index.js';
+import { loadConfig, selectWorkspaceRoot } from './utils/index.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.log('Vibe Coding Report 확장이 활성화되었습니다!');
-
   // 출력 채널 생성
   outputChannel = vscode.window.createOutputChannel('Vibe Report');
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('='.repeat(50));
-  outputChannel.appendLine('Vibe Coding Report Extension v0.2.0');
+  outputChannel.appendLine('Vibe Coding Report Extension v0.4.13');
   outputChannel.appendLine(`활성화 시간: ${new Date().toISOString()}`);
   outputChannel.appendLine('='.repeat(50));
 
@@ -34,7 +33,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const setVisionCommand = new SetProjectVisionCommand(outputChannel);
   const generatePromptCommand = new GeneratePromptCommand(outputChannel);
   const shareReportCommand = new ShareReportCommand(outputChannel);
-  
+  const openReportPreviewCommand = new OpenReportPreviewCommand(outputChannel, context.extensionUri);
+
   // 미리보기 스타일 서비스 초기화
   const previewStyleService = new PreviewStyleService(outputChannel, context.extensionPath);
   previewStyleService.updatePreviewStyles();
@@ -65,29 +65,68 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Open Evaluation Report
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openEvaluationReport', async () => {
-      const rootPath = getRootPath();
+      const rootPath = await selectWorkspaceRoot();
       if (!rootPath) return;
 
       const config = loadConfig();
-      await reportService.openReport(rootPath, config, 'evaluation');
+      const reportOpenMode = vscode.workspace.getConfiguration('vibereport').get<string>('reportOpenMode', 'previewOnly');
+
+      if (reportOpenMode === 'editorOnly') {
+        // MD 에디터만 열기
+        await reportService.openReport(rootPath, config, 'evaluation');
+      } else if (reportOpenMode === 'both') {
+        // MD 에디터와 프리뷰 둘 다 열기
+        await reportService.openReport(rootPath, config, 'evaluation');
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      } else {
+        // previewOnly: 파일 열고 프리뷰로 전환
+        // 에디터에서 파일을 연 뒤 openReportPreview 명령을 실행하면
+        // openReportPreview 내부에서 ViewColumn.Active를 사용하여 현재 에디터(방금 연 파일)를 대체하거나 위에 덮어씀
+        await reportService.openReport(rootPath, config, 'evaluation');
+
+        // 약간의 지연 후 프리뷰 실행 (파일 로딩 확보)
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      }
     })
   );
 
   // 명령 등록: Open Improvement Report
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openImprovementReport', async () => {
-      const rootPath = getRootPath();
+      const rootPath = await selectWorkspaceRoot();
       if (!rootPath) return;
 
       const config = loadConfig();
-      await reportService.openReport(rootPath, config, 'improvement');
+      const reportOpenMode = vscode.workspace.getConfiguration('vibereport').get<string>('reportOpenMode', 'previewOnly');
+
+      if (reportOpenMode === 'editorOnly') {
+        // MD 에디터만 열기
+        await reportService.openReport(rootPath, config, 'improvement');
+      } else if (reportOpenMode === 'both') {
+        // MD 에디터와 프리뷰 둘 다 열기
+        await reportService.openReport(rootPath, config, 'improvement');
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      } else {
+        // previewOnly: 파일 열고 프리뷰로 전환
+        await reportService.openReport(rootPath, config, 'improvement');
+
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      }
     })
   );
 
   // 명령 등록: Open Prompt File
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openPrompt', async () => {
-      const rootPath = getRootPath();
+      const rootPath = await selectWorkspaceRoot();
       if (!rootPath) return;
 
       const config = loadConfig();
@@ -109,7 +148,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Open Session History
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openSessionHistory', async () => {
-      const rootPath = getRootPath();
+      const rootPath = await selectWorkspaceRoot();
       if (!rootPath) return;
 
       const config = loadConfig();
@@ -128,10 +167,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
+  // 명령 등록: Open Function In File (reports용 코드/함수 링크)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'vibereport.openFunctionInFile',
+      async (filePath: string, symbolName?: string) => {
+        await openFunctionInFile(filePath, symbolName);
+      }
+    )
+  );
+
   // 명령 등록: Initialize Reports
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.initializeReports', async () => {
-      const rootPath = getRootPath();
+      const rootPath = await selectWorkspaceRoot();
       if (!rootPath) return;
 
       const config = loadConfig();
@@ -181,59 +230,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
-  // 명령 등록: Show Last Run Summary
+  // 명령 등록: Open Report Preview (Mermaid 지원 Webview 미리보기)
   context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.showLastRunSummary', async () => {
-      const rootPath = getRootPath();
-      if (!rootPath) return;
-
-      const config = loadConfig();
-      const { SnapshotService } = await import('./services/index.js');
-      const snapshotService = new SnapshotService(outputChannel);
-      const state = await snapshotService.loadState(rootPath, config);
-
-      if (!state || state.sessions.length === 0) {
-        vscode.window.showInformationMessage('아직 실행된 세션이 없습니다.');
-        return;
-      }
-
-      const lastSession = state.sessions[state.sessions.length - 1];
-      const panel = vscode.window.createWebviewPanel(
-        'vibeReportSummary',
-        '마지막 실행 요약',
-        vscode.ViewColumn.One,
-        {}
-      );
-
-      panel.webview.html = createSummaryHtml(lastSession, state.appliedImprovements.length);
+    vscode.commands.registerCommand('vibereport.openReportPreview', async () => {
+      await openReportPreviewCommand.execute();
     })
   );
 
-  // 명령 등록: Copy Improvement as Prompt
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.copyAsPrompt', async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        vscode.window.showWarningMessage('활성화된 에디터가 없습니다.');
-        return;
-      }
+  // [REMOVED] showLastRunSummary - Summary View와 중복
+  // [REMOVED] copyAsPrompt - generatePrompt와 중복
 
-      const selection = editor.selection;
-      const selectedText = editor.document.getText(selection);
-
-      if (!selectedText) {
-        vscode.window.showWarningMessage('개선 항목을 선택해주세요.');
-        return;
-      }
-
-      // 프롬프트 형식으로 변환
-      const prompt = formatAsPrompt(selectedText);
-      await vscode.env.clipboard.writeText(prompt);
-      vscode.window.showInformationMessage(
-        '개선 항목이 클립보드에 복사되었습니다. AI 에이전트에 붙여넣어 사용하세요.'
-      );
-    })
-  );
 
   // View Providers 등록
   const historyViewProvider = new HistoryViewProvider(context.extensionUri, outputChannel);
@@ -276,7 +282,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 상태 파일 감시 (.json)
   const stateWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(
-      require('path').dirname(stateFile), 
+      require('path').dirname(stateFile),
       require('path').basename(stateFile)
     )
   );
@@ -308,7 +314,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.ViewColumn.One,
         {}
       );
-      
+
       panel.webview.html = `<!DOCTYPE html>
 <html>
 <head>
@@ -365,42 +371,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
-  // 에디터 컨텍스트 메뉴 등록
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.applyFromSelection', async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) return;
-
-      const selection = editor.selection;
-      const selectedText = editor.document.getText(selection);
-
-      if (!selectedText) {
-        vscode.window.showWarningMessage('적용할 개선 항목을 선택해주세요.');
-        return;
-      }
-
-      // 선택한 개선 항목을 프롬프트로 변환하여 Copilot Chat으로 전송
-      const prompt = formatAsPrompt(selectedText);
-      
-      // Copilot Chat 명령 실행 시도
-      try {
-        await vscode.commands.executeCommand('workbench.action.chat.open');
-        // 약간의 딜레이 후 텍스트 입력
-        setTimeout(async () => {
-          await vscode.env.clipboard.writeText(prompt);
-          vscode.window.showInformationMessage(
-            '프롬프트가 클립보드에 복사되었습니다. Copilot Chat에 Ctrl+V로 붙여넣으세요.'
-          );
-        }, 500);
-      } catch {
-        // Copilot Chat이 없으면 클립보드에 복사
-        await vscode.env.clipboard.writeText(prompt);
-        vscode.window.showInformationMessage(
-          '프롬프트가 클립보드에 복사되었습니다.'
-        );
-      }
-    })
-  );
+  // [REMOVED] applyFromSelection - generatePrompt/copyAsPrompt와 중복
 
   outputChannel.appendLine('모든 명령이 등록되었습니다.');
 }
@@ -414,112 +385,49 @@ export function deactivate(): void {
 
 // ===== Helper Functions =====
 
-function getRootPath(): string | null {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
-    return null;
-  }
-  return workspaceFolders[0].uri.fsPath;
-}
+async function openFunctionInFile(filePath: string, symbolName?: string): Promise<void> {
+  const uri = vscode.Uri.file(filePath);
 
-function formatAsPrompt(selectedText: string): string {
-  // 제목과 설명 추출
-  const titleMatch = selectedText.match(/\[P[123]\]\s*([^\n]+)/);
-  const title = titleMatch ? titleMatch[1].trim() : '개선 항목';
+  try {
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(doc, { preview: false });
 
-  return `## 개선 요청: ${title}
-
-다음 개선 항목을 현재 프로젝트에 적용해주세요:
-
-${selectedText}
-
----
-
-위 개선 사항을 분석하고, 구체적인 코드 변경을 제안해주세요.
-변경이 필요한 파일과 수정 내용을 명확히 설명해주세요.`;
-}
-
-function createSummaryHtml(
-  session: import('./models/types.js').SessionRecord,
-  appliedCount: number
-): string {
-  const date = new Date(session.timestamp);
-  const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-
-  return `<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>마지막 실행 요약</title>
-  <style>
-    body {
-      font-family: var(--vscode-font-family);
-      padding: 20px;
-      color: var(--vscode-foreground);
-      background-color: var(--vscode-editor-background);
+    if (symbolName) {
+      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+        'vscode.executeDocumentSymbolProvider',
+        uri
+      );
+      const target = findSymbolByName(symbols || [], symbolName);
+      if (target) {
+        const range = target.selectionRange;
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+        editor.selection = new vscode.Selection(range.start, range.start);
+      } else {
+        vscode.window.showWarningMessage(`함수/심볼을 찾을 수 없습니다: ${symbolName}`);
+      }
     }
-    h1 { color: var(--vscode-foreground); border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 10px; }
-    .section { margin: 20px 0; padding: 15px; background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 8px; }
-    .label { font-weight: bold; color: var(--vscode-textLink-foreground); }
-    .value { margin-top: 5px; }
-    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-    .stat-item { background: var(--vscode-badge-background); padding: 10px; border-radius: 4px; text-align: center; }
-    .stat-value { font-size: 24px; font-weight: bold; color: var(--vscode-badge-foreground); }
-    .stat-label { font-size: 12px; color: var(--vscode-descriptionForeground); }
-  </style>
-</head>
-<body>
-  <h1>📊 마지막 실행 요약</h1>
-  
-  <div class="section">
-    <div class="label">실행 시간</div>
-    <div class="value">${formattedDate}</div>
-  </div>
-
-  <div class="section">
-    <div class="label">사용자 입력</div>
-    <div class="value">${session.userPrompt}</div>
-  </div>
-
-  <div class="section">
-    <div class="label">변경 사항</div>
-    <div class="value">${session.changesSummary}</div>
-  </div>
-
-  <div class="section">
-    <div class="label">통계</div>
-    <div class="stats">
-      <div class="stat-item">
-        <div class="stat-value">${session.diffSummary.totalChanges}</div>
-        <div class="stat-label">총 변경</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-value">${session.diffSummary.newFilesCount}</div>
-        <div class="stat-label">새 파일</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-value">${session.aiMetadata?.improvementsProposed || 0}</div>
-        <div class="stat-label">개선 제안</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-value">${appliedCount}</div>
-        <div class="stat-label">적용 완료</div>
-      </div>
-    </div>
-  </div>
-
-  ${session.aiMetadata?.priorityItems ? `
-  <div class="section">
-    <div class="label">🔴 긴급 항목 (P1)</div>
-    <div class="value">
-      <ul>
-        ${session.aiMetadata.priorityItems.map(item => `<li>${item}</li>`).join('')}
-      </ul>
-    </div>
-  </div>
-  ` : ''}
-</body>
-</html>`;
+  } catch (error) {
+    outputChannel?.appendLine(`[openFunctionInFile] ${error}`);
+    vscode.window.showErrorMessage(`파일을 열 수 없습니다: ${filePath}`);
+  }
 }
+
+function findSymbolByName(
+  symbols: vscode.DocumentSymbol[],
+  name: string
+): vscode.DocumentSymbol | undefined {
+  for (const sym of symbols) {
+    if (sym.name === name) {
+      return sym;
+    }
+    if (sym.children && sym.children.length > 0) {
+      const found = findSymbolByName(sym.children, name);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+// [REMOVED] formatAsPrompt - 더 이상 사용하지 않음 (copyAsPrompt/applyFromSelection 제거)
+// [REMOVED] createSummaryHtml - 더 이상 사용하지 않음 (showLastRunSummary 제거)
+

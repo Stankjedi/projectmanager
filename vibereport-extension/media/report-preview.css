@@ -14,9 +14,9 @@ body.vscode-body {
   max-width: 900px;
   margin: 0 auto 48px auto;
   padding: 48px 56px;
-  background: var(--vscode-editor-background, #252526);
+  background: var(--vibe-preview-card-background, var(--vscode-editor-background, #252526));
   border-radius: 8px;
-  box-shadow: 
+  box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.15),
     0 4px 16px rgba(0, 0, 0, 0.1),
     0 8px 32px rgba(0, 0, 0, 0.05);
@@ -25,42 +25,55 @@ body.vscode-body {
 /* ===== 타이포그래피 - 본문 ===== */
 .markdown-body {
   font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.7;
   letter-spacing: 0.01em;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--vibe-preview-foreground, var(--vscode-editor-foreground, #d4d4d4));
 }
 
 .markdown-body p {
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.markdown-body strong {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  font-weight: 700;
+  opacity: 1;
+}
+
+/* Light mode override for strong */
+@media (prefers-color-scheme: light) {
+  .markdown-body strong {
+    color: var(--vscode-textLink-foreground, #0066cc);
+  }
 }
 
 /* ===== 타이포그래피 - 제목 ===== */
 .markdown-body h1:first-of-type {
-  font-size: 1.9rem;
-  font-weight: 600;
+  font-size: 2.1rem;
+  font-weight: 700;
   border-bottom: 2px solid var(--vscode-textLink-foreground, #3794ff);
-  padding-bottom: 12px;
-  margin-bottom: 24px;
+  padding-bottom: 14px;
+  margin-bottom: 28px;
   margin-top: 0;
 }
 
 .markdown-body h1 {
-  font-size: 1.7rem;
-  font-weight: 600;
-  margin-top: 2rem;
-  margin-bottom: 0.8rem;
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin-top: 2.2rem;
+  margin-bottom: 1rem;
   letter-spacing: 0.02em;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--vibe-preview-foreground, var(--vscode-editor-foreground, #d4d4d4));
 }
 
 .markdown-body h2 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin-top: 1.8rem;
-  margin-bottom: 0.6rem;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--vscode-panel-border, #454545);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 0.8rem;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vibe-preview-border, var(--vscode-panel-border, #454545));
 }
 
 .markdown-body h3 {
@@ -98,24 +111,24 @@ body.vscode-body {
 }
 
 .markdown-body table th {
-  background: var(--vscode-editor-inactiveSelectionBackground, #3a3d41);
+  background: var(--vibe-preview-border, var(--vscode-editor-inactiveSelectionBackground, #3a3d41));
   font-weight: 600;
   text-align: left;
   padding: 10px 12px;
-  border: 1px solid var(--vscode-panel-border, #454545);
+  border: 1px solid var(--vibe-preview-border, var(--vscode-panel-border, #454545));
 }
 
 .markdown-body table td {
   padding: 8px 12px;
-  border: 1px solid var(--vscode-panel-border, #454545);
+  border: 1px solid var(--vibe-preview-border, var(--vscode-panel-border, #454545));
 }
 
 .markdown-body table tr:nth-child(even) {
-  background: var(--vscode-editor-inactiveSelectionBackground, rgba(255, 255, 255, 0.03));
+  background: rgba(128, 128, 128, 0.05);
 }
 
 .markdown-body table tr:hover {
-  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+  background: rgba(128, 128, 128, 0.1);
 }
 
 /* 점수 색상 (수동 클래스 또는 JS로 적용) */
@@ -153,18 +166,18 @@ body.vscode-body {
 .markdown-body code {
   font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
   font-size: 0.9em;
-  background: var(--vscode-textCodeBlock-background, #2d2d2d);
+  background: rgba(128, 128, 128, 0.15);
   padding: 2px 6px;
   border-radius: 4px;
 }
 
 .markdown-body pre {
-  background: var(--vscode-textCodeBlock-background, #1e1e1e);
+  background: rgba(128, 128, 128, 0.1);
   padding: 16px 20px;
   border-radius: 6px;
   overflow-x: auto;
   margin: 1rem 0;
-  border: 1px solid var(--vscode-panel-border, #454545);
+  border: 1px solid var(--vibe-preview-border, var(--vscode-panel-border, #454545));
 }
 
 .markdown-body pre code {
@@ -179,8 +192,9 @@ body.vscode-body {
   margin: 1rem 0;
   padding: 12px 20px;
   border-left: 4px solid var(--vscode-textLink-foreground, #3794ff);
-  background: var(--vscode-textBlockQuote-background, rgba(255, 255, 255, 0.03));
-  border-radius: 0 6px 6px 0;
+  background: transparent;
+  padding-left: 16px;
+  color: var(--vibe-preview-foreground, var(--vscode-editor-foreground, #d4d4d4));
 }
 
 .markdown-body blockquote p {
@@ -198,8 +212,8 @@ body.vscode-body {
   margin: 0.3rem 0;
 }
 
-.markdown-body li > ul,
-.markdown-body li > ol {
+.markdown-body li>ul,
+.markdown-body li>ol {
   margin: 0.2rem 0;
 }
 
@@ -239,14 +253,14 @@ body.vscode-body {
 /* ===== 수평선 ===== */
 .markdown-body hr {
   border: none;
-  border-top: 1px solid var(--vscode-panel-border, #454545);
+  border-top: 1px solid var(--vibe-preview-border, var(--vscode-panel-border, #454545));
   margin: 2rem 0;
 }
 
 /* ===== 이모지/아이콘 강조 ===== */
-.markdown-body h1 > img:first-child,
-.markdown-body h2 > img:first-child,
-.markdown-body h3 > img:first-child {
+.markdown-body h1>img:first-child,
+.markdown-body h2>img:first-child,
+.markdown-body h3>img:first-child {
   margin-right: 8px;
   vertical-align: middle;
 }

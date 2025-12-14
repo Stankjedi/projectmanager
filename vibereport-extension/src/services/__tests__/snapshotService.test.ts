@@ -49,6 +49,7 @@ describe('SnapshotService', () => {
     excludePatterns: ['**/node_modules/**'],
     maxFilesToScan: 5000,
     autoOpenReports: true,
+    enableDirectAi: false,
     language: 'ko',
     projectVisionMode: 'auto',
     defaultProjectType: 'auto-detect',

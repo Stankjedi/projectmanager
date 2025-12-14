@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.3.16",
+  "version": "0.4.13",
   "publisher": "stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -60,12 +60,6 @@
         "icon": "$(lightbulb)"
       },
       {
-        "command": "vibereport.showLastRunSummary",
-        "title": "Show Last Run Summary",
-        "category": "VibeCoding",
-        "icon": "$(history)"
-      },
-      {
         "command": "vibereport.initializeReports",
         "title": "Initialize Project Reports",
         "category": "VibeCoding",
@@ -100,6 +94,18 @@
         "title": "Share Report Preview",
         "category": "VibeCoding",
         "icon": "$(export)"
+      },
+      {
+        "command": "vibereport.openFunctionInFile",
+        "title": "Open Code Reference",
+        "category": "VibeCoding",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "vibereport.openReportPreview",
+        "title": "Open Report Preview (with Mermaid)",
+        "category": "VibeCoding",
+        "icon": "$(preview)"
       }
     ],
     "configuration": {
@@ -230,9 +236,47 @@
           "type": "boolean",
           "default": true,
           "description": "보고서 스타일 마크다운 미리보기 활성화"
+        },
+        "vibereport.enableDirectAi": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable direct AI integration using VS Code Language Model API. When enabled, analysis prompts are sent directly to the selected AI model instead of copying to clipboard."
+        },
+        "vibereport.preferredMarkdownViewer": {
+          "type": "string",
+          "enum": [
+            "mermaid",
+            "standard"
+          ],
+          "default": "mermaid",
+          "enumDescriptions": [
+            "Mermaid 다이어그램 지원 Webview 프리뷰 (권장)",
+            "VS Code 기본 마크다운 미리보기"
+          ],
+          "description": "보고서 미리보기에 사용할 뷰어를 선택합니다"
+        },
+        "vibereport.reportOpenMode": {
+          "type": "string",
+          "enum": [
+            "previewOnly",
+            "both",
+            "editorOnly"
+          ],
+          "default": "previewOnly",
+          "enumDescriptions": [
+            "Mermaid 프리뷰만 열기 (권장, 창 분할 없음)",
+            "MD 에디터와 Mermaid 프리뷰 둘 다 열기",
+            "MD 에디터만 열기 (기본 마크다운 뷰어 사용)"
+          ],
+          "description": "보고서 열기 시 표시 방식을 선택합니다"
         }
       }
     },
+    "markdown.markdownItPlugins": true,
+    "markdown.previewScripts": [
+      "./media/mermaid.min.js",
+      "./media/mermaid-init.js"
+    ],
     "markdown.previewStyles": [
       "./media/report-preview.css"
     ],
@@ -285,7 +329,15 @@
           "group": "navigation"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "vibereport.openReportPreview",
+        "key": "ctrl+k m",
+        "mac": "cmd+k m",
+        "when": "editorLangId == markdown"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",
@@ -301,6 +353,7 @@
     "publish": "vsce publish --no-dependencies"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
@@ -315,6 +368,7 @@
     "vitest": "^4.0.14"
   },
   "dependencies": {
+    "mermaid": "^11.12.2",
     "simple-git": "^3.27.0"
   }
 }

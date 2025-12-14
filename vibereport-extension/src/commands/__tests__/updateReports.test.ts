@@ -90,7 +90,11 @@ vi.mock('../../services/index.js', () => ({
   ReportService: class MockReportService {
     reportsExist = vi.fn().mockResolvedValue(true);
     ensureReportTemplates = vi.fn().mockResolvedValue(undefined);
-    prepareAnalysisPrompt = vi.fn().mockReturnValue('Mock analysis prompt');
+    prepareAnalysisPrompt = vi.fn().mockReturnValue('Mock analysis prompt');    
+  },
+  AiService: class MockAiService {
+    isAvailable = vi.fn().mockResolvedValue(false);
+    runAnalysisPrompt = vi.fn().mockResolvedValue(null);
   },
 }));
 
@@ -122,7 +126,7 @@ describe('UpdateReportsCommand', () => {
 
       // Assert
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        '워크스페이스가 열려있지 않습니다. 프로젝트 폴더를 열어주세요.'
+        '워크스페이스가 열려있지 않습니다.'
       );
     });
 
@@ -138,7 +142,7 @@ describe('UpdateReportsCommand', () => {
 
       // Assert
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        '워크스페이스가 열려있지 않습니다. 프로젝트 폴더를 열어주세요.'
+        '워크스페이스가 열려있지 않습니다.'
       );
     });
   });
@@ -226,6 +230,156 @@ describe('UpdateReportsCommand', () => {
 
       // Assert - withProgress should be called (clipboard is called inside progress task)
       expect(vscode.window.withProgress).toHaveBeenCalled();
+    });
+  });
+
+  describe('execute - error handling scenarios', () => {
+    it('should handle workspace scan failure and show error message', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      // Mock WorkspaceScanner to throw an error
+      const mockError = new Error('Scan failed: disk error');
+      vi.doMock('../../services/index.js', () => ({
+        WorkspaceScanner: class MockWorkspaceScanner {
+          scan = vi.fn().mockRejectedValue(mockError);
+        },
+        SnapshotService: class MockSnapshotService {
+          loadState = vi.fn().mockResolvedValue(null);
+          saveState = vi.fn().mockResolvedValue(undefined);
+          createInitialState = vi.fn().mockReturnValue({
+            version: '1.0.0',
+            lastSnapshot: null,
+            previousSnapshot: null,
+            sessionHistory: [],
+            projectVision: null,
+            appliedImprovements: [],
+          });
+          compareSnapshots = vi.fn().mockReturnValue({
+            hasChanges: false,
+            newFiles: [],
+            removedFiles: [],
+            changedConfigs: [],
+            totalChanges: 0,
+          });
+        },
+        ReportService: class MockReportService {
+          reportsExist = vi.fn().mockResolvedValue(true);
+          ensureReportDirectory = vi.fn().mockResolvedValue(undefined);   
+          getReportPaths = vi.fn().mockReturnValue({
+            evaluation: '/test/devplan/eval.md',
+            improvement: '/test/devplan/improve.md',
+            prompt: '/test/devplan/prompt.md',
+          });
+        },
+        AiService: class MockAiService {
+          isAvailable = vi.fn().mockResolvedValue(false);
+          runAnalysisPrompt = vi.fn().mockResolvedValue(null);
+        },
+      }));
+
+      const { UpdateReportsCommand } = await import('../updateReports.js');
+      const command = new UpdateReportsCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert - error should be logged to output channel
+      expect(mockOutputChannel.appendLine).toHaveBeenCalled();
+      // Error message should be shown to user
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringMatching(/스캔|오류|실패/i)
+      );
+    });
+
+    it('should handle report directory creation failure', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      // Mock ReportService.ensureReportDirectory to throw
+      vi.doMock('../../services/index.js', () => ({
+        WorkspaceScanner: class MockWorkspaceScanner {
+          scan = vi.fn().mockResolvedValue({
+            timestamp: new Date().toISOString(),
+            files: [],
+            dependencies: {},
+            devDependencies: {},
+            configFiles: [],
+            gitStatus: null,
+            projectInfo: { name: 'test', path: '/test/workspace' },
+            filesCount: 0,
+            dirsCount: 0,
+            languageStats: {},
+            mainConfigFiles: { otherConfigs: [] },
+            importantFiles: [],
+            structureSummary: [],
+          });
+        },
+        SnapshotService: class MockSnapshotService {
+          loadState = vi.fn().mockResolvedValue(null);
+          saveState = vi.fn().mockResolvedValue(undefined);
+          createInitialState = vi.fn().mockReturnValue({
+            version: '1.0.0',
+            lastSnapshot: null,
+            sessions: [],
+            appliedImprovements: [],
+            lastUpdated: new Date().toISOString(),
+          });
+          compareSnapshots = vi.fn().mockResolvedValue({
+            isInitial: true,
+            hasChanges: false,
+            newFiles: [],
+            removedFiles: [],
+            changedConfigs: [],
+            languageStatsDiff: {},
+            totalChanges: 0,
+          });
+        },
+        ReportService: class MockReportService {
+          reportsExist = vi.fn().mockResolvedValue(false);
+          ensureReportDirectory = vi.fn().mockRejectedValue(new Error('Permission denied'));
+          getReportPaths = vi.fn().mockReturnValue({
+            evaluation: '/test/devplan/eval.md',
+            improvement: '/test/devplan/improve.md',
+            prompt: '/test/devplan/prompt.md',
+          });
+        },
+        AiService: class MockAiService {
+          isAvailable = vi.fn().mockResolvedValue(false);
+          runAnalysisPrompt = vi.fn().mockResolvedValue(null);
+        },
+      }));
+
+      const { UpdateReportsCommand } = await import('../updateReports.js');
+      const command = new UpdateReportsCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert - error should be shown
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringMatching(/디렉토리|보고서|실패/i)
+      );
+    });
+
+    it('should log error details to output channel on failure', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      const { UpdateReportsCommand } = await import('../updateReports.js');
+      const command = new UpdateReportsCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert - output channel should receive logs
+      expect(mockOutputChannel.appendLine).toHaveBeenCalled();
     });
   });
 });

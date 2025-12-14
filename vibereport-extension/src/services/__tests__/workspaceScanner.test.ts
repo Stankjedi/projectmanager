@@ -61,6 +61,7 @@ describe('WorkspaceScanner', () => {
     excludePatterns: ['**/node_modules/**'],
     maxFilesToScan: 5000,
     autoOpenReports: true,
+    enableDirectAi: false,
     language: 'ko',
     projectVisionMode: 'auto',
     defaultProjectType: 'auto-detect',
@@ -82,7 +83,7 @@ describe('WorkspaceScanner', () => {
 
       (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
 
-      const result = await scanner.scan(mockConfig);
+      const result = await scanner.scan('/mock/project', mockConfig);
 
       expect(result).toHaveProperty('generatedAt');
       expect(result).toHaveProperty('filesCount');
@@ -100,7 +101,7 @@ describe('WorkspaceScanner', () => {
 
       (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
 
-      const result = await scanner.scan(mockConfig);
+      const result = await scanner.scan('/mock/project', mockConfig);
 
       expect(result.languageStats).toHaveProperty('ts');
       expect(result.languageStats).toHaveProperty('tsx');
@@ -109,7 +110,7 @@ describe('WorkspaceScanner', () => {
     it('should handle empty workspace', async () => {
       (vscode.workspace.findFiles as any).mockResolvedValue([]);
 
-      const result = await scanner.scan(mockConfig);
+      const result = await scanner.scan('/mock/project', mockConfig);
 
       expect(result.filesCount).toBe(0);
       expect(result.languageStats).toEqual({});
