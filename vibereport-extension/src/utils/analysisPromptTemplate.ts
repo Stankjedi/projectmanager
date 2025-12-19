@@ -1,11 +1,12 @@
 /**
  * Analysis Prompt Template
- * 
+ *
  * @description 프로젝트 분석 및 보고서 작성을 위한 프롬프트 템플릿
  * 
  * Projectmanager – Automated Evaluation, Improvement & Prompt Generation
  */
 
+import * as vscode from 'vscode';
 import type {
   ProjectSnapshot,
   SnapshotDiff,
@@ -167,6 +168,18 @@ export function buildAnalysisPrompt(
     .join(', ');
   lines.push(`  - Main languages: ${topLanguages || 'Not detected'}`);
   lines.push('');
+
+  // 사용자 커스텀 지침 (Prompt 생성 시 참고)
+  const customInstructions = vscode.workspace
+    .getConfiguration('vibereport')
+    .get<string>('ai.customInstructions', '')
+    .trim();
+
+  if (customInstructions) {
+    lines.push('[User Custom Instructions]');
+    lines.push(customInstructions);
+    lines.push('');
+  }
 
   // 새 파일 목록
   if (!isFirstRun && !diff.isInitial && diff.newFiles.length > 0) {

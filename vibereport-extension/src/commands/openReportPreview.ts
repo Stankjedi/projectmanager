@@ -5,7 +5,8 @@
  */
 
 import * as vscode from 'vscode';
-import { resolvePreviewColors, type PreviewBackgroundSetting } from '../utils/previewColors.js';
+import { escapeHtml, escapeHtmlAttribute } from '../utils/htmlEscape.js';
+import { getPreviewStyle } from '../utils/previewStyle.js';
 
 export class OpenReportPreviewCommand {
   private outputChannel: vscode.OutputChannel;
@@ -85,12 +86,33 @@ export class OpenReportPreviewCommand {
 
 
   /**
-   * Mermaid 코드용 이스케이프 (최소한으로)
+   * Sanitize link href (allowlist only)
+   */
+  private sanitizeHref(raw: string): string | null {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    // Reject characters that could break out of an attribute context (defense-in-depth).
+    if (/[\"'<>]/.test(trimmed)) return null;
+    // Reject control chars (including newlines) to avoid odd parsing/obfuscation.
+    if (/[\u0000-\u001F\u007F]/.test(trimmed)) return null;
+
+    const lower = trimmed.toLowerCase();
+
+    if (lower.startsWith('#')) return trimmed;
+    if (lower.startsWith('http:') || lower.startsWith('https:')) return trimmed;
+    if (lower.startsWith('command:vibereport.')) return trimmed;
+
+    return null;
+  }
+
+  /**
+   * Mermaid code escaping (keep <br/> for labels, escape everything else)
    */
   private escapeHtmlForMermaid(text: string): string {
-    // Mermaid는 특수문자를 많이 사용하므로 최소한의 이스케이프만
-    // Mermaid는 특수문자를 많이 사용하므로 최소한의 이스케이프만
-    return text.replace(/&/g, '&amp;');
+    const placeholder = '__VIBE_BR__';
+    const preserved = text.replace(/<br\s*\/?>/gi, placeholder);
+    return escapeHtml(preserved).split(placeholder).join('<br/>');
   }
 
   /**
@@ -254,65 +276,78 @@ export class OpenReportPreviewCommand {
    * 인라인 마크다운 처리 (볼드, 이탤릭, 코드, 링크)
    */
   private processInlineMarkdown(text: string): string {
-    return text
+    const tokens: Array<{ placeholder: string; html: string }> = [];
+
+    const pushToken = (kind: string, html: string): string => {
+      const placeholder = `__VIBE_${kind}_${tokens.length}__`;
+      tokens.push({ placeholder, html });
+      return placeholder;
+    };
+
+    let working = text;
+
+    // Inline code first: treat as literal text (no further inline parsing inside <code>).
+    working = working.replace(/`([^`]+)`/g, (_m, code: string) =>
+      pushToken('INLINE_CODE', `<code>${escapeHtml(code)}</code>`)
+    );
+
+    // Links next: sanitize and attribute-escape href; escape/format label independently.
+    working = working.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      (_m, label: string, href: string) => {
+        const safeHref = this.sanitizeHref(href);
+        if (!safeHref) return label;
+
+        const safeLabelHtml = this.renderLinkLabel(label);
+
+        return pushToken(
+          'LINK',
+          `<a href="${escapeHtmlAttribute(safeHref)}" rel="noopener noreferrer">${safeLabelHtml}</a>`
+        );
+      }
+    );
+
+    // Escape remaining text before turning inline markdown markers into HTML.
+    working = escapeHtml(working)
       // 볼드
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       // 이탤릭
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      // 인라인 코드
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // 링크
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      .replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Restore tokens (reverse order so nested placeholders resolve correctly).
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      const { placeholder, html } = tokens[i];
+      working = working.split(placeholder).join(html);
+    }
+
+    return working;
   }
 
   /**
-   * 배경색 설정 가져오기
+   * Link label rendering: escape text and allow basic emphasis/code formatting.
+   * (No links inside labels.)
    */
-  private getBackgroundStyle(): { bg: string; fg: string; border: string; link: string } {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    const bgSettingRaw = config.get<string>('previewBackgroundColor', 'ide');
-
-    const bgSetting: PreviewBackgroundSetting =
-      bgSettingRaw === 'white' || bgSettingRaw === 'black' || bgSettingRaw === 'ide'
-        ? bgSettingRaw
-        : 'ide';
-
-    if (bgSetting === 'ide') {
-      return {
-        bg: 'var(--vscode-editor-background)',
-        fg: 'var(--vscode-foreground)',
-        border: 'var(--vscode-panel-border)',
-        link: 'var(--vscode-textLink-foreground)',
-      };
-    }
-
-    const colors = resolvePreviewColors(bgSetting);
-
-    if (!colors) {
-      return {
-        bg: 'var(--vscode-editor-background)',
-        fg: 'var(--vscode-foreground)',
-        border: 'var(--vscode-panel-border)',
-        link: 'var(--vscode-textLink-foreground)',
-      };
-    }
-
-    return {
-      bg: colors.bg,
-      fg: colors.fg,
-      border: colors.border,
-      link: bgSetting === 'white' ? '#0066cc' : '#4fc3f7',
-    };
+  private renderLinkLabel(label: string): string {
+    const escaped = escapeHtml(label);
+    return escaped
+      // 볼드
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // 이탤릭
+      .replace(/\*(.+?)\*/g, '<em>$1</em>');
   }
 
   /**
    * 전체 프리뷰 HTML 생성 (로컬 Mermaid.js 포함)
    */
   private buildFullPreviewHtml(markdown: string, mermaidScriptUri: string, webview: vscode.Webview): string {
-    const style = this.getBackgroundStyle();
-    const mermaidTheme = style.bg.includes('1e1e1e') || style.bg.includes('vscode') ? 'dark' : 'default';
+    const config = vscode.workspace.getConfiguration('vibereport');
+    const style = getPreviewStyle(config);
+    const previewBackgroundColor = config.get<string>('previewBackgroundColor', 'ide');
 
-    // CSP nonce for inline scripts
+    // Deterministic mapping (do not guess based on CSS)
+    const mermaidTheme = previewBackgroundColor === 'black' ? 'dark' : 'default';
+
+    // CSP nonce for inline scripts/styles
     const nonce = getNonce();
 
     // CSS file URI
@@ -353,6 +388,12 @@ export class OpenReportPreviewCommand {
       
       /* Reset valid semantics if needed or just styling p tags */
       p { margin: 0.4em 0; line-height: 1.5; }
+
+      /* Used by the code-click navigation (avoid inline styles under CSP) */
+      .vibe-highlight {
+        background-color: rgba(255, 255, 0, 0.3);
+        transition: background-color 0.5s;
+      }
     `;
 
     // Process Markdown
@@ -362,9 +403,9 @@ export class OpenReportPreviewCommand {
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${webview.cspSource} 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; img-src data: https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${webview.cspSource} 'nonce-${nonce}'; style-src ${webview.cspSource} 'nonce-${nonce}'; img-src ${webview.cspSource} data: https:;">
   <link rel="stylesheet" href="${cssUri}">
-  <style>
+  <style nonce="${nonce}">
     ${customStyle}
   </style>
 </head>
@@ -376,7 +417,7 @@ export class OpenReportPreviewCommand {
     mermaid.initialize({
       startOnLoad: true,
       theme: '${mermaidTheme}',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
       themeVariables: {
         fontSize: '14px',
         fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -398,10 +439,8 @@ export class OpenReportPreviewCommand {
           const el = result.singleNodeValue;
           if (el && el !== e.target) {
              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-             const originalBg = el.style.backgroundColor;
-             el.style.transition = 'background-color 0.5s';
-             el.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
-             setTimeout(() => { el.style.backgroundColor = originalBg; }, 1500);
+             el.classList.add('vibe-highlight');
+             setTimeout(() => { el.classList.remove('vibe-highlight'); }, 1500);
           }
         } catch (err) {
           console.error("XPath error:", err);

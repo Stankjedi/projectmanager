@@ -114,8 +114,9 @@ Before doing work, every agent must:
 1. Read this `agents.md`.  
 2. Read any directly relevant project docs (e.g. README, architecture, or feature spec).  
 3. Confirm it understands the user's latest instructions.  
-4. Execute the work while obeying all rules above.  
-5. Summarize:
+4. Ensure required tools are installed and usable in the **current environment** (e.g., install Node.js in WSL and update PATH when missing).  
+5. Execute the work while obeying all rules above.  
+6. Summarize:
    - What was changed.  
    - Which files were touched.  
    - Any trade-offs, assumptions, or TODO items.

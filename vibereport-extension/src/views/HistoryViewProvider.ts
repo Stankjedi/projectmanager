@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import type { SessionRecord, VibeReportConfig } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { formatRelativeTime, loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath } from '../utils/index.js';
+import { formatRelativeTime, formatTimestampForUi, loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath } from '../utils/index.js';
 
 /**
  * 히스토리 아이템 타입
@@ -83,13 +83,7 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
     const items: HistoryItem[] = [];
 
     // 1. 시간 정보 (간단히)
-    const dateStr = new Date(session.timestamp).toLocaleString('ko-KR', {
-      month: 'numeric',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const dateStr = formatTimestampForUi(session.timestamp);
     items.push(new HistoryItem(
       dateStr,
       '시간',

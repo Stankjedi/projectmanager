@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
+import { EXECUTION_CHECKLIST_BLOCK_REGEX } from '../utils/promptChecklistUtils.js';
 
 /**
  * Prompt.md에서 파싱된 프롬프트 항목
@@ -251,7 +252,7 @@ ${opt.fullContent}
 
     // 체크리스트 테이블 패턴: | # | Prompt ID | Title | Priority | Status |
     // 또는: | # | Prompt ID | Improvement ID | Title | Priority | Complexity | Category | Status |
-    const checklistMatch = content.match(/## 📋 Execution Checklist[\s\S]*?(?=\n---|\n\n##|\n\*\*Total)/);
+    const checklistMatch = content.match(EXECUTION_CHECKLIST_BLOCK_REGEX);
 
     if (checklistMatch) {
       const checklistContent = checklistMatch[0];
@@ -308,7 +309,7 @@ ${opt.fullContent}
 
     // 체크리스트에서 OPT 상태 정보 추출 - 라인별 파싱으로 개선
     const statusMap = new Map<string, 'pending' | 'in-progress' | 'done'>();
-    const checklistMatch = content.match(/## 📋 Execution Checklist[\s\S]*?(?=\n---|\n\n##|\n\*\*Total)/);
+    const checklistMatch = content.match(EXECUTION_CHECKLIST_BLOCK_REGEX);
 
     if (checklistMatch) {
       const checklistContent = checklistMatch[0];

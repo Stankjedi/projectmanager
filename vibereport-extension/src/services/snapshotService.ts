@@ -101,6 +101,17 @@ export class SnapshotService {
   }
 
   /**
+   * 세션 히스토리 초기화
+   *
+   * @description 상태 파일을 초기 상태로 재설정합니다.
+   */
+  async clearHistory(rootPath: string, config: VibeReportConfig): Promise<void> {
+    const initial = this.createInitialState();
+    await this.saveState(rootPath, config, initial);
+    this.log('세션 히스토리 초기화 완료');
+  }
+
+  /**
    * 스냅샷 비교
    */
   async compareSnapshots(

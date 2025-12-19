@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import type { VibeReportConfig, VibeReportState } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath } from '../utils/index.js';
+import type { AutoUpdateStatus } from '../services/realtimeWatcherService.js';
+import { loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath, formatTimestampForUi } from '../utils/index.js';
 
 export class SummaryViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'vibereport.summary';
@@ -15,11 +16,28 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
   private extensionUri: vscode.Uri;
   private outputChannel: vscode.OutputChannel;
   private snapshotService: SnapshotService;
+  private autoUpdateStatus: AutoUpdateStatus | undefined;
+  private autoUpdateRefreshTimer: NodeJS.Timeout | undefined;
 
   constructor(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
     this.extensionUri = extensionUri;
     this.outputChannel = outputChannel;
     this.snapshotService = new SnapshotService(outputChannel);
+  }
+
+  public setAutoUpdateStatus(status: AutoUpdateStatus): void {
+    this.autoUpdateStatus = status;
+    this.scheduleAutoUpdateRefresh();
+  }
+
+  private scheduleAutoUpdateRefresh(): void {
+    if (this.autoUpdateRefreshTimer) {
+      clearTimeout(this.autoUpdateRefreshTimer);
+    }
+
+    this.autoUpdateRefreshTimer = setTimeout(() => {
+      void this.refresh();
+    }, 200);
   }
 
   private getNonce(): string {
@@ -98,9 +116,28 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     const sessionsCount = state?.sessions.length || 0;
     const appliedCount = state?.appliedImprovements.length || 0;
     const lastUpdate = state?.lastUpdated
-      ? new Date(state.lastUpdated).toLocaleString()
+      ? formatTimestampForUi(state.lastUpdated)
       : '없음';
     const projectName = state?.lastSnapshot?.projectName || '프로젝트 미설정';  
+
+    const autoUpdate = this.autoUpdateStatus;
+    const autoUpdateEnabledLabel = autoUpdate?.enabled ? '켜짐' : '꺼짐';
+    const autoUpdateRunningLabel = autoUpdate?.isRunning ? '실행 중' : '대기';
+    const pendingCount = autoUpdate?.hasPendingChanges
+      ? autoUpdate.pendingPathsCount
+      : 0;
+    const lastRunAt = autoUpdate?.lastRunAt
+      ? formatTimestampForUi(autoUpdate.lastRunAt)
+      : '없음';
+    const lastRunResult =
+      autoUpdate?.lastRunResult === 'success'
+        ? '성공'
+        : autoUpdate?.lastRunResult === 'failed'
+          ? '실패'
+          : '없음';
+    const autoUpdateLine = autoUpdate
+      ? `자동 업데이트: ${autoUpdateEnabledLabel} · 상태: ${autoUpdateRunningLabel} · 대기 변경: ${pendingCount}개 · 마지막 실행: ${lastRunAt} (${lastRunResult})`
+      : null;
 
     const lastSession = state?.sessions[state.sessions.length - 1];
     const lineMetrics =
@@ -225,6 +262,12 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
       아직 보고서가 생성되지 않았습니다.
     </div>
   `}
+
+  ${autoUpdateLine ? `
+    <div class="last-update">
+      ${autoUpdateLine}
+    </div>
+  ` : ''}
 
   <div class="actions">
     <button class="action-btn" id="btn-update">

@@ -9,5 +9,5 @@ export {
 export * from './timeUtils.js';
 export * from './logger.js';
 export { escapeHtml } from './htmlEscape.js';
-export { loadConfig, getRootPath, selectWorkspaceRoot, getLastSelectedWorkspaceRoot, DEFAULT_CONFIG } from './configUtils.js';
+export { loadConfig, getRootPath, selectWorkspaceRoot, getLastSelectedWorkspaceRoot, DEFAULT_CONFIG, resolveAnalysisRoot } from './configUtils.js';
 export { buildAnalysisPrompt } from './analysisPromptTemplate.js';

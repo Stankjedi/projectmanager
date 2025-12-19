@@ -1,0 +1,30 @@
+0141:- [ ] 문서 또는 주석 보완 (필요시)
+0142:
+0143:#### [P2-2] CHANGELOG ↔ 패키지 버전 동기화
+0144:
+0145:| 항목 | 내용 |
+0146:|------|------|
+0147:| **ID** | `doc-changelog-version-sync-001` |
+0148:| **카테고리** | 📦 배포 |
+0149:| **복잡도** | Low |
+0150:| **대상 파일** | `vibereport-extension/package.json`, `vibereport-extension/CHANGELOG.md`, `vibereport-extension/README.md` |
+0151:| **Origin** | static-analysis |
+0152:| **리스크 레벨** | medium |
+0153:| **관련 평가 카테고리** | documentation, productionReadiness |
+0154:
+0155:**현재 상태:**
+0156:- `vibereport-extension/package.json` 버전은 `0.4.16`인데, `CHANGELOG.md` 최상단 항목은 `0.4.14`로 드리프트가 발생합니다.
+0157:
+0158:**문제점 (Problem):**
+0159:- 사용자가 “현재 배포 버전의 변경사항”을 문서에서 정확히 확인하기 어렵고, 지원/재현 과정에서 혼선이 발생합니다.
+0160:
+0161:**영향 (Impact):**
+0162:- 릴리즈 커뮤니케이션 품질 저하, 지원/QA 비용 증가, 배포 신뢰성 저하.
+0163:
+0164:**원인 (Cause):**
+0165:- 릴리즈 과정에서 버전 bump와 CHANGELOG 갱신이 분리되어, 정합성 자동 검증이 없습니다.
+0166:
+0167:**개선 내용 (Proposed Solution):**
+0168:- `CHANGELOG.md`에 누락된 버전(필요 시 `0.4.15`/`0.4.16`) 섹션을 추가하고, Git diff/log를 근거로 핵심 변경사항을 요약합니다.
+0169:- `package.json` 버전과 CHANGELOG 최상단 버전이 일치하도록 동기화하고, 문서 링크(`README.md`) 정합성을 점검합니다.
+0170:- (선택) CI/스크립트로 버전 드리프트를 사전 차단하는 간단한 체크를 추가합니다.

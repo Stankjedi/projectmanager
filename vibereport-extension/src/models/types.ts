@@ -483,6 +483,22 @@ export interface SnapshotDiffSummary {
 // ===== State Types =====
 
 /**
+ * 평가 점수 히스토리 엔트리
+ */
+export interface EvaluationHistoryEntry {
+  /** 평가 대상 버전 (package.json version) */
+  version: string;
+  /** 평가 시각 (ISO) */
+  evaluatedAt: string;
+  /** 총점 (100점 만점) */
+  totalScore: number;
+  /** 등급 (A~F, +/- 포함) */
+  grade: ScoreGrade;
+  /** 카테고리별 점수 (best-effort, 파싱 실패 시 undefined) */
+  scoresByCategory?: Partial<Record<EvaluationCategory, number>>;
+}
+
+/**
  * 확장 상태 (저장용)
  */
 export interface VibeReportState {
@@ -498,6 +514,8 @@ export interface VibeReportState {
   version: number;
   /** 프로젝트 목표 및 비전 (개선 추천 필터링용) */
   projectVision?: ProjectVision;
+  /** 평가 점수 추이 (최대 N개 유지) */
+  evaluationHistory?: EvaluationHistoryEntry[];
 }
 
 // ===== Improvement Item Types =====
@@ -579,6 +597,8 @@ export interface ProgressCallback {
  */
 export interface VibeReportConfig {
   reportDirectory: string;
+  /** 모노레포/서브폴더 분석 루트 (워크스페이스 루트 기준 상대 경로). 비어있으면 워크스페이스 루트 */
+  analysisRoot: string;
   snapshotFile: string;
   enableGitDiff: boolean;
   excludePatterns: string[];

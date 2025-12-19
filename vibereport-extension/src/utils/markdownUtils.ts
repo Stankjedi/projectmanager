@@ -100,16 +100,14 @@ export function extractBetweenMarkers(
   endMarker: string
 ): string | null {
   const startIndex = content.indexOf(startMarker);
-  const endIndex = content.indexOf(endMarker);
+  if (startIndex === -1) return null;
 
-  if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
-    return null;
-  }
+  const endIndex = content.indexOf(endMarker, startIndex + startMarker.length);
+  if (endIndex === -1) return null;
 
-  return content.substring(
-    startIndex + startMarker.length,
-    endIndex
-  ).trim();
+  return content
+    .substring(startIndex + startMarker.length, endIndex)
+    .trim();
 }
 
 /**
@@ -138,9 +136,11 @@ export function replaceBetweenMarkers(
   newContent: string
 ): string {
   const startIndex = content.indexOf(startMarker);
-  const endIndex = content.indexOf(endMarker);
+  const endIndex = startIndex === -1
+    ? -1
+    : content.indexOf(endMarker, startIndex + startMarker.length);
 
-  if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+  if (startIndex === -1 || endIndex === -1) {
     // 마커가 없으면 내용 끝에 마커와 함께 추가
     return content + '\n\n' + startMarker + '\n' + newContent + '\n' + endMarker;
   }
@@ -289,9 +289,56 @@ export function generateImprovementId(title: string, description: string): strin
   return hash.substring(0, 12);
 }
 
+const EXPLICIT_IMPROVEMENT_ID_REGEX = /^[a-z][a-z0-9-]*-\d{3}$/;
+
+/**
+ * 선택된 텍스트에서 명시적인 개선 항목 ID를 추출합니다.
+ *
+ * @description 레포지토리에서 사용하는 개선 항목 ID 형식(`<kebab-case>-<3 digits>`)을
+ * 다양한 선택 패턴에서 안정적으로 추출하기 위한 순수 함수입니다.
+ *
+ * 지원 패턴:
+ * - 마크다운 테이블 행: `**ID**`를 포함하고, 백틱 코드 스팬으로 ID가 표기된 경우
+ * - 프롬프트 문장: `Linked Improvement ID:` 라인에 백틱 코드 스팬으로 ID가 표기된 경우
+ * - 일반 폴백: 텍스트 내 백틱 코드 스팬 중 첫 번째로 ID 형식과 일치하는 토큰
+ *
+ * @param text - 검색할 텍스트(선택 영역)
+ * @returns 추출된 개선 항목 ID 또는 찾지 못하면 null
+ */
+export function extractImprovementIdFromText(text: string): string | null {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
+
+  // 1) Table row format (contains **ID** and a backticked value)
+  for (const line of lines) {
+    if (!line.includes('**ID**')) continue;
+    for (const match of line.matchAll(/`([^`]+)`/g)) {
+      const token = match[1].trim();
+      if (EXPLICIT_IMPROVEMENT_ID_REGEX.test(token)) return token;
+    }
+  }
+
+  // 2) Linked ID format in English prompts
+  for (const line of lines) {
+    if (!line.includes('Linked Improvement ID:')) continue;
+    for (const match of line.matchAll(/`([^`]+)`/g)) {
+      const token = match[1].trim();
+      if (EXPLICIT_IMPROVEMENT_ID_REGEX.test(token)) return token;
+    }
+  }
+
+  // 3) Generic fallback: first backticked token matching the explicit format
+  for (const match of normalized.matchAll(/`([^`]+)`/g)) {
+    const token = match[1].trim();
+    if (EXPLICIT_IMPROVEMENT_ID_REGEX.test(token)) return token;
+  }
+
+  return null;
+}
+
 /**
  * 파싱된 개선 항목 인터페이스
- * 
+ *
  * @description 마크다운에서 파싱된 개선 항목의 구조를 정의합니다.
  */
 export interface ParsedImprovementItem {
@@ -307,6 +354,188 @@ export interface ParsedImprovementItem {
   applied: boolean;
   /** 원본 마크다운 텍스트 */
   rawContent: string;
+}
+
+function normalizeMarkdownText(content: string): string {
+  return content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+function isAppliedImprovement(rawContent: string): boolean {
+  const lower = rawContent.toLowerCase();
+  return (
+    rawContent.includes(MARKERS.APPLIED_MARKER) ||
+    rawContent.includes('✅') ||
+    lower.includes('[완료]') ||
+    lower.includes('[적용됨]')
+  );
+}
+
+function isImprovementHashId(value: string): boolean {
+  return /^[0-9a-f]{12}$/i.test(value.trim());
+}
+
+function isLikelyImprovementIdLine(line: string): boolean {
+  const normalized = line.replace(/\*\*/g, '').toLowerCase();
+  if (!normalized.includes('id')) return false;
+
+  if (normalized.includes('항목')) return true;
+  if (normalized.includes('item')) return true;
+
+  const trimmed = normalized.trim();
+  const maybeBlockquote = trimmed.startsWith('>') ? trimmed.slice(1).trim() : trimmed;
+  return maybeBlockquote.startsWith('id');
+}
+
+function tryExtractImprovementIdFromLine(line: string): string | null {
+  const normalized = line.replace(/\*\*/g, '').toLowerCase();
+  if (!normalized.includes('id')) return null;
+
+  const codeSpanMatch = line.match(/`([^`]+)`/);
+  if (codeSpanMatch && isImprovementHashId(codeSpanMatch[1])) {
+    return codeSpanMatch[1].toLowerCase();
+  }
+
+  const rawMatch = line.match(/([0-9a-f]{12})/i);
+  if (rawMatch && isImprovementHashId(rawMatch[1])) {
+    return rawMatch[1].toLowerCase();
+  }
+
+  return null;
+}
+
+function extractImprovementIdAndCleanBody(bodyLines: string[]): {
+  id: string | null;
+  body: string;
+} {
+  for (let index = 0; index < bodyLines.length; index++) {
+    const line = bodyLines[index];
+    if (!isLikelyImprovementIdLine(line)) continue;
+
+    const id = tryExtractImprovementIdFromLine(line);
+
+    const cleanedLines = bodyLines.filter((_, i) => i !== index);
+    return { id, body: cleanedLines.join('\n').trim() };
+  }
+
+  return { id: null, body: bodyLines.join('\n').trim() };
+}
+
+type ImprovementPriority = 'P1' | 'P2' | 'P3';
+
+function parsePriorityItemHeaderLine(
+  line: string
+): { priority: ImprovementPriority; title: string } | null {
+  const trimmed = line.trim();
+
+  const headingMatch = trimmed.match(
+    /^#{2,4}\s*\[?(P[123])(?:-\d+)?\]?\s*(.+)$/i
+  );
+  if (headingMatch) {
+    return {
+      priority: headingMatch[1].toUpperCase() as ImprovementPriority,
+      title: headingMatch[2].trim(),
+    };
+  }
+
+  const bulletMatch = trimmed.match(/^-+\s*\[?(P[123])(?:-\d+)?\]?\s*(.+)$/i);
+  if (bulletMatch) {
+    return {
+      priority: bulletMatch[1].toUpperCase() as ImprovementPriority,
+      title: bulletMatch[2].trim(),
+    };
+  }
+
+  return null;
+}
+
+function parseOptimizationItemHeaderLine(line: string): { title: string } | null {
+  const trimmed = line.trim();
+  const match = trimmed.match(
+    /^#{2,4}\s*[🚀⚙️]\s*([^\n(]+?)\s*\(OPT-\d+\)[^\n]*$/i
+  );
+  if (!match) return null;
+  return { title: match[1].trim() };
+}
+
+function isHorizontalRuleLine(line: string): boolean {
+  return line.trim() === '---';
+}
+
+function isHeadingLine(line: string): boolean {
+  return /^#{2,4}\s+/.test(line.trim());
+}
+
+function parseImprovementItemsFromText(source: string): ParsedImprovementItem[] {
+  const lines = source.split('\n');
+  const items: ParsedImprovementItem[] = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const headerLine = lines[i];
+    const priorityHeader = parsePriorityItemHeaderLine(headerLine);
+    const optHeader = parseOptimizationItemHeaderLine(headerLine);
+
+    if (!priorityHeader && !optHeader) {
+      i++;
+      continue;
+    }
+
+    const startIndex = i;
+    i++;
+
+    while (i < lines.length) {
+      const nextLine = lines[i];
+      if (parsePriorityItemHeaderLine(nextLine) || parseOptimizationItemHeaderLine(nextLine)) {
+        break;
+      }
+
+      if (isHorizontalRuleLine(nextLine)) {
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() === '') {
+          j++;
+        }
+        if (j < lines.length && isHeadingLine(lines[j])) {
+          break;
+        }
+      }
+
+      i++;
+    }
+
+    const rawContent = lines.slice(startIndex, i).join('\n').trim();
+    const { id: explicitId, body: body } = extractImprovementIdAndCleanBody(
+      lines.slice(startIndex + 1, i)
+    );
+    const applied = isAppliedImprovement(rawContent);
+
+    if (priorityHeader) {
+      const id = explicitId ?? generateImprovementId(priorityHeader.title, body);
+      items.push({
+        id,
+        priority: priorityHeader.priority,
+        title: priorityHeader.title,
+        description: body,
+        applied,
+        rawContent,
+      });
+      continue;
+    }
+
+    if (optHeader) {
+      const id = explicitId ?? generateImprovementId(optHeader.title, body);
+      items.push({
+        id,
+        priority: 'OPT',
+        title: optHeader.title,
+        description: body,
+        applied,
+        rawContent,
+      });
+      continue;
+    }
+  }
+
+  return items;
 }
 
 /**
@@ -330,67 +559,25 @@ export interface ParsedImprovementItem {
  * ```
  */
 export function parseImprovementItems(content: string): ParsedImprovementItem[] {
-  const items: ParsedImprovementItem[] = [];
-  
-  // 패턴 1: ### [P1-1] 제목 또는 #### [P2-1] 제목 (P1/P2/P3 개선 항목)
-  const priorityPattern = /(?:#{2,4})\s*\[?(P[123])(?:-\d+)?\]?\s*([^\n]+)\n([\s\S]*?)(?=(?:#{2,4})\s*\[?(?:P[123]|OPT)(?:-\d+)?\]?|(?:#{2,4})\s*[🚀⚙️]|---\s*\n\s*(?:#{2,4})|$)/gi;
-  
-  let match;
-  while ((match = priorityPattern.exec(content)) !== null) {
-    const priority = match[1].toUpperCase() as 'P1' | 'P2' | 'P3';
-    const title = match[2].trim();
-    const description = match[3].trim();
-    const rawContent = match[0];
-    
-    // 적용됨 마커 확인
-    const applied = rawContent.includes(MARKERS.APPLIED_MARKER) || 
-                   rawContent.includes('✅') ||
-                   rawContent.toLowerCase().includes('[완료]') ||
-                   rawContent.toLowerCase().includes('[적용됨]');
-    
-    const id = generateImprovementId(title, description);
-    
-    items.push({
-      id,
-      priority,
-      title,
-      description,
-      applied,
-      rawContent,
-    });
-  }
-  
-  // 패턴 2: ### 🚀 코드 최적화 (OPT-1) 또는 ### ⚙️ 성능 튜닝 (OPT-2)
-  const optPattern = /(?:#{2,4})\s*[🚀⚙️]\s*[^\n]*\(OPT-(\d+)\)[^\n]*\n([\s\S]*?)(?=(?:#{2,4})\s*[🚀⚙️][^\n]*\(OPT-|---\s*\n|$)/gi;
-  
-  while ((match = optPattern.exec(content)) !== null) {
-    const optNumber = match[1];
-    const description = match[2].trim();
-    const rawContent = match[0];
-    
-    // 제목 추출: 첫 번째 줄에서 이모지와 (OPT-X) 사이의 텍스트
-    const titleMatch = rawContent.match(/[🚀⚙️]\s*([^\n(]+)/);
-    const title = titleMatch ? titleMatch[1].trim() : `Optimization ${optNumber}`;
-    
-    // 적용됨 마커 확인
-    const applied = rawContent.includes(MARKERS.APPLIED_MARKER) || 
-                   rawContent.includes('✅') ||
-                   rawContent.toLowerCase().includes('[완료]') ||
-                   rawContent.toLowerCase().includes('[적용됨]');
-    
-    const id = generateImprovementId(title, description);
-    
-    items.push({
-      id,
-      priority: 'OPT',
-      title,
-      description,
-      applied,
-      rawContent,
-    });
-  }
+  const normalized = normalizeMarkdownText(content);
 
-  return items;
+  const blocks: string[] = [];
+  const improvementListBlock = extractBetweenMarkers(
+    normalized,
+    MARKERS.IMPROVEMENT_LIST_START,
+    MARKERS.IMPROVEMENT_LIST_END
+  );
+  if (improvementListBlock !== null) blocks.push(improvementListBlock);
+
+  const optimizationBlock = extractBetweenMarkers(
+    normalized,
+    MARKERS.OPTIMIZATION_START,
+    MARKERS.OPTIMIZATION_END
+  );
+  if (optimizationBlock !== null) blocks.push(optimizationBlock);
+
+  const source = blocks.length > 0 ? blocks.join('\n\n') : normalized;
+  return parseImprovementItemsFromText(source);
 }
 
 /**
@@ -1003,9 +1190,187 @@ export function createDefaultScores(): ProjectEvaluationScores {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function isScoreGrade(value: unknown): value is ScoreGrade {
+  if (typeof value !== 'string') return false;
+  return /^[A-F][+\-]?$/.test(value.trim().toUpperCase());
+}
+
+function tryParseJsonCodeFence(content: string): unknown | null {
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const fence = lines[i].trim().toLowerCase();
+    if (!fence.startsWith('```json')) continue;
+
+    const jsonLines: string[] = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j].trim() === '```') {
+        const rawJson = jsonLines.join('\n').trim();
+        if (!rawJson) return null;
+        try {
+          return JSON.parse(rawJson) as unknown;
+        } catch {
+          return null;
+        }
+      }
+      jsonLines.push(lines[j]);
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
+function tryParseLooseJsonObject(content: string): unknown | null {
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      // fall through
+    }
+  }
+
+  let startIndex = trimmed.indexOf('{');
+  while (startIndex !== -1) {
+    const candidate = extractBalancedJsonObject(trimmed, startIndex);
+    if (candidate) {
+      try {
+        return JSON.parse(candidate) as unknown;
+      } catch {
+        // try the next '{'
+      }
+    }
+
+    startIndex = trimmed.indexOf('{', startIndex + 1);
+  }
+
+  return null;
+}
+
+function extractBalancedJsonObject(content: string, startIndex: number): string | null {
+  if (content[startIndex] !== '{') return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = startIndex; i < content.length; i++) {
+    const char = content[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      depth++;
+      continue;
+    }
+    if (char === '}') {
+      depth--;
+      if (depth === 0) {
+        return content.slice(startIndex, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseMarkdownTableRow(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|')) return null;
+
+  const withoutEdges = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+  const cells = withoutEdges.split('|').map(c => c.trim());
+  return cells.length > 0 ? cells : null;
+}
+
+function extractFirstInteger(text: string): number | null {
+  const match = text.match(/(-?\d+)/);
+  if (!match) return null;
+  const value = parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function extractScoreGrade(text: string): ScoreGrade | null {
+  const cleaned = text.replace(/\*\*/g, '').toUpperCase();
+  const match = cleaned.match(/([A-F][+\-]?)/);
+  if (!match) return null;
+  const candidate = match[1].toUpperCase();
+  return isScoreGrade(candidate) ? (candidate as ScoreGrade) : null;
+}
+
+function normalizeLabel(label: string): string {
+  return label.replace(/\*\*/g, '').toLowerCase().trim();
+}
+
+const SCORE_CATEGORY_KEYWORDS: Array<{
+  keyword: string;
+  category: EvaluationCategory;
+}> = [
+  { keyword: '코드 품질', category: 'codeQuality' },
+  { keyword: 'code quality', category: 'codeQuality' },
+  { keyword: '아키텍처 설계', category: 'architecture' },
+  { keyword: 'architecture', category: 'architecture' },
+  { keyword: 'architecture design', category: 'architecture' },
+  { keyword: '보안', category: 'security' },
+  { keyword: 'security', category: 'security' },
+  { keyword: '성능', category: 'performance' },
+  { keyword: 'performance', category: 'performance' },
+  { keyword: '테스트 커버리지', category: 'testCoverage' },
+  { keyword: 'test coverage', category: 'testCoverage' },
+  { keyword: '에러 처리', category: 'errorHandling' },
+  { keyword: 'error handling', category: 'errorHandling' },
+  { keyword: '문서화', category: 'documentation' },
+  { keyword: 'documentation', category: 'documentation' },
+  { keyword: '확장성', category: 'scalability' },
+  { keyword: 'scalability', category: 'scalability' },
+  { keyword: '유지보수성', category: 'maintainability' },
+  { keyword: 'maintainability', category: 'maintainability' },
+  { keyword: '프로덕션 준비도', category: 'productionReadiness' },
+  { keyword: 'production readiness', category: 'productionReadiness' },
+];
+
 /**
  * AI 응답에서 평가 점수를 파싱합니다.
- * 
+ *
  * @description AI가 생성한 텍스트에서 점수 정보를 추출합니다.
  * JSON 코드 블록 또는 마크다운 테이블 형식을 지원합니다.
  * 파싱에 실패하면 null을 반환합니다.
@@ -1025,56 +1390,36 @@ export function createDefaultScores(): ProjectEvaluationScores {
  * ```
  */
 export function parseScoresFromAIResponse(content: string): ProjectEvaluationScores | null {
-  // JSON 블록 파싱 시도
-  const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[1]);
-      if (parsed.evaluationScores) {
-        return validateAndNormalizeScores(parsed.evaluationScores);
-      }
-    } catch {
-      // JSON 파싱 실패, 테이블 파싱 시도
+  const normalized = normalizeMarkdownText(content);
+
+  // JSON fenced code block (```json ... ```)
+  const parsedJson = tryParseJsonCodeFence(normalized) ?? tryParseLooseJsonObject(normalized);
+  if (parsedJson && isRecord(parsedJson)) {
+    const maybeScores = parsedJson['evaluationScores'];
+    if (maybeScores !== undefined) {
+      const validated = validateAndNormalizeScores(maybeScores);
+      if (validated) return validated;
     }
   }
 
-  // 마크다운 테이블 파싱 시도
-  const tablePattern = /\|\s*\*?\*?(.+?)\*?\*?\s*\|\s*(\d+)\s*\|\s*([A-F][+\-]?)\s*\|/g;
+  // Markdown table parsing
   const scores = createDefaultScores();
-  const categoryMap: Record<string, EvaluationCategory> = {
-    '코드 품질': 'codeQuality',
-    'code quality': 'codeQuality',
-    '아키텍처 설계': 'architecture',
-    'architecture': 'architecture',
-    'architecture design': 'architecture',
-    '보안': 'security',
-    'security': 'security',
-    '성능': 'performance',
-    'performance': 'performance',
-    '테스트 커버리지': 'testCoverage',
-    'test coverage': 'testCoverage',
-    '에러 처리': 'errorHandling',
-    'error handling': 'errorHandling',
-    '문서화': 'documentation',
-    'documentation': 'documentation',
-    '확장성': 'scalability',
-    'scalability': 'scalability',
-    '유지보수성': 'maintainability',
-    'maintainability': 'maintainability',
-    '프로덕션 준비도': 'productionReadiness',
-    'production readiness': 'productionReadiness',
-  };
-
   let hasMatch = false;
-  let match;
-  while ((match = tablePattern.exec(content)) !== null) {
-    const label = match[1].toLowerCase().trim();
-    const score = parseInt(match[2], 10);
-    const grade = match[3] as ScoreGrade;
 
-    for (const [key, category] of Object.entries(categoryMap)) {
-      if (label.includes(key)) {
-        scores[category] = { score, grade };
+  for (const line of normalized.split('\n')) {
+    const row = parseMarkdownTableRow(line);
+    if (!row || row.length < 3) continue;
+
+    const label = normalizeLabel(row[0]);
+    const scoreValue = extractFirstInteger(row[1]);
+    if (scoreValue === null) continue;
+
+    const score = clampScore(scoreValue);
+    const gradeValue = extractScoreGrade(row[2]) ?? scoreToGrade(score);
+
+    for (const { keyword, category } of SCORE_CATEGORY_KEYWORDS) {
+      if (label.includes(keyword)) {
+        scores[category] = { score, grade: gradeValue };
         hasMatch = true;
         break;
       }
@@ -1085,8 +1430,7 @@ export function parseScoresFromAIResponse(content: string): ProjectEvaluationSco
     return null;
   }
 
-  // 총점 계산
-  const allScores = [
+  const allScores: EvaluationScore[] = [
     scores.codeQuality,
     scores.architecture,
     scores.security,
@@ -1099,7 +1443,6 @@ export function parseScoresFromAIResponse(content: string): ProjectEvaluationSco
     scores.productionReadiness,
   ];
   scores.totalAverage = calculateAverageScore(allScores);
-
   return scores;
 }
 
@@ -1109,27 +1452,50 @@ export function parseScoresFromAIResponse(content: string): ProjectEvaluationSco
  * @description 점수가 0-100 범위 내에 있는지 확인하고,
  * 누락된 등급은 점수에서 계산합니다. 총점 평균도 자동으로 계산합니다.
  * 
- * @param raw - 원본 파싱 데이터 (any 타입)
+ * @param raw - 원본 파싱 데이터 (unknown)
  * @returns 정규화된 평가 점수 객체
  */
-function validateAndNormalizeScores(raw: any): ProjectEvaluationScores {
-  const scores = createDefaultScores();
+function validateAndNormalizeScores(raw: unknown): ProjectEvaluationScores | null {
   const categories: EvaluationCategory[] = [
     'codeQuality', 'architecture', 'security', 'performance',
     'testCoverage', 'errorHandling', 'documentation',
     'scalability', 'maintainability', 'productionReadiness',
   ];
 
+  if (!isRecord(raw)) {
+    return null;
+  }
+
+  const scores = createDefaultScores();
+  let hasMatch = false;
+
   for (const cat of categories) {
-    if (raw[cat] && typeof raw[cat].score === 'number') {
-      const score = Math.max(0, Math.min(100, raw[cat].score));
-      scores[cat] = {
-        score,
-        grade: raw[cat].grade || scoreToGrade(score),
-        previousScore: raw[cat].previousScore,
-        change: raw[cat].change,
-      };
-    }
+    const entry = raw[cat];
+    if (!isRecord(entry)) continue;
+
+    const rawScore = toFiniteNumber(entry['score']);
+    if (rawScore === null) continue;
+
+    const score = clampScore(rawScore);
+    const maybeGrade = entry['grade'];
+    const grade = isScoreGrade(maybeGrade) ? maybeGrade : scoreToGrade(score);
+    const previousScoreValue = toFiniteNumber(entry['previousScore']);
+    const previousScore = previousScoreValue === null
+      ? undefined
+      : clampScore(previousScoreValue);
+    const change = toFiniteNumber(entry['change']) ?? undefined;
+
+    scores[cat] = {
+      score,
+      grade,
+      previousScore,
+      change,
+    };
+    hasMatch = true;
+  }
+
+  if (!hasMatch) {
+    return null;
   }
 
   // 총점 계산
@@ -1138,4 +1504,3 @@ function validateAndNormalizeScores(raw: any): ProjectEvaluationScores {
 
   return scores;
 }
-

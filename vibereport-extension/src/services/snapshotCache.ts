@@ -72,6 +72,8 @@ export function getCachedValue<T>(key: string): T | null {
  * ```
  */
 export function setCachedValue<T>(key: string, value: T): void {
+  // 새 값을 저장하기 전에 만료된 캐시를 먼저 정리하여 메모리/키 누적을 방지
+  pruneExpiredCache();
   cache.set(key, { key, value, timestamp: Date.now() });
 }
 
@@ -161,8 +163,10 @@ export function pruneExpiredCache(): number {
 export function createCacheKey(
   type: string,
   rootPath: string,
-  extra?: string | number
+  ...extras: Array<string | number | undefined>
 ): string {
   const base = `${type}:${rootPath}`;
-  return extra !== undefined ? `${base}:${extra}` : base;
+
+  const parts = extras.filter((part): part is string | number => part !== undefined);
+  return parts.length > 0 ? `${base}:${parts.join(':')}` : base;
 }

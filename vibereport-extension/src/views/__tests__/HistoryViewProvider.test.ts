@@ -121,6 +121,10 @@ describe('HistoryViewProvider', () => {
     const descriptions = sectionItems.map(item => item.description);
     expect(descriptions).toContain('시간');
     expect(descriptions).toContain('변경사항');
+
+    const timeItem = sectionItems.find(item => item.description === '시간');
+    expect(timeItem).toBeDefined();
+    expect(String(timeItem?.label)).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   });
 
   it('returns detail items when expanding a section node', async () => {

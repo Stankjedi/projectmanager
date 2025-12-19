@@ -8,7 +8,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { ProjectSnapshot, VibeReportConfig, SessionRecord, SnapshotDiff } from '../../models/types.js';
-import { MARKERS } from '../../utils/markdownUtils.js';
+import { MARKERS, formatDateTimeKorean } from '../../utils/markdownUtils.js';
+import * as markerUtils from '../../utils/markerUtils.js';
 
 // Mock vscode
 vi.mock('vscode', () => ({
@@ -46,6 +47,7 @@ describe('ReportService', () => {
   const mockRootPath = '/test/workspace';
   const mockConfig: VibeReportConfig = {
     reportDirectory: 'devplan',
+    analysisRoot: '',
     snapshotFile: '.vscode/vibereport-state.json',
     enableGitDiff: true,
     excludePatterns: [],
@@ -275,10 +277,68 @@ describe('ReportService', () => {
     });
   });
 
+  describe('updateImprovementReport', () => {
+    const mockDiff: SnapshotDiff = {
+      isInitial: false,
+      newFiles: [],
+      removedFiles: [],
+      changedConfigs: [],
+      gitChanges: undefined,
+      totalChanges: 0,
+      previousSnapshotTime: new Date().toISOString(),
+      currentSnapshotTime: new Date().toISOString(),
+      languageStatsDiff: {},
+    };
+
+    it('should update summary + list with one batched marker replacement', async () => {
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+      const mkdirMock = vi.mocked(fs.mkdir);
+
+      readFileMock.mockRejectedValue(new Error('ENOENT'));
+      writeFileMock.mockResolvedValue(undefined);
+      mkdirMock.mockResolvedValue(undefined);
+
+      const replaceManySpy = vi.spyOn(markerUtils, 'replaceManyBetweenMarkersLines');
+
+      const aiContent = `### [P2] JSONC parsing support
+
+> 항목 ID: \`aaaaaaaaaaaa\`
+
+Enable JSONC parsing for tsconfig.json and tauri.conf.json.`;
+
+      await service.updateImprovementReport(
+        mockRootPath,
+        mockConfig,
+        mockSnapshot,
+        mockDiff,
+        'user prompt',
+        aiContent,
+        []
+      );
+
+      expect(replaceManySpy).toHaveBeenCalledTimes(1);
+      const replacements = replaceManySpy.mock.calls[0]?.[1] ?? [];
+      expect(replacements).toHaveLength(2);
+      expect(replacements.map(r => r.startMarker)).toContain(MARKERS.SUMMARY_START);
+      expect(replacements.map(r => r.startMarker)).toContain(MARKERS.IMPROVEMENT_LIST_START);
+
+      expect(writeFileMock).toHaveBeenCalled();
+      const writtenContent = writeFileMock.mock.calls[0][1] as string;
+      expect(writtenContent).toContain(MARKERS.SUMMARY_START);
+      expect(writtenContent).toContain('## 📊 개선 현황 요약');
+      expect(writtenContent).toContain('| 🟡 중요 (P2) | 1 |');
+      expect(writtenContent).toContain(MARKERS.IMPROVEMENT_LIST_START);
+      expect(writtenContent).toContain('### 🟡 중요 (P2)');
+      expect(writtenContent).toContain('#### [P2] JSONC parsing support');
+      expect(writtenContent).toContain('> 항목 ID: `aaaaaaaaaaaa`');
+    });
+  });
+
   describe('updateSessionHistoryFile', () => {
     const mockSession: SessionRecord = {
       id: 'session-001',
-      timestamp: new Date().toISOString(),
+      timestamp: '2025-01-02T03:04:00.000Z',
       userPrompt: '보고서 업데이트',
       changesSummary: '새 파일 2개 추가',
       diffSummary: {
@@ -310,29 +370,38 @@ describe('ReportService', () => {
       const writtenContent = writeFileMock.mock.calls[0][1] as string;
       expect(writtenContent).toContain('# 📜 세션 히스토리');
       expect(writtenContent).toContain('session-001');
+      expect(writtenContent).toContain('<!-- STATS-START -->');
+      expect(writtenContent).toContain('<!-- SESSION-LIST-START -->');
+      expect(writtenContent).toContain('| **총 세션 수** | 1 |');
+      expect(writtenContent).toContain('| **적용 완료 항목** | 0 |');
     });
 
     it('should prepend new session to existing history', async () => {
       const existingContent = `# 📜 세션 히스토리
 
 <!-- STATS-START -->
-## 📊 통계 요약
+## 📊 세션 통계
 
 | 항목 | 값 |
 |------|-----|
 | **총 세션 수** | 1 |
-| **적용 완료** | 0 |
-| **마지막 업데이트** | 2025-01-01 |
+| **첫 세션** | 2025-01-01 00:00 |
+| **마지막 세션** | 2025-01-01 00:00 |
+| **마지막 업데이트** | 2025-01-01 00:00 |
+| **적용 완료 항목** | 0 |
 <!-- STATS-END -->
 
 ---
 
 <!-- SESSION-LIST-START -->
-## 📝 세션 기록
+## 🕐 전체 세션 기록
 
 ### 📅 이전 세션
 
-이전 내용
+| 항목 | 값 |
+|------|-----|
+| **세션 ID** | \`session-000\` |
+| **작업** | 보고서 업데이트 |
 
 ---
 <!-- SESSION-LIST-END -->`;
@@ -358,8 +427,14 @@ describe('ReportService', () => {
 
       // New session should be at the top
       expect(writtenContent).toContain('session-001');
+      expect(writtenContent.indexOf('`session-001`')).toBeLessThan(
+        writtenContent.indexOf('`session-000`')
+      );
       // Stats should be updated
       expect(writtenContent).toContain('| **총 세션 수** | 2 |');
+      expect(writtenContent).toContain('| **적용 완료 항목** | 0 |');
+      // First session should be preserved
+      expect(writtenContent).toContain('| **첫 세션** | 2025-01-01 00:00 |');
       // Old content should still be there
       expect(writtenContent).toContain('이전 세션');
     });
@@ -383,7 +458,167 @@ describe('ReportService', () => {
 
       const writtenContent = writeFileMock.mock.calls[0][1] as string;
       expect(writtenContent).toContain('| **총 세션 수** | 5 |');
-      // 적용 완료 필드는 템플릿에서 제거됨
+      expect(writtenContent).toContain('| **적용 완료 항목** | 3 |');
+    });
+
+    it('should migrate legacy session history without markers and keep markdown valid', async () => {
+      const legacyContent = `# 📜 세션 히스토리
+
+---
+
+## 📊 세션 통계
+
+| 항목 | 값 |
+|------|-----|
+| **총 세션 수** | 9 |
+| **첫 세션** | 2025-01-01 00:00 |
+| **마지막 세션** | 2025-01-01 00:00 |
+| **적용 완료 항목** | 12 |
+
+---
+
+## 🕐 전체 세션 기록
+
+### 📅 2025-01-01 00:00
+
+| 항목 | 값 |
+|------|-----|
+| **세션 ID** | \`session-legacy\` |
+| **작업** | 보고서 업데이트 |
+
+---
+`;
+
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+      const mkdirMock = vi.mocked(fs.mkdir);
+
+      readFileMock.mockResolvedValue(legacyContent);
+      writeFileMock.mockResolvedValue(undefined);
+      mkdirMock.mockResolvedValue(undefined);
+
+      await service.updateSessionHistoryFile(
+        mockRootPath,
+        mockConfig,
+        mockSession,
+        10,
+        13
+      );
+
+      const writtenContent = writeFileMock.mock.calls[0][1] as string;
+      expect(writtenContent.split('<!-- STATS-START -->').length - 1).toBe(1);
+      expect(writtenContent.split('<!-- STATS-END -->').length - 1).toBe(1);
+      expect(writtenContent.split('<!-- SESSION-LIST-START -->').length - 1).toBe(1);
+      expect(writtenContent.split('<!-- SESSION-LIST-END -->').length - 1).toBe(1);
+      expect(writtenContent).toContain('| **총 세션 수** | 10 |');
+      expect(writtenContent).toContain('| **적용 완료 항목** | 13 |');
+      // Legacy first-session should be preserved
+      expect(writtenContent).toContain('| **첫 세션** | 2025-01-01 00:00 |');
+      // New session should be inserted (and legacy session preserved)
+      expect(writtenContent).toContain('`session-001`');
+      expect(writtenContent).toContain('`session-legacy`');
+    });
+
+    it('should be idempotent when re-running with the same session id', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-01-02T03:04:00.000Z'));
+
+      const legacyContent = `# 📜 세션 히스토리
+
+## 📊 세션 통계
+
+| 항목 | 값 |
+|------|-----|
+| **총 세션 수** | 0 |
+| **첫 세션** | - |
+| **마지막 세션** | - |
+| **마지막 업데이트** | - |
+| **적용 완료 항목** | 0 |
+
+## 🕐 전체 세션 기록
+`;
+
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+      const mkdirMock = vi.mocked(fs.mkdir);
+
+      readFileMock.mockResolvedValueOnce(legacyContent);
+      writeFileMock.mockResolvedValue(undefined);
+      mkdirMock.mockResolvedValue(undefined);
+
+      await service.updateSessionHistoryFile(
+        mockRootPath,
+        mockConfig,
+        mockSession,
+        1,
+        0
+      );
+
+      const firstWritten = writeFileMock.mock.calls[0][1] as string;
+      readFileMock.mockResolvedValueOnce(firstWritten);
+
+      await service.updateSessionHistoryFile(
+        mockRootPath,
+        mockConfig,
+        mockSession,
+        1,
+        0
+      );
+
+      const secondWritten = writeFileMock.mock.calls[1][1] as string;
+      expect(secondWritten).toBe(firstWritten);
+
+      vi.useRealTimers();
+    });
+
+    it('should repair partially corrupted marker blocks', async () => {
+      const corruptedContent = `# 📜 세션 히스토리
+
+<!-- STATS-START -->
+## 📊 세션 통계
+
+| 항목 | 값 |
+|------|-----|
+| **총 세션 수** | 1 |
+
+---
+
+<!-- SESSION-LIST-START -->
+## 🕐 전체 세션 기록
+<!-- SESSION-LIST-START -->
+
+### 📅 이전 세션
+
+| 항목 | 값 |
+|------|-----|
+| **세션 ID** | \`session-000\` |
+| **작업** | 보고서 업데이트 |
+
+<!-- SESSION-LIST-END -->`;
+
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+      const mkdirMock = vi.mocked(fs.mkdir);
+
+      readFileMock.mockResolvedValue(corruptedContent);
+      writeFileMock.mockResolvedValue(undefined);
+      mkdirMock.mockResolvedValue(undefined);
+
+      await service.updateSessionHistoryFile(
+        mockRootPath,
+        mockConfig,
+        mockSession,
+        2,
+        1
+      );
+
+      const writtenContent = writeFileMock.mock.calls[0][1] as string;
+      expect(writtenContent.split('<!-- STATS-START -->').length - 1).toBe(1);
+      expect(writtenContent.split('<!-- STATS-END -->').length - 1).toBe(1);
+      expect(writtenContent.split('<!-- SESSION-LIST-START -->').length - 1).toBe(1);
+      expect(writtenContent.split('<!-- SESSION-LIST-END -->').length - 1).toBe(1);
+      expect(writtenContent).toContain('`session-001`');
+      expect(writtenContent).toContain('`session-000`');
     });
   });
 
@@ -409,7 +644,149 @@ describe('ReportService', () => {
   });
 
   describe('marker-based content updates', () => {
-    it('should correctly replace content between markers', async () => {
+    it('should wrap legacy overview section with markers and preserve first analyzed date', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-02-03T04:05:06.000Z'));
+
+      const legacyContent = `# 📊 프로젝트 종합 평가 보고서
+
+## 📋 프로젝트 개요
+
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | legacy-project |
+| **버전** | 0.0.1 |
+| **최초 분석일** | 2025-01-01 00:00 |
+| **최근 분석일** | 2025-01-01 00:00 |
+| **파일 수** | 1 |
+| **디렉토리 수** | 1 |
+| **주요 언어** | TS |
+| **프레임워크** | - |
+
+---
+
+## 다음 섹션
+Legacy content`;
+
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+      const mkdirMock = vi.mocked(fs.mkdir);
+
+      readFileMock.mockResolvedValue(legacyContent);
+      writeFileMock.mockResolvedValue(undefined);
+      mkdirMock.mockResolvedValue(undefined);
+
+      const mockDiff: SnapshotDiff = {
+        isInitial: false,
+        newFiles: [],
+        removedFiles: [],
+        changedConfigs: [],
+        gitChanges: undefined,
+        totalChanges: 0,
+        previousSnapshotTime: new Date().toISOString(),
+        currentSnapshotTime: new Date().toISOString(),
+        languageStatsDiff: {},
+      };
+
+      const now = formatDateTimeKorean(new Date());
+
+      await service.updateEvaluationReport(
+        mockRootPath,
+        mockConfig,
+        mockSnapshot,
+        mockDiff,
+        '테스트 프롬프트',
+        'AI 응답 내용'
+      );
+
+      const writtenContent = writeFileMock.mock.calls[0][1] as string;
+      expect(writtenContent).toContain(MARKERS.OVERVIEW_START);
+      expect(writtenContent).toContain(MARKERS.OVERVIEW_END);
+      expect(writtenContent).toContain(`| **최초 분석일** | ${now} |`);
+      expect(writtenContent).toContain(`| **최근 분석일** | ${now} |`);
+      expect(writtenContent).toContain(
+        `| **프로젝트명** | ${mockSnapshot.projectName} |`
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('should keep existing first analyzed date when re-running updates', async () => {
+      vi.useFakeTimers();
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+      const mkdirMock = vi.mocked(fs.mkdir);
+
+      writeFileMock.mockResolvedValue(undefined);
+      mkdirMock.mockResolvedValue(undefined);
+
+      const legacyContent = `# 📊 프로젝트 종합 평가 보고서
+
+## 📋 프로젝트 개요
+
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | legacy-project |
+| **버전** | 0.0.1 |
+| **최초 분석일** | 2025-01-01 00:00 |
+| **최근 분석일** | 2025-01-01 00:00 |
+| **파일 수** | 1 |
+| **디렉토리 수** | 1 |
+| **주요 언어** | TS |
+| **프레임워크** | - |
+
+---
+
+## 다음 섹션
+Legacy content`;
+
+      const mockDiff: SnapshotDiff = {
+        isInitial: false,
+        newFiles: [],
+        removedFiles: [],
+        changedConfigs: [],
+        gitChanges: undefined,
+        totalChanges: 0,
+        previousSnapshotTime: new Date().toISOString(),
+        currentSnapshotTime: new Date().toISOString(),
+        languageStatsDiff: {},
+      };
+
+      vi.setSystemTime(new Date('2025-02-03T04:05:06.000Z'));
+      const firstNow = formatDateTimeKorean(new Date());
+      readFileMock.mockResolvedValueOnce(legacyContent);
+      await service.updateEvaluationReport(
+        mockRootPath,
+        mockConfig,
+        mockSnapshot,
+        mockDiff,
+        '테스트 프롬프트',
+        'AI 응답 내용'
+      );
+
+      const firstWritten = writeFileMock.mock.calls[0][1] as string;
+
+      vi.setSystemTime(new Date('2025-02-04T07:08:09.000Z'));
+      readFileMock.mockResolvedValueOnce(firstWritten);
+      const now = formatDateTimeKorean(new Date());
+
+      await service.updateEvaluationReport(
+        mockRootPath,
+        mockConfig,
+        mockSnapshot,
+        mockDiff,
+        '테스트 프롬프트',
+        'AI 응답 내용'
+      );
+
+      const secondWritten = writeFileMock.mock.calls[1][1] as string;
+      expect(secondWritten).toContain(`| **최초 분석일** | ${firstNow} |`);
+      expect(secondWritten).toContain(`| **최근 분석일** | ${now} |`);
+
+      vi.useRealTimers();
+    });
+
+    it('should correctly replace content between markers', async () => {        
       const templateWithMarkers = `# Report
 
 ${MARKERS.SUMMARY_START}

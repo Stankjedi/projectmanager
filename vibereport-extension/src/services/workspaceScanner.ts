@@ -12,6 +12,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { parse, type ParseError } from 'jsonc-parser';
 import type {
   ProjectSnapshot,
   DirectoryNode,
@@ -26,6 +27,23 @@ import type {
 } from '../models/types.js';
 import { LANGUAGE_EXTENSIONS, IMPORTANT_CONFIG_FILES } from '../models/types.js';
 import { getCachedValue, setCachedValue, createCacheKey } from './snapshotCache.js';
+
+function normalizeExcludePatterns(patterns: string[]): string[] {
+  const trimmed = patterns
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0)
+    .sort();
+
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const pattern of trimmed) {
+    if (seen.has(pattern)) continue;
+    seen.add(pattern);
+    unique.push(pattern);
+  }
+
+  return unique;
+}
 
 export class WorkspaceScanner {
   private outputChannel: vscode.OutputChannel;
@@ -120,7 +138,13 @@ export class WorkspaceScanner {
     rootPath: string,
     config: VibeReportConfig
   ): Promise<string[]> {
-    const cacheKey = createCacheKey('file-list', rootPath, config.maxFilesToScan);
+    const normalizedExcludePatterns = normalizeExcludePatterns(config.excludePatterns);
+    const cacheKey = createCacheKey(
+      'file-list',
+      rootPath,
+      config.maxFilesToScan,
+      `exclude=${normalizedExcludePatterns.join(',')}`
+    );
     const cached = getCachedValue<string[]>(cacheKey);
 
     if (cached) {
@@ -128,7 +152,10 @@ export class WorkspaceScanner {
       return cached;
     }
 
-    const excludePattern = `{${config.excludePatterns.join(',')}}`;
+    const excludePattern =
+      normalizedExcludePatterns.length > 0
+        ? `{${normalizedExcludePatterns.join(',')}}`
+        : undefined;
 
     const uris = await vscode.workspace.findFiles(
       '**/*',
@@ -187,8 +214,10 @@ export class WorkspaceScanner {
     try {
       const tscPath = path.join(rootPath, 'tsconfig.json');
       const content = await fs.readFile(tscPath, 'utf-8');
-      const tsc = JSON.parse(content);
-      configs.tsconfig = this.parseTsConfig(tsc);
+      const tsc = this.parseJsoncObject(content);
+      if (tsc) {
+        configs.tsconfig = this.parseTsConfig(tsc);
+      }
     } catch {
       // 파일 없음
     }
@@ -201,9 +230,11 @@ export class WorkspaceScanner {
     for (const tauriPath of tauriPaths) {
       try {
         const content = await fs.readFile(tauriPath, 'utf-8');
-        const tauri = JSON.parse(content);
-        configs.tauriConfig = this.parseTauriConfig(tauri);
-        break;
+        const tauri = this.parseJsoncObject(content);
+        if (tauri) {
+          configs.tauriConfig = this.parseTauriConfig(tauri);
+          break;
+        }
       } catch {
         // 다음 경로 시도
       }
@@ -259,6 +290,22 @@ export class WorkspaceScanner {
     }
 
     return configs;
+  }
+
+  private parseJsoncObject(content: string): Record<string, unknown> | null {
+    try {
+      const errors: ParseError[] = [];
+      const parsed = parse(content, errors, { allowTrailingComma: true });
+
+      if (errors.length > 0) return null;
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return null;
+      }
+
+      return parsed as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -468,7 +515,7 @@ export class WorkspaceScanner {
         const log = await git.log({ maxCount: 1 });
         if (log.latest) {
           lastCommit = {
-            hash: log.latest.hash.substring(0, 7),
+            hash: log.latest.hash,
             message: log.latest.message.split('\n')[0],
             date: log.latest.date,
           };

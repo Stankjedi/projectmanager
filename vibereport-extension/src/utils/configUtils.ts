@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type { VibeReportConfig, ProjectType, QualityFocus } from '../models/types.js';
 
 // Cache last selected workspace root for multi-root UX.
@@ -23,6 +24,7 @@ export function getLastSelectedWorkspaceRoot(): string | null {
  */
 export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
   reportDirectory: 'devplan',
+  analysisRoot: '',
   snapshotFile: '.vscode/vibereport-state.json',
   enableGitDiff: true,
   excludePatterns: [
@@ -38,6 +40,7 @@ export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
     '**/coverage/**',
     '**/*.log',
     '**/*.lock',
+    '**/*.vsix',
   ],
   maxFilesToScan: 5000,
   autoOpenReports: true,
@@ -63,6 +66,7 @@ export function loadConfig(): VibeReportConfig {
   
   return {
     reportDirectory: config.get<string>('reportDirectory', DEFAULT_CONFIG.reportDirectory),
+    analysisRoot: config.get<string>('analysisRoot', DEFAULT_CONFIG.analysisRoot),
     snapshotFile: config.get<string>('snapshotFile', DEFAULT_CONFIG.snapshotFile),
     enableGitDiff: config.get<boolean>('enableGitDiff', DEFAULT_CONFIG.enableGitDiff),
     excludePatterns: config.get<string[]>('excludePatterns', [...DEFAULT_CONFIG.excludePatterns]),
@@ -74,6 +78,24 @@ export function loadConfig(): VibeReportConfig {
     defaultProjectType: config.get<ProjectType | 'auto-detect'>('defaultProjectType', DEFAULT_CONFIG.defaultProjectType),
     defaultQualityFocus: config.get<QualityFocus>('defaultQualityFocus', DEFAULT_CONFIG.defaultQualityFocus),
   };
+}
+
+export function resolveAnalysisRoot(workspaceRoot: string, analysisRoot: string): string {
+  const normalizedWorkspaceRoot = path.resolve(workspaceRoot);
+  const trimmed = analysisRoot.trim();
+
+  if (!trimmed) {
+    return normalizedWorkspaceRoot;
+  }
+
+  const resolved = path.resolve(normalizedWorkspaceRoot, trimmed);
+  const relative = path.relative(normalizedWorkspaceRoot, resolved);
+
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+    return resolved;
+  }
+
+  throw new Error('analysisRoot must be a subpath of the workspace root');
 }
 
 /**

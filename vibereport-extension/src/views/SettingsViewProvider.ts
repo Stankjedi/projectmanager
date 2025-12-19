@@ -6,6 +6,221 @@
  */
 
 import * as vscode from 'vscode';
+import { DEFAULT_CONFIG } from '../utils/configUtils.js';
+
+type SettingsKey =
+  | 'reportDirectory'
+  | 'analysisRoot'
+  | 'snapshotFile'
+  | 'enableGitDiff'
+  | 'excludePatterns'
+  | 'maxFilesToScan'
+  | 'autoOpenReports'
+  | 'enableDirectAi'
+  | 'language'
+  | 'projectVisionMode'
+  | 'defaultProjectType'
+  | 'defaultQualityFocus'
+  | 'enableAutoUpdateReports'
+  | 'autoUpdateDebounceMs'
+  | 'previewEnabled'
+  | 'preferredMarkdownViewer'
+  | 'previewBackgroundColor'
+  | 'reportOpenMode';
+
+const SETTINGS_KEYS: ReadonlySet<SettingsKey> = new Set<SettingsKey>([
+  'reportDirectory',
+  'analysisRoot',
+  'snapshotFile',
+  'enableGitDiff',
+  'excludePatterns',
+  'maxFilesToScan',
+  'autoOpenReports',
+  'enableDirectAi',
+  'language',
+  'projectVisionMode',
+  'defaultProjectType',
+  'defaultQualityFocus',
+  'previewEnabled',
+  'preferredMarkdownViewer',
+  'previewBackgroundColor',
+  'reportOpenMode',
+  'enableAutoUpdateReports',
+  'autoUpdateDebounceMs',
+]);
+
+function isSettingsKey(key: string): key is SettingsKey {
+  return SETTINGS_KEYS.has(key as SettingsKey);
+}
+
+const SETTINGS_DEFAULT_FACTORIES: Record<SettingsKey, () => unknown> = {
+  reportDirectory: () => DEFAULT_CONFIG.reportDirectory,
+  analysisRoot: () => DEFAULT_CONFIG.analysisRoot,
+  snapshotFile: () => DEFAULT_CONFIG.snapshotFile,
+  enableGitDiff: () => DEFAULT_CONFIG.enableGitDiff,
+  excludePatterns: () => [...DEFAULT_CONFIG.excludePatterns],
+  maxFilesToScan: () => DEFAULT_CONFIG.maxFilesToScan,
+  autoOpenReports: () => DEFAULT_CONFIG.autoOpenReports,
+  enableDirectAi: () => DEFAULT_CONFIG.enableDirectAi,
+  language: () => DEFAULT_CONFIG.language,
+  projectVisionMode: () => DEFAULT_CONFIG.projectVisionMode,
+  defaultProjectType: () => DEFAULT_CONFIG.defaultProjectType,
+  defaultQualityFocus: () => DEFAULT_CONFIG.defaultQualityFocus,
+  enableAutoUpdateReports: () => false,
+  autoUpdateDebounceMs: () => 1500,
+  previewEnabled: () => true,
+  preferredMarkdownViewer: () => 'mermaid',
+  previewBackgroundColor: () => 'ide',
+  reportOpenMode: () => 'previewOnly',
+};
+
+type ValidationResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: string };
+
+function validateSettingValue(key: SettingsKey, value: unknown): ValidationResult<unknown> {
+  const trimmedString = (input: unknown): ValidationResult<string> => {
+    if (typeof input !== 'string') {
+      return { ok: false, error: '문자열 값이 필요합니다.' };
+    }
+
+    return { ok: true, value: input.trim() };
+  };
+
+  const booleanValue = (input: unknown): ValidationResult<boolean> => {
+    if (typeof input !== 'boolean') {
+      return { ok: false, error: '불리언 값이 필요합니다.' };
+    }
+
+    return { ok: true, value: input };
+  };
+
+  const enumValue = <T extends string>(
+    input: unknown,
+    allowed: readonly T[],
+    label: string
+  ): ValidationResult<T> => {
+    if (typeof input !== 'string') {
+      return { ok: false, error: `${label} 값이 필요합니다.` };
+    }
+
+    if (!allowed.includes(input as T)) {
+      return { ok: false, error: `${label} 값이 올바르지 않습니다.` };
+    }
+
+    return { ok: true, value: input as T };
+  };
+
+  switch (key) {
+    case 'reportDirectory': {
+      const res = trimmedString(value);
+      if (!res.ok) return res;
+      return { ok: true, value: res.value || DEFAULT_CONFIG.reportDirectory };
+    }
+    case 'analysisRoot': {
+      const res = trimmedString(value);
+      if (!res.ok) return res;
+      // Empty means workspace root.
+      return { ok: true, value: res.value };
+    }
+    case 'snapshotFile': {
+      const res = trimmedString(value);
+      if (!res.ok) return res;
+      return { ok: true, value: res.value || DEFAULT_CONFIG.snapshotFile };
+    }
+    case 'enableGitDiff':
+    case 'autoOpenReports':
+    case 'enableDirectAi': {
+      return booleanValue(value);
+    }
+    case 'previewEnabled':
+    case 'enableAutoUpdateReports': {
+      return booleanValue(value);
+    }
+    case 'excludePatterns': {
+      let patterns: string[];
+      if (Array.isArray(value)) {
+        patterns = value.filter((v): v is string => typeof v === 'string');
+      } else if (typeof value === 'string') {
+        patterns = value.split('\n');
+      } else {
+        return { ok: false, error: 'excludePatterns는 문자열 배열이어야 합니다.' };
+      }
+
+      const normalized: string[] = [];
+      const seen = new Set<string>();
+      for (const raw of patterns) {
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+        if (seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        normalized.push(trimmed);
+      }
+
+      return { ok: true, value: normalized };
+    }
+    case 'maxFilesToScan': {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return { ok: false, error: 'maxFilesToScan은 숫자여야 합니다.' };
+      }
+
+      const intValue = Math.trunc(value);
+      const clamped = Math.max(100, Math.min(50000, intValue));
+      return { ok: true, value: clamped };
+    }
+    case 'autoUpdateDebounceMs': {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return { ok: false, error: 'autoUpdateDebounceMs는 숫자여야 합니다.' };
+      }
+
+      const intValue = Math.trunc(value);
+      const clamped = Math.max(0, Math.min(60000, intValue));
+      return { ok: true, value: clamped };
+    }
+    case 'language': {
+      return enumValue(value, ['ko', 'en'] as const, '언어');
+    }
+    case 'projectVisionMode': {
+      return enumValue(value, ['auto', 'custom'] as const, '비전 모드');
+    }
+    case 'defaultProjectType': {
+      return enumValue(
+        value,
+        [
+          'auto-detect',
+          'vscode-extension',
+          'web-frontend',
+          'web-backend',
+          'fullstack',
+          'cli-tool',
+          'library',
+          'desktop-app',
+          'mobile-app',
+          'api-server',
+          'monorepo',
+          'other',
+        ] as const,
+        '프로젝트 유형'
+      );
+    }
+    case 'defaultQualityFocus': {
+      return enumValue(
+        value,
+        ['prototype', 'development', 'stabilization', 'production', 'maintenance'] as const,
+        '개발 단계'
+      );
+    }
+    case 'preferredMarkdownViewer': {
+      return enumValue(value, ['mermaid', 'standard'] as const, '기본 미리보기 뷰어');
+    }
+    case 'previewBackgroundColor': {
+      return enumValue(value, ['ide', 'white', 'black'] as const, '프리뷰 배경색');
+    }
+    case 'reportOpenMode': {
+      return enumValue(value, ['previewOnly', 'both', 'editorOnly'] as const, '보고서 열기 모드');
+    }
+  }
+}
 
 /**
  * 설정 뷰 프로바이더
@@ -54,8 +269,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     // 메시지 핸들러 등록
     webviewView.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
-        case 'updateSetting':
-          await this.updateSetting(message.key, message.value);
+        case 'updateSettings':
+          await this.updateSettings(message.settings);
           break;
         case 'getSetting':
           await this.sendCurrentSettings();
@@ -73,44 +288,111 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * 설정값 업데이트
+   * 설정값 배치 업데이트
+   *
+   * 정책: all-or-nothing (유효성 검증에 실패하면 아무 것도 반영하지 않음)
    */
-  private async updateSetting(key: string, value: any): Promise<void> {
+  private async updateSettings(settings: unknown): Promise<void> {
     try {
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        const message = '설정 업데이트 실패: settings는 객체여야 합니다.';
+        this.log(message);
+        vscode.window.showErrorMessage(message);
+        return;
+      }
+
+      const payload = settings as Record<string, unknown>;
+
+      const unknownKeys = Object.keys(payload).filter((key) => !isSettingsKey(key));
+      if (unknownKeys.length > 0) {
+        const message = `허용되지 않은 설정 키가 포함되어 있습니다: ${unknownKeys.join(', ')}`;
+        this.log(message);
+        vscode.window.showErrorMessage(message);
+        return;
+      }
+
+      const validated = new Map<SettingsKey, unknown>();
+      for (const key of SETTINGS_KEYS) {
+        if (!(key in payload)) continue;
+        const res = validateSettingValue(key, payload[key]);
+        if (!res.ok) {
+          const message = `설정 값이 올바르지 않습니다 (${key}): ${res.error}`;
+          this.log(`${message} (value=${JSON.stringify(payload[key])})`);
+          vscode.window.showErrorMessage(message);
+          return;
+        }
+        validated.set(key, res.value);
+      }
+
       const config = vscode.workspace.getConfiguration('vibereport');
-      await config.update(key, value, vscode.ConfigurationTarget.Workspace);
 
-      this.log(`설정 업데이트: ${key} = ${JSON.stringify(value)}`);
-      vscode.window.showInformationMessage(`설정이 저장되었습니다: ${key}`);
+      const updates: Array<{ key: SettingsKey; value: unknown }> = [];
+      for (const key of SETTINGS_KEYS) {
+        if (!validated.has(key)) continue;
+        const value = validated.get(key);
+        const current = config.get(key, SETTINGS_DEFAULT_FACTORIES[key]());
 
-      // 설정 변경 후 UI 업데이트
+        const isEqual =
+          key === 'excludePatterns'
+            ? Array.isArray(current) &&
+              Array.isArray(value) &&
+              current.length === value.length &&
+              current.every((item, index) => item === value[index])
+            : Object.is(current, value);
+
+        if (isEqual) {
+          continue;
+        }
+
+        updates.push({ key, value });
+      }
+
+      for (const { key, value } of updates) {
+        await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+        this.log(`설정 배치 업데이트: ${key} = ${JSON.stringify(value)}`);
+      }
+
+      if (updates.length === 0) {
+        this.log('설정 배치 업데이트: 변경 사항 없음 (config.update 생략)');
+      }
+
+      vscode.window.showInformationMessage('설정이 저장되었습니다.');
       await this.sendCurrentSettings();
     } catch (error) {
-      this.log(`설정 업데이트 실패: ${error}`);
+      this.log(`설정 배치 업데이트 실패: ${error}`);
       vscode.window.showErrorMessage(`설정 저장 실패: ${error}`);
     }
   }
 
+  /**
+   * 설정값 업데이트
+   */
   /**
    * 현재 설정값을 웹뷰에 전송
    */
   private async sendCurrentSettings(): Promise<void> {
     if (!this._view) return;
 
-    const config = vscode.workspace.getConfiguration('vibereport');
+    const config = vscode.workspace.getConfiguration('vibereport');       
     const settings = {
-      reportDirectory: config.get<string>('reportDirectory', 'devplan'),
-      snapshotFile: config.get<string>('snapshotFile', '.vscode/vibereport-state.json'),
-      enableGitDiff: config.get<boolean>('enableGitDiff', true),
-      excludePatterns: config.get<string[]>('excludePatterns', []),
-      maxFilesToScan: config.get<number>('maxFilesToScan', 5000),
-      autoOpenReports: config.get<boolean>('autoOpenReports', true),
-      language: config.get<string>('language', 'ko'),
-      projectVisionMode: config.get<string>('projectVisionMode', 'auto'),
-      defaultProjectType: config.get<string>('defaultProjectType', 'auto-detect'),
-      defaultQualityFocus: config.get<string>('defaultQualityFocus', 'development'),
+      reportDirectory: config.get<string>('reportDirectory', DEFAULT_CONFIG.reportDirectory),
+      analysisRoot: config.get<string>('analysisRoot', DEFAULT_CONFIG.analysisRoot),
+      snapshotFile: config.get<string>('snapshotFile', DEFAULT_CONFIG.snapshotFile),
+      enableGitDiff: config.get<boolean>('enableGitDiff', DEFAULT_CONFIG.enableGitDiff),
+      excludePatterns: config.get<string[]>('excludePatterns', [...DEFAULT_CONFIG.excludePatterns]),
+      maxFilesToScan: config.get<number>('maxFilesToScan', DEFAULT_CONFIG.maxFilesToScan),
+      autoOpenReports: config.get<boolean>('autoOpenReports', DEFAULT_CONFIG.autoOpenReports),
+      enableDirectAi: config.get<boolean>('enableDirectAi', DEFAULT_CONFIG.enableDirectAi),
+      language: config.get<'ko' | 'en'>('language', DEFAULT_CONFIG.language),
+      projectVisionMode: config.get<'auto' | 'custom'>('projectVisionMode', DEFAULT_CONFIG.projectVisionMode),
+      defaultProjectType: config.get<string>('defaultProjectType', DEFAULT_CONFIG.defaultProjectType),
+      defaultQualityFocus: config.get<string>('defaultQualityFocus', DEFAULT_CONFIG.defaultQualityFocus),
+      previewEnabled: config.get<boolean>('previewEnabled', true),
+      preferredMarkdownViewer: config.get<'mermaid' | 'standard'>('preferredMarkdownViewer', 'mermaid'),
       previewBackgroundColor: config.get<string>('previewBackgroundColor', 'ide'),
       reportOpenMode: config.get<string>('reportOpenMode', 'previewOnly'),
+      enableAutoUpdateReports: config.get<boolean>('enableAutoUpdateReports', false),
+      autoUpdateDebounceMs: config.get<number>('autoUpdateDebounceMs', 1500),
     };
 
     await this._view.webview.postMessage({
@@ -123,27 +405,27 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
    * 설정을 기본값으로 초기화
    */
   private async resetToDefaults(): Promise<void> {
-    const config = vscode.workspace.getConfiguration('vibereport');
+    const config = vscode.workspace.getConfiguration('vibereport');       
 
     const defaults = {
-      reportDirectory: 'devplan',
-      snapshotFile: '.vscode/vibereport-state.json',
-      enableGitDiff: true,
-      excludePatterns: [
-        '**/node_modules/**',
-        '**/dist/**',
-        '**/out/**',
-        '**/build/**',
-        '**/.git/**',
-      ],
-      maxFilesToScan: 5000,
-      autoOpenReports: true,
-      language: 'ko',
-      projectVisionMode: 'auto',
-      defaultProjectType: 'auto-detect',
-      defaultQualityFocus: 'development',
+      reportDirectory: DEFAULT_CONFIG.reportDirectory,
+      analysisRoot: DEFAULT_CONFIG.analysisRoot,
+      snapshotFile: DEFAULT_CONFIG.snapshotFile,
+      enableGitDiff: DEFAULT_CONFIG.enableGitDiff,
+      excludePatterns: [...DEFAULT_CONFIG.excludePatterns],
+      maxFilesToScan: DEFAULT_CONFIG.maxFilesToScan,
+      autoOpenReports: DEFAULT_CONFIG.autoOpenReports,
+      enableDirectAi: DEFAULT_CONFIG.enableDirectAi,
+      language: DEFAULT_CONFIG.language,
+      projectVisionMode: DEFAULT_CONFIG.projectVisionMode,
+      defaultProjectType: DEFAULT_CONFIG.defaultProjectType,
+      defaultQualityFocus: DEFAULT_CONFIG.defaultQualityFocus,
+      previewEnabled: true,
+      preferredMarkdownViewer: 'mermaid',
       previewBackgroundColor: 'ide',
       reportOpenMode: 'previewOnly',
+      enableAutoUpdateReports: false,
+      autoUpdateDebounceMs: 1500,
     };
 
     for (const [key, value] of Object.entries(defaults)) {
@@ -324,6 +606,12 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     <input type="text" class="setting-input" id="snapshotFile" value=".vscode/vibereport-state.json">
   </div>
 
+  <div class="setting-group">
+    <div class="setting-label">분석 루트 (analysisRoot)</div>
+    <div class="setting-description">모노레포/서브폴더 분석 시 워크스페이스 루트 기준 상대 경로 (비워두면 전체)</div>
+    <input type="text" class="setting-input" id="analysisRoot" value="">
+  </div>
+
   <!-- 스캔 설정 -->
   <div class="section-title">🔍 스캔 설정</div>
 
@@ -340,7 +628,15 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 **/dist/**
 **/out/**
 **/build/**
-**/.git/**</textarea>
+**/.git/**
+**/target/**
+**/.next/**
+**/__pycache__/**
+**/.venv/**
+**/coverage/**
+**/*.log
+**/*.lock
+**/*.vsix</textarea>
   </div>
 
   <!-- 동작 설정 -->
@@ -363,6 +659,14 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
   </div>
 
   <div class="setting-group">
+    <label class="setting-checkbox">
+      <input type="checkbox" id="enableDirectAi">
+      <span>Direct AI 활성화</span>
+    </label>
+    <div class="setting-description">외부 AI 연동(Direct AI)을 활성화합니다</div>
+  </div>
+
+  <div class="setting-group">
     <div class="setting-label">언어</div>
     <div class="setting-description">보고서 생성 언어</div>
     <select class="setting-select" id="language">
@@ -371,8 +675,42 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     </select>
   </div>
 
+  <!-- 자동 업데이트 설정 -->
+  <div class="section-title">🔄 자동 업데이트</div>
+
+  <div class="setting-group">
+    <label class="setting-checkbox">
+      <input type="checkbox" id="enableAutoUpdateReports">
+      <span>파일 변경 시 보고서 자동 업데이트</span>
+    </label>
+    <div class="setting-description">파일 변경을 감지하면 보고서 업데이트를 자동 실행합니다</div>
+  </div>
+
+  <div class="setting-group">
+    <div class="setting-label">디바운스 시간(ms)</div>
+    <div class="setting-description">변경이 잠잠해진 뒤 업데이트를 실행하는 대기 시간</div>
+    <input type="number" class="setting-input number-input" id="autoUpdateDebounceMs" value="1500" min="0" max="60000" disabled>
+  </div>
+
   <!-- 프리뷰 설정 -->
   <div class="section-title">🎨 프리뷰 설정</div>
+
+  <div class="setting-group">
+    <label class="setting-checkbox">
+      <input type="checkbox" id="previewEnabled" checked>
+      <span>프리뷰 스타일 활성화</span>
+    </label>
+    <div class="setting-description">보고서 마크다운 미리보기에 Vibe Report 스타일을 적용합니다</div>
+  </div>
+
+  <div class="setting-group">
+    <div class="setting-label">기본 미리보기 뷰어</div>
+    <div class="setting-description">보고서 미리보기에 사용할 뷰어를 선택합니다</div>
+    <select class="setting-select" id="preferredMarkdownViewer">
+      <option value="mermaid">🔍 Mermaid 프리뷰 (권장)</option>
+      <option value="standard">📝 VS Code 기본 미리보기</option>
+    </select>
+  </div>
 
   <div class="setting-group">
     <div class="setting-label">프리뷰 배경색</div>
@@ -452,59 +790,96 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-
+    const DEFAULTS = ${JSON.stringify(DEFAULT_CONFIG)};
+    const UI_DEFAULTS = {
+      previewBackgroundColor: 'ide',
+      reportOpenMode: 'previewOnly',
+      previewEnabled: true,
+      preferredMarkdownViewer: 'mermaid',
+      enableAutoUpdateReports: false,
+      autoUpdateDebounceMs: 1500,
+    };
+  
     // 요소 참조
     const elements = {
       reportDirectory: document.getElementById('reportDirectory'),
       snapshotFile: document.getElementById('snapshotFile'),
+      analysisRoot: document.getElementById('analysisRoot'),
       maxFilesToScan: document.getElementById('maxFilesToScan'),
       excludePatterns: document.getElementById('excludePatterns'),
       enableGitDiff: document.getElementById('enableGitDiff'),
       autoOpenReports: document.getElementById('autoOpenReports'),
+      enableDirectAi: document.getElementById('enableDirectAi'),
       language: document.getElementById('language'),
       projectVisionMode: document.getElementById('projectVisionMode'),
       defaultProjectType: document.getElementById('defaultProjectType'),
       defaultQualityFocus: document.getElementById('defaultQualityFocus'),
+      enableAutoUpdateReports: document.getElementById('enableAutoUpdateReports'),
+      autoUpdateDebounceMs: document.getElementById('autoUpdateDebounceMs'),
+      previewEnabled: document.getElementById('previewEnabled'),
+      preferredMarkdownViewer: document.getElementById('preferredMarkdownViewer'),
       previewBackgroundColor: document.getElementById('previewBackgroundColor'),
       reportOpenMode: document.getElementById('reportOpenMode'),
     };
 
+    function syncAutoUpdateUi() {
+      const enabled = elements.enableAutoUpdateReports.checked;
+      elements.autoUpdateDebounceMs.disabled = !enabled;
+    }
+
     // 설정 로드
     function loadSettings(settings) {
-      elements.reportDirectory.value = settings.reportDirectory || 'devplan';
-      elements.snapshotFile.value = settings.snapshotFile || '.vscode/vibereport-state.json';
-      elements.maxFilesToScan.value = settings.maxFilesToScan || 5000;
-      elements.excludePatterns.value = (settings.excludePatterns || []).join('\\n');
-      elements.enableGitDiff.checked = settings.enableGitDiff !== false;
-      elements.autoOpenReports.checked = settings.autoOpenReports !== false;
-      elements.language.value = settings.language || 'ko';
-      elements.projectVisionMode.value = settings.projectVisionMode || 'auto';
-      elements.defaultProjectType.value = settings.defaultProjectType || 'auto-detect';
-      elements.defaultQualityFocus.value = settings.defaultQualityFocus || 'development';
-      elements.previewBackgroundColor.value = settings.previewBackgroundColor || 'ide';
-      elements.reportOpenMode.value = settings.reportOpenMode || 'previewOnly';
+      elements.reportDirectory.value = settings.reportDirectory ?? DEFAULTS.reportDirectory;
+      elements.snapshotFile.value = settings.snapshotFile ?? DEFAULTS.snapshotFile;
+      elements.analysisRoot.value = settings.analysisRoot ?? DEFAULTS.analysisRoot;
+      elements.maxFilesToScan.value = String(settings.maxFilesToScan ?? DEFAULTS.maxFilesToScan);
+      elements.excludePatterns.value = (settings.excludePatterns ?? DEFAULTS.excludePatterns).join('\\n');
+      elements.enableGitDiff.checked = settings.enableGitDiff ?? DEFAULTS.enableGitDiff;
+      elements.autoOpenReports.checked = settings.autoOpenReports ?? DEFAULTS.autoOpenReports;
+      elements.enableDirectAi.checked = settings.enableDirectAi ?? DEFAULTS.enableDirectAi;
+      elements.language.value = settings.language ?? DEFAULTS.language;
+      elements.projectVisionMode.value = settings.projectVisionMode ?? DEFAULTS.projectVisionMode;
+      elements.defaultProjectType.value = settings.defaultProjectType ?? DEFAULTS.defaultProjectType;
+      elements.defaultQualityFocus.value = settings.defaultQualityFocus ?? DEFAULTS.defaultQualityFocus;
+      elements.enableAutoUpdateReports.checked = settings.enableAutoUpdateReports ?? UI_DEFAULTS.enableAutoUpdateReports;
+      elements.autoUpdateDebounceMs.value = String(settings.autoUpdateDebounceMs ?? UI_DEFAULTS.autoUpdateDebounceMs);
+      elements.previewEnabled.checked = settings.previewEnabled ?? UI_DEFAULTS.previewEnabled;
+      elements.preferredMarkdownViewer.value = settings.preferredMarkdownViewer ?? UI_DEFAULTS.preferredMarkdownViewer;
+      elements.previewBackgroundColor.value = settings.previewBackgroundColor ?? UI_DEFAULTS.previewBackgroundColor;
+      elements.reportOpenMode.value = settings.reportOpenMode ?? UI_DEFAULTS.reportOpenMode;
+      syncAutoUpdateUi();
     }
 
     // 모든 설정 저장
     function saveAllSettings() {
+      const debounceMs = parseInt(elements.autoUpdateDebounceMs.value, 10);
+      const resolvedDebounceMs = Number.isFinite(debounceMs) ? debounceMs : UI_DEFAULTS.autoUpdateDebounceMs;
+
       const settings = {
         reportDirectory: elements.reportDirectory.value.trim(),
         snapshotFile: elements.snapshotFile.value.trim(),
+        analysisRoot: elements.analysisRoot.value.trim(),
         maxFilesToScan: parseInt(elements.maxFilesToScan.value, 10) || 5000,
-        excludePatterns: elements.excludePatterns.value.split('\\n').filter(p => p.trim()),
+        excludePatterns: elements.excludePatterns.value
+          .split('\\n')
+          .map(p => p.trim())
+          .filter(Boolean),
         enableGitDiff: elements.enableGitDiff.checked,
         autoOpenReports: elements.autoOpenReports.checked,
+        enableDirectAi: elements.enableDirectAi.checked,
         language: elements.language.value,
         projectVisionMode: elements.projectVisionMode.value,
         defaultProjectType: elements.defaultProjectType.value,
         defaultQualityFocus: elements.defaultQualityFocus.value,
+        enableAutoUpdateReports: elements.enableAutoUpdateReports.checked,
+        autoUpdateDebounceMs: resolvedDebounceMs,
+        previewEnabled: elements.previewEnabled.checked,
+        preferredMarkdownViewer: elements.preferredMarkdownViewer.value,
         previewBackgroundColor: elements.previewBackgroundColor.value,
         reportOpenMode: elements.reportOpenMode.value,
       };
 
-      for (const [key, value] of Object.entries(settings)) {
-        vscode.postMessage({ command: 'updateSetting', key, value });
-      }
+      vscode.postMessage({ command: 'updateSettings', settings });
     }
 
     // 이벤트 리스너
@@ -517,6 +892,8 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     document.getElementById('btn-set-vision').addEventListener('click', function() {
       vscode.postMessage({ command: 'openSetVision' });
     });
+
+    elements.enableAutoUpdateReports.addEventListener('change', syncAutoUpdateUi);
 
     // 메시지 수신
     window.addEventListener('message', function(event) {

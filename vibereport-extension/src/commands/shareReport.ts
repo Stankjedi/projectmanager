@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { loadConfig, getRootPath } from '../utils/index.js';
-import { resolvePreviewColors, type PreviewBackgroundSetting } from '../utils/previewColors.js';
+import { getPreviewStyle } from '../utils/previewStyle.js';
 import { buildPreviewHtml, extractScoreTable } from './shareReportPreview.js';
 
 export class ShareReportCommand {
@@ -146,50 +146,10 @@ ${scoreTable}
   }
 
   /**
-   * 배경색 설정 가져오기
-   */
-  private getBackgroundStyle(): { bg: string; fg: string; border: string; link: string } {
-    const config = vscode.workspace.getConfiguration('vibereport');
-    const bgSettingRaw = config.get<string>('previewBackgroundColor', 'ide');
-
-    const bgSetting: PreviewBackgroundSetting =
-      bgSettingRaw === 'white' || bgSettingRaw === 'black' || bgSettingRaw === 'ide'
-        ? bgSettingRaw
-        : 'ide';
-
-    if (bgSetting === 'ide') {
-      return {
-        bg: 'var(--vscode-editor-background)',
-        fg: 'var(--vscode-foreground)',
-        border: 'var(--vscode-panel-border)',
-        link: 'var(--vscode-textLink-foreground)',
-      };
-    }
-
-    const colors = resolvePreviewColors(bgSetting);
-
-    if (!colors) {
-      return {
-        bg: 'var(--vscode-editor-background)',
-        fg: 'var(--vscode-foreground)',
-        border: 'var(--vscode-panel-border)',
-        link: 'var(--vscode-textLink-foreground)',
-      };
-    }
-
-    return {
-      bg: colors.bg,
-      fg: colors.fg,
-      border: colors.border,
-      link: bgSetting === 'white' ? '#0066cc' : '#4fc3f7',
-    };
-  }
-
-  /**
    * 미리보기 HTML 생성
    */
   private getPreviewHtml(markdown: string): string {
-    return buildPreviewHtml(markdown, this.getBackgroundStyle());
+    return buildPreviewHtml(markdown, getPreviewStyle(vscode.workspace.getConfiguration('vibereport')));
   }
 
   private log(message: string): void {

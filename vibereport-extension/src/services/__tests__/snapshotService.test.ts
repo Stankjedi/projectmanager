@@ -44,6 +44,7 @@ describe('SnapshotService', () => {
 
   const mockConfig: VibeReportConfig = {
     reportDirectory: 'devplan',
+    analysisRoot: '',
     snapshotFile: '.vscode/state.json',
     enableGitDiff: false,
     excludePatterns: ['**/node_modules/**'],

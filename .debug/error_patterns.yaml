@@ -1,0 +1,33 @@
+# Error Pattern Definitions
+# Used for normalizing and categorizing errors
+
+patterns:
+  typescript:
+    - code: "TS2307"
+      normalized: "MODULE_NOT_FOUND"
+      category: "type"
+    - code: "TS2339"
+      normalized: "PROPERTY_NOT_EXIST"
+      category: "type"
+    - code: "TS2345"
+      normalized: "TYPE_MISMATCH"
+      category: "type"
+
+  node:
+    - code: "ENOENT"
+      normalized: "FILE_NOT_FOUND"
+      category: "runtime"
+    - code: "EACCES"
+      normalized: "PERMISSION_DENIED"
+      category: "permission"
+    - code: "EADDRINUSE"
+      normalized: "PORT_IN_USE"
+      category: "network"
+
+  general:
+    - pattern: "out of memory"
+      normalized: "OUT_OF_MEMORY"
+      category: "runtime"
+    - pattern: "timeout"
+      normalized: "TIMEOUT"
+      category: "network"

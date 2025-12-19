@@ -101,6 +101,53 @@ export function replaceBetweenMarkersLines(
   return [...before, ...middle, ...after].join('\n');
 }
 
+export interface MarkerReplacementDefinition {
+  startMarker: string;
+  endMarker: string;
+  newBlock: string;
+}
+
+/**
+ * 여러 마커 구간을 한 번의 라인 split/scan으로 교체합니다.
+ *
+ * @description 동일 문서에서 여러 섹션을 갱신할 때 `replaceBetweenMarkersLines`를
+ * 반복 호출하며 content를 매번 split/scan하는 비용을 줄이기 위한 유틸입니다.
+ * 마커가 없는 교체 항목은 무시하며(throw 없음) 나머지만 적용합니다.
+ *
+ * @param content - 원본 문자열
+ * @param replacements - 교체 목록
+ * @returns 교체가 적용된 문자열 (마커가 없으면 원본 유지)
+ */
+export function replaceManyBetweenMarkersLines(
+  content: string,
+  replacements: MarkerReplacementDefinition[]
+): string {
+  if (replacements.length === 0) return content;
+
+  const lines = content.split('\n');
+
+  const targets = replacements
+    .map(replacement => ({
+      replacement,
+      range: findMarkerRange(lines, replacement.startMarker, replacement.endMarker),
+    }))
+    .filter((t): t is { replacement: MarkerReplacementDefinition; range: MarkerRange } =>
+      Boolean(t.range)
+    )
+    .sort((a, b) => b.range.start - a.range.start);
+
+  if (targets.length === 0) return content;
+
+  const nextLines = [...lines];
+  for (const { replacement, range } of targets) {
+    const middle = replacement.newBlock.replace(/\r?\n$/, '').split('\n');
+    const deleteCount = range.end - range.start - 1;
+    nextLines.splice(range.start + 1, deleteCount, ...middle);
+  }
+
+  return nextLines.join('\n');
+}
+
 /**
  * 마커 사이에 내용을 앞에 추가합니다. (prepend)
  *

@@ -63,6 +63,7 @@ describe('SummaryViewProvider', () => {
 
     expect(webviewView.webview.options.enableScripts).toBe(true);
     expect(webviewView.webview.html).toContain('<!DOCTYPE html>');
+    expect(webviewView.webview.html).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
   });
 
   it('refresh updates the rendered webview HTML', async () => {

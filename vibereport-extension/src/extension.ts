@@ -4,14 +4,18 @@
  */
 
 import * as vscode from 'vscode';
-import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand, ShareReportCommand } from './commands/index.js';
+import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand, ShareReportCommand, ReportDoctorCommand } from './commands/index.js';
+import { UpdateReportsAllCommand } from './commands/updateReportsAll.js';
+import { exportSettings, importSettings } from './commands/settingsSync.js';
+import { CleanHistoryCommand } from './commands/cleanHistory.js';
 import { OpenReportPreviewCommand } from './commands/openReportPreview.js';
+import { AutoUpdateReportsManager, type AutoUpdateStatus } from './services/realtimeWatcherService.js';
 import { ReportService } from './services/index.js';
 import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
-import { loadConfig, selectWorkspaceRoot } from './utils/index.js';
+import { formatTimestampForUi, loadConfig, selectWorkspaceRoot } from './utils/index.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -21,19 +25,78 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   outputChannel = vscode.window.createOutputChannel('Vibe Report');
   context.subscriptions.push(outputChannel);
 
+  const extensionVersion =
+    (require('../package.json') as { version?: string }).version ?? 'unknown';
+
   outputChannel.appendLine('='.repeat(50));
-  outputChannel.appendLine('Vibe Coding Report Extension v0.4.13');
+  outputChannel.appendLine(`Vibe Coding Report Extension v${extensionVersion}`);
   outputChannel.appendLine(`활성화 시간: ${new Date().toISOString()}`);
   outputChannel.appendLine('='.repeat(50));
 
   // 서비스 인스턴스 생성
   const reportService = new ReportService(outputChannel);
-  const updateReportsCommand = new UpdateReportsCommand(outputChannel);
-  const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);
+  const updateReportsCommand = new UpdateReportsCommand(outputChannel, context.globalState);
+  const updateReportsAllCommand = new UpdateReportsAllCommand(
+    outputChannel,
+    updateReportsCommand
+  );
+  const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);  
   const setVisionCommand = new SetProjectVisionCommand(outputChannel);
   const generatePromptCommand = new GeneratePromptCommand(outputChannel);
   const shareReportCommand = new ShareReportCommand(outputChannel);
+  const reportDoctorCommand = new ReportDoctorCommand(outputChannel);
+  const cleanHistoryCommand = new CleanHistoryCommand(outputChannel);
   const openReportPreviewCommand = new OpenReportPreviewCommand(outputChannel, context.extensionUri);
+
+  // Auto-update Reports (opt-in)
+  const baseConfig = loadConfig();
+  const readAutoUpdateSettings = (): { enabled: boolean; debounceMs: number } => {
+    const cfg = vscode.workspace.getConfiguration('vibereport');
+    return {
+      enabled: cfg.get<boolean>('enableAutoUpdateReports', false),
+      debounceMs: cfg.get<number>('autoUpdateDebounceMs', 1500),
+    };
+  };
+
+  const autoUpdateManager = new AutoUpdateReportsManager(
+    {
+      reportDirectory: baseConfig.reportDirectory,
+      snapshotFile: baseConfig.snapshotFile,
+      excludePatterns: baseConfig.excludePatterns,
+    },
+    () => vscode.workspace.workspaceFolders ?? [],
+    async () => {
+      const folders = vscode.workspace.workspaceFolders ?? [];
+      for (const folder of folders) {
+        const silentProgress: vscode.Progress<{ message?: string; increment?: number }> = {
+          report: ({ message }) => {
+            if (message) {
+              outputChannel.appendLine(`[AutoUpdate] ${folder.name}: ${message}`);
+            }
+          },
+        };
+
+        await updateReportsCommand.executeForWorkspace(folder.uri.fsPath, folder.name, {
+          progress: silentProgress,
+          suppressNotifications: true,
+          suppressOpenReports: true,
+        });
+      }
+    }
+  );
+  context.subscriptions.push(autoUpdateManager);
+
+  autoUpdateManager.applySettings(readAutoUpdateSettings());
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(event => {
+      if (
+        event.affectsConfiguration('vibereport.enableAutoUpdateReports') ||
+        event.affectsConfiguration('vibereport.autoUpdateDebounceMs')
+      ) {
+        autoUpdateManager.applySettings(readAutoUpdateSettings());
+      }
+    })
+  );
 
   // 미리보기 스타일 서비스 초기화
   const previewStyleService = new PreviewStyleService(outputChannel, context.extensionPath);
@@ -59,6 +122,44 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       setTimeout(() => {
         vscode.commands.executeCommand('vibereport.refreshViews');
       }, 500);
+    })
+  );
+
+  // 명령 등록: Update Reports All (multi-root batch)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.updateReportsAll', async () => {
+      await updateReportsAllCommand.execute();
+    })
+  );
+
+  // 명령 등록: Export Settings
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.exportSettings', async () => {
+      await exportSettings();
+    })
+  );
+
+  // 명령 등록: Import Settings
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.importSettings', async () => {
+      await importSettings();
+    })
+  );
+
+  // 명령 등록: Clear History
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.clearHistory', async () => {
+      await cleanHistoryCommand.execute();
+      setTimeout(() => {
+        vscode.commands.executeCommand('vibereport.refreshViews');        
+      }, 500);
+    })
+  );
+
+  // 명령 등록: Report Doctor
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.reportDoctor', async () => {
+      await reportDoctorCommand.execute();
     })
   );
 
@@ -258,6 +359,41 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider('vibereport.settings', settingsViewProvider)
   );
 
+  // Auto-update 상태를 StatusBar + Summary View에 반영
+  const renderAutoUpdateStatus = (status: AutoUpdateStatus): void => {
+    const baseText = '$(notebook-render-output) Vibe Report';
+    const baseTooltip = '프로젝트 보고서 업데이트 (Vibe Coding)';
+
+    if (!status.enabled) {
+      statusBarItem.text = baseText;
+      statusBarItem.tooltip = baseTooltip;
+    } else {
+      const runningLabel = status.isRunning ? '실행 중' : '대기';
+      const pendingLabel = status.hasPendingChanges
+        ? `${status.pendingPathsCount}개`
+        : '0개';
+      const lastRunAt = status.lastRunAt ?? '없음';
+      const lastRunResult =
+        status.lastRunResult === 'success'
+          ? '성공'
+          : status.lastRunResult === 'failed'
+            ? '실패'
+            : '없음';
+
+      statusBarItem.text = status.isRunning
+        ? `${baseText} $(sync~spin)`
+        : `${baseText} $(sync)`;
+      statusBarItem.tooltip = `${baseTooltip}\n자동 업데이트: 켜짐 (${runningLabel})\n대기 변경: ${pendingLabel}\n마지막 실행: ${lastRunAt}\n마지막 결과: ${lastRunResult}`;
+    }
+
+    summaryViewProvider.setAutoUpdateStatus(status);
+  };
+
+  context.subscriptions.push(
+    autoUpdateManager.onDidChangeStatus(status => renderAutoUpdateStatus(status))
+  );
+  renderAutoUpdateStatus(autoUpdateManager.getStatus());
+
   // 명령 등록: Refresh Views (수동 또는 자동 호출용)
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.refreshViews', () => {
@@ -310,7 +446,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('vibereport.showSessionDetail', (session: import('./models/types.js').SessionRecord) => {
       const panel = vscode.window.createWebviewPanel(
         'sessionDetail',
-        `세션: ${new Date(session.timestamp).toLocaleString()}`,
+        `세션: ${formatTimestampForUi(session.timestamp)}`,
         vscode.ViewColumn.One,
         {}
       );
@@ -339,7 +475,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   <h1>📋 세션 상세 정보</h1>
   <div class="section">
     <div class="label">⏰ 시간</div>
-    <div class="value">${new Date(session.timestamp).toLocaleString()}</div>
+    <div class="value">${formatTimestampForUi(session.timestamp)}</div>
   </div>
   <div class="section">
     <div class="label">📝 요약</div>
@@ -430,4 +566,3 @@ function findSymbolByName(
 
 // [REMOVED] formatAsPrompt - 더 이상 사용하지 않음 (copyAsPrompt/applyFromSelection 제거)
 // [REMOVED] createSummaryHtml - 더 이상 사용하지 않음 (showLastRunSummary 제거)
-

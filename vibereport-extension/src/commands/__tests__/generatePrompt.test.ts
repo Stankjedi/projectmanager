@@ -206,6 +206,53 @@ describe('GeneratePromptCommand', () => {
       expect(vscode.window.showQuickPick).toHaveBeenCalled();
     });
 
+    it.each(['## 📋 Execution Checklist', '## Execution Checklist'])(
+      'should parse prompt statuses with checklist heading "%s"',
+      async (checklistHeading) => {
+        // Arrange
+        vi.mocked(vscode.workspace).workspaceFolders = [
+          { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+        ];
+
+        const mockPromptMd = `
+# 🤖 AI Agent Improvement Prompts
+
+${checklistHeading}
+
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Done Prompt | P2 | ✅ Done |
+| 2 | PROMPT-002 | Pending Prompt | P2 | ⬜ Pending |
+
+## 🟡 Priority 2 (High)
+
+### [PROMPT-001] Done Prompt
+
+Content
+
+### [PROMPT-002] Pending Prompt
+
+Content
+`;
+
+        const fs = await import('fs/promises');
+        vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+
+        vi.mocked(vscode.window.showQuickPick).mockImplementation(async (items: any) => {
+          const labels = items.map((item: any) => item.label);
+          expect(labels.some((label: string) => label.includes('[PROMPT-002]'))).toBe(true);
+          expect(labels.some((label: string) => label.includes('[PROMPT-001]'))).toBe(false);
+          return undefined;
+        });
+
+        const { GeneratePromptCommand } = await import('../generatePrompt.js');
+        const command = new GeneratePromptCommand(mockOutputChannel);
+
+        // Act
+        await command.execute();
+      }
+    );
+
     it('should copy selected prompt to clipboard', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [

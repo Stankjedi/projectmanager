@@ -34,6 +34,22 @@ import {
   filterAppliedImprovements,
   formatDateTimeKorean,
 } from '../utils/markdownUtils.js';
+import {
+  extractBetweenMarkersLines,
+  hasMarkers,
+  replaceManyBetweenMarkersLines,
+} from '../utils/markerUtils.js';
+import {
+  EXECUTION_CHECKLIST_BLOCK_REGEX,
+  findExecutionChecklistHeadingIndex,
+} from '../utils/promptChecklistUtils.js';
+
+const SESSION_HISTORY_MARKERS = {
+  STATS_START: '<!-- STATS-START -->',
+  STATS_END: '<!-- STATS-END -->',
+  SESSION_LIST_START: '<!-- SESSION-LIST-START -->',
+  SESSION_LIST_END: '<!-- SESSION-LIST-END -->',
+} as const;
 
 export class ReportService {
   private outputChannel: vscode.OutputChannel;
@@ -187,7 +203,7 @@ export class ReportService {
     // Prompt.md의 Execution Checklist에서 완료된 프롬프트 행 제거
     if (type === 'prompt') {
       const checklistMatch = result.match(
-        /## 📋 Execution Checklist[\s\S]*?(?=\n---|\n\n##|\n\*\*Total|$)/
+        EXECUTION_CHECKLIST_BLOCK_REGEX
       );
 
       if (checklistMatch) {
@@ -249,9 +265,7 @@ export class ReportService {
   private updatePromptChecklistSummary(content: string): string {
     const lines = content.split('\n');
 
-    const checklistHeaderIndex = lines.findIndex((line) =>
-      line.trim().startsWith('## 📋 Execution Checklist')
-    );
+    const checklistHeaderIndex = findExecutionChecklistHeadingIndex(lines);
     if (checklistHeaderIndex === -1) {
       return content;
     }
@@ -871,26 +885,50 @@ ${MARKERS.OPTIMIZATION_END}
     // 개선 목록 마크다운 생성
     const improvementListMd = this.formatImprovementList(allPendingItems, config.language, rootPath);
 
-    // 개선 목록 섹션 업데이트
-    content = replaceBetweenMarkers(
-      content,
-      MARKERS.IMPROVEMENT_LIST_START,
-      MARKERS.IMPROVEMENT_LIST_END,
-      improvementListMd
-    );
-
-    // 요약 업데이트
     const summaryMd = this.formatImprovementSummary(
       allPendingItems,
       appliedImprovements.length,
       config.language
     );
-    content = replaceBetweenMarkers(
-      content,
-      MARKERS.SUMMARY_START,
-      MARKERS.SUMMARY_END,
-      summaryMd
-    );
+
+    const canBatchReplace =
+      hasMarkers(
+        content,
+        MARKERS.IMPROVEMENT_LIST_START,
+        MARKERS.IMPROVEMENT_LIST_END
+      ) &&
+      hasMarkers(content, MARKERS.SUMMARY_START, MARKERS.SUMMARY_END);
+
+    if (canBatchReplace) {
+      const replacements = [
+        {
+          startMarker: MARKERS.IMPROVEMENT_LIST_START,
+          endMarker: MARKERS.IMPROVEMENT_LIST_END,
+          newBlock: `${improvementListMd}\n`,
+        },
+        {
+          startMarker: MARKERS.SUMMARY_START,
+          endMarker: MARKERS.SUMMARY_END,
+          newBlock: `${summaryMd}\n`,
+        },
+      ];
+
+      content = replaceManyBetweenMarkersLines(content, replacements);
+    } else {
+      // legacy: preserve fallback behavior when markers are missing
+      content = replaceBetweenMarkers(
+        content,
+        MARKERS.IMPROVEMENT_LIST_START,
+        MARKERS.IMPROVEMENT_LIST_END,
+        improvementListMd
+      );
+      content = replaceBetweenMarkers(
+        content,
+        MARKERS.SUMMARY_START,
+        MARKERS.SUMMARY_END,
+        summaryMd
+      );
+    }
 
     // 저장 전 테이블 내 파일 경로도 링크화
     content = this.linkifyTableFilePaths(content, rootPath);
@@ -1219,12 +1257,40 @@ ${MARKERS.OPTIMIZATION_END}
       content = this.createSessionHistoryTemplate();
     }
 
-    // 통계 업데이트
-    content = this.updateSessionHistoryStats(content, totalSessions, appliedCount);
+    content = this.ensureManagedSessionHistoryBlocks(content);
 
-    // 새 세션 로그 추가 (맨 위에)
+    const statsContent = this.buildSessionHistoryStatsContent(
+      content,
+      totalSessions,
+      appliedCount,
+      session.timestamp
+    );
+
     const sessionEntry = this.formatSessionEntry(session);
-    content = this.prependSessionToHistory(content, sessionEntry);
+    const nextSessionListBlock = this.buildPrependedSessionHistorySessionListBlock(
+      content,
+      sessionEntry,
+      session.id
+    );
+
+    const replacements = [
+      {
+        startMarker: SESSION_HISTORY_MARKERS.STATS_START,
+        endMarker: SESSION_HISTORY_MARKERS.STATS_END,
+        newBlock: statsContent,
+      },
+      ...(nextSessionListBlock
+        ? [
+            {
+              startMarker: SESSION_HISTORY_MARKERS.SESSION_LIST_START,
+              endMarker: SESSION_HISTORY_MARKERS.SESSION_LIST_END,
+              newBlock: nextSessionListBlock,
+            },
+          ]
+        : []),
+    ];
+
+    content = replaceManyBetweenMarkersLines(content, replacements);
 
     await fs.writeFile(paths.sessionHistory, content, 'utf-8');
     this.log(`세션 히스토리 업데이트 완료: ${paths.sessionHistory}`);
@@ -1242,18 +1308,21 @@ ${MARKERS.OPTIMIZATION_END}
 ---
 
 <!-- STATS-START -->
-## 📊 통계 요약
+## 📊 세션 통계
 
 | 항목 | 값 |
 |------|-----|
 | **총 세션 수** | 0 |
+| **첫 세션** | - |
+| **마지막 세션** | - |
 | **마지막 업데이트** | - |
+| **적용 완료 항목** | 0 |
 <!-- STATS-END -->
 
 ---
 
 <!-- SESSION-LIST-START -->
-## 📝 세션 기록
+## 🕐 전체 세션 기록
 
 *세션 기록이 여기에 추가됩니다.*
 <!-- SESSION-LIST-END -->
@@ -1263,33 +1332,88 @@ ${MARKERS.OPTIMIZATION_END}
   /**
    * 세션 히스토리 통계 업데이트
    */
-  private updateSessionHistoryStats(
+  private buildSessionHistoryStatsContent(
     content: string,
     totalSessions: number,
-    appliedCount: number
+    appliedCount: number,
+    sessionTimestampIso: string
   ): string {
+    const statsStart = SESSION_HISTORY_MARKERS.STATS_START;
+    const statsEnd = SESSION_HISTORY_MARKERS.STATS_END;
+
     const now = formatDateTimeKorean(new Date());
-    const statsContent = `## 📊 통계 요약
+    const existingStatsBlock = extractBetweenMarkersLines(
+      content,
+      statsStart,
+      statsEnd
+    );
+
+    const existingFirstSession = this.extractSessionHistoryFirstSession(
+      existingStatsBlock
+    );
+    const defaultFirstSession =
+      totalSessions === 1
+        ? formatDateTimeKorean(new Date(sessionTimestampIso))
+        : '-';
+    const firstSession =
+      existingFirstSession && existingFirstSession !== '-'
+        ? existingFirstSession
+        : defaultFirstSession;
+
+    const lastSession =
+      totalSessions > 0
+        ? formatDateTimeKorean(new Date(sessionTimestampIso))
+        : '-';
+
+    const statsContent = `## 📊 세션 통계
 
 | 항목 | 값 |
 |------|-----|
 | **총 세션 수** | ${totalSessions} |
-| **마지막 업데이트** | ${now} |`;
+| **첫 세션** | ${firstSession} |
+| **마지막 세션** | ${lastSession} |
+| **마지막 업데이트** | ${now} |
+| **적용 완료 항목** | ${appliedCount} |`;
 
-    if (content.includes('<!-- STATS-START -->')) {
-      return content.replace(
-        /<!-- STATS-START -->[\s\S]*?<!-- STATS-END -->/,
-        `<!-- STATS-START -->\n${statsContent}\n<!-- STATS-END -->`
-      );
+    return statsContent;
+  }
+
+  private extractSessionHistoryFirstSession(statsBlock: string | null): string | null {
+    if (!statsBlock) {
+      return null;
     }
 
-    // 마커가 없는 경우 폴백: "## 📊 세션 통계" 또는 "## 📊 통계 요약" 테이블 업데이트
-    const statsTablePattern = /## 📊 [세션 통계|통계 요약][^\n]*\n+\| 항목[\s\S]*?\| \*\*적용 완료[^\|]*\| \d+ \|/;
-    if (statsTablePattern.test(content)) {
-      return content.replace(statsTablePattern, statsContent);
+    for (const line of statsBlock.split('\n')) {
+      const row = this.parseMarkdownTableRow(line);
+      if (!row) {
+        continue;
+      }
+
+      const [label, value] = row;
+      if (label.includes('첫 세션') || label.toLowerCase().includes('first session')) {
+        return value;
+      }
     }
 
-    return content;
+    return null;
+  }
+
+  private parseMarkdownTableRow(line: string): [string, string] | null {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('|')) {
+      return null;
+    }
+
+    const cells = trimmed
+      .split('|')
+      .map(cell => cell.trim())
+      .filter(cell => cell.length > 0);
+
+    if (cells.length < 2) {
+      return null;
+    }
+
+    return [cells[0], cells[1]];
   }
 
   /**
@@ -1326,51 +1450,181 @@ ${MARKERS.OPTIMIZATION_END}
     return entry;
   }
 
-  /**
-   * 세션을 히스토리 맨 앞에 추가
-   */
-  private prependSessionToHistory(content: string, entry: string): string {
-    const sessionListStart = '<!-- SESSION-LIST-START -->';
-    const sessionListEnd = '<!-- SESSION-LIST-END -->';
+  private ensureManagedSessionHistoryBlocks(content: string): string {
+    let next = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-    // 마커가 없는 경우 폴백: "## 🕐 전체 세션 기록" 또는 "## 📝 세션 기록" 아래에 추가
-    if (!content.includes(sessionListStart)) {
-      // 레거시 형식 지원: "## 🕐 전체 세션 기록" 아래에 추가
-      const legacyHeader = '## 🕐 전체 세션 기록';
-      if (content.includes(legacyHeader)) {
-        const headerIndex = content.indexOf(legacyHeader);
-        const afterHeader = content.indexOf('\n', headerIndex + legacyHeader.length);
-        if (afterHeader !== -1) {
-          const before = content.slice(0, afterHeader + 1);
-          const after = content.slice(afterHeader + 1);
-          return `${before}\n${entry}\n${after}`;
+    // 빈 파일은 템플릿으로 대체
+    if (next.trim().length === 0) {
+      return this.createSessionHistoryTemplate();
+    }
+
+    next = this.ensureManagedSessionHistoryStatsBlock(next);
+    next = this.ensureManagedSessionHistorySessionListBlock(next);
+
+    return next;
+  }
+
+  private ensureManagedSessionHistoryStatsBlock(content: string): string {
+    const startMarker = SESSION_HISTORY_MARKERS.STATS_START;
+    const endMarker = SESSION_HISTORY_MARKERS.STATS_END;
+
+    const startCount = content.split(startMarker).length - 1;
+    const endCount = content.split(endMarker).length - 1;
+    if (startCount === 1 && endCount === 1 && hasMarkers(content, startMarker, endMarker)) {
+      return content;
+    }
+
+    // 깨진/중복 마커 제거 후 레거시 섹션을 감싸거나 기본 블록 삽입
+    const cleaned = content
+      .split('\n')
+      .filter(line => !line.includes(startMarker) && !line.includes(endMarker))
+      .join('\n');
+
+    const lines = cleaned.split('\n');
+    const headerIndex = lines.findIndex(line => {
+      const t = line.trim();
+      return t.startsWith('##') && (t.includes('세션 통계') || t.includes('통계 요약'));
+    });
+
+    if (headerIndex !== -1) {
+      let endIndex = lines.length;
+      for (let i = headerIndex + 1; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (t === '---' || t.startsWith('## ')) {
+          endIndex = i;
+          break;
         }
       }
 
-      // 마커도 레거시 헤더도 없으면 파일 끝에 추가
-      return `${content}\n\n---\n\n${entry}`;
+      const before = lines.slice(0, headerIndex);
+      const middle = lines.slice(headerIndex, endIndex);
+      const after = lines.slice(endIndex);
+      return [...before, startMarker, ...middle, endMarker, ...after].join('\n');
     }
 
-    const existing = content.match(/<!-- SESSION-LIST-START -->\s*([\s\S]*?)\s*<!-- SESSION-LIST-END -->/);
-    let existingContent = existing ? existing[1].trim() : '';
+    // 레거시 섹션이 없으면 SESSION-LIST 시작 마커 앞 또는 파일 끝에 기본 블록 삽입
+    const defaultStatsBlock = [
+      startMarker,
+      '## 📊 세션 통계',
+      '',
+      '| 항목 | 값 |',
+      '|------|-----|',
+      '| **총 세션 수** | 0 |',
+      '| **첫 세션** | - |',
+      '| **마지막 세션** | - |',
+      '| **마지막 업데이트** | - |',
+      '| **적용 완료 항목** | 0 |',
+      endMarker,
+    ].join('\n');
 
-    // 초기 메시지 제거
-    if (existingContent.includes('세션 기록이 여기에 추가됩니다')) {
-      existingContent = '';
+    const insertBeforeIndex = lines.findIndex(line => line.includes(SESSION_HISTORY_MARKERS.SESSION_LIST_START));
+    if (insertBeforeIndex !== -1) {
+      const before = lines.slice(0, insertBeforeIndex);
+      const after = lines.slice(insertBeforeIndex);
+      return [...before, '', defaultStatsBlock, '', ...after].join('\n');
     }
 
-    // 제목 처리
-    const headerLine = '## 📝 세션 기록\n\n';
-    if (existingContent.startsWith('## 📝')) {
-      existingContent = existingContent.replace(/^## 📝 세션 기록\n*/, '');
+    return `${cleaned}\n\n${defaultStatsBlock}`;
+  }
+
+  private ensureManagedSessionHistorySessionListBlock(content: string): string {
+    const startMarker = SESSION_HISTORY_MARKERS.SESSION_LIST_START;
+    const endMarker = SESSION_HISTORY_MARKERS.SESSION_LIST_END;
+
+    const startCount = content.split(startMarker).length - 1;
+    const endCount = content.split(endMarker).length - 1;
+    if (startCount === 1 && endCount === 1 && hasMarkers(content, startMarker, endMarker)) {
+      return content;
     }
 
-    const newContent = `${headerLine}${entry}\n${existingContent}`.trim();
+    const cleaned = content
+      .split('\n')
+      .filter(line => !line.includes(startMarker) && !line.includes(endMarker))
+      .join('\n');
 
-    return content.replace(
-      /<!-- SESSION-LIST-START -->[\s\S]*?<!-- SESSION-LIST-END -->/,
-      `${sessionListStart}\n${newContent}\n${sessionListEnd}`
-    );
+    const lines = cleaned.split('\n');
+    const headerIndex = lines.findIndex(line => {
+      const t = line.trim();
+      return t.startsWith('##') && (t.includes('전체 세션 기록') || t.includes('세션 기록'));
+    });
+
+    if (headerIndex !== -1) {
+      let endIndex = lines.length;
+      for (let i = headerIndex + 1; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (t.startsWith('## ')) {
+          endIndex = i;
+          break;
+        }
+      }
+
+      const before = lines.slice(0, headerIndex);
+      const middle = lines.slice(headerIndex, endIndex);
+      const after = lines.slice(endIndex);
+      return [...before, startMarker, ...middle, endMarker, ...after].join('\n');
+    }
+
+    const defaultListBlock = [
+      startMarker,
+      '## 🕐 전체 세션 기록',
+      '',
+      '*세션 기록이 여기에 추가됩니다.*',
+      endMarker,
+    ].join('\n');
+
+    return `${cleaned}\n\n${defaultListBlock}`;
+  }
+
+  /**
+   * 세션을 히스토리 맨 앞에 추가하기 위한 next block을 생성
+   */
+  private buildPrependedSessionHistorySessionListBlock(
+    content: string,
+    entry: string,
+    sessionId: string
+  ): string | null {
+    const startMarker = SESSION_HISTORY_MARKERS.SESSION_LIST_START;
+    const endMarker = SESSION_HISTORY_MARKERS.SESSION_LIST_END;
+
+    const existingBlock = extractBetweenMarkersLines(content, startMarker, endMarker);
+    if (!existingBlock) {
+      return null;
+    }
+
+    // idempotency: 동일 세션 ID가 이미 기록되어 있으면 중복 삽입하지 않음
+    if (existingBlock.includes(`\`${sessionId}\``)) {
+      return null;
+    }
+
+    const lines = existingBlock.split('\n');
+    const headerLineIndex = lines.findIndex(line => line.trim().startsWith('## '));
+    const safeHeaderIndex = headerLineIndex === -1 ? 0 : headerLineIndex;
+
+    const trimmedLines = lines.filter(line => !line.includes('세션 기록이 여기에 추가됩니다'));
+
+    // 헤더가 없으면 기본 헤더를 강제로 추가
+    if (headerLineIndex === -1) {
+      trimmedLines.unshift('## 🕐 전체 세션 기록', '');
+    }
+
+    // 헤더 이후 위치 계산 (헤더 다음의 공백 라인은 0~N개 허용)
+    let insertAt = safeHeaderIndex + 1;
+    while (insertAt < trimmedLines.length && trimmedLines[insertAt].trim().length === 0) {
+      insertAt++;
+    }
+
+    const entryLines = entry.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd().split('\n');
+    const nextBlockLines = [
+      ...trimmedLines.slice(0, insertAt),
+      '',
+      ...entryLines,
+      '',
+      ...trimmedLines.slice(insertAt),
+    ]
+      .join('\n')
+      .trim();
+
+    return nextBlockLines;
   }
 
   /**

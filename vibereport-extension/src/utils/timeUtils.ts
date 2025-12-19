@@ -81,6 +81,24 @@ export function isThisWeek(timestamp: string): boolean {
   
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 7);
-  
+
   return date >= weekStart && date < weekEnd;
+}
+
+/**
+ * UI 표시용 타임스탬프 포맷 (YYYY-MM-DD HH:mm)
+ * - 로케일 의존(toLocaleString) 없이 고정 포맷을 반환합니다.
+ * - 유효하지 않은 입력은 '-'를 반환합니다.
+ */
+export function formatTimestampForUi(timestampIso: string): string {
+  const date = new Date(timestampIso);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
 }

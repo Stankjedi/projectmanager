@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as vscode from 'vscode';
 import { WorkspaceScanner } from '../workspaceScanner.js';
-import { clearAllCache } from '../snapshotCache.js';
+import { clearAllCache, getCacheStats } from '../snapshotCache.js';
 import type { VibeReportConfig } from '../../models/types.js';
 
 // Mock vscode module
@@ -28,7 +28,33 @@ vi.mock('vscode', () => ({
 
 // Mock fs/promises
 vi.mock('fs/promises', () => ({
-  readFile: vi.fn().mockResolvedValue('{"name": "test-project", "version": "1.0.0"}'),
+  readFile: vi.fn(async (filePath: string) => {
+    if (filePath.endsWith('package.json')) {
+      return '{"name": "test-project", "version": "1.0.0"}';
+    }
+
+    if (filePath.endsWith('tsconfig.json')) {
+      return `{
+        // JSONC comment
+        "compilerOptions": {
+          "strict": true,
+        },
+      }`;
+    }
+
+    if (filePath.endsWith('tauri.conf.json')) {
+      return `{
+        /* JSONC comment */
+        "productName": "tauri-app",
+      }`;
+    }
+
+    if (filePath.endsWith('Cargo.toml')) {
+      return '[package]\\nname = \"test\"\\nversion = \"0.1.0\"\\n';
+    }
+
+    throw new Error('Not found');
+  }),
   readdir: vi.fn().mockResolvedValue([]),
   access: vi.fn().mockRejectedValue(new Error('Not found')),
   mkdir: vi.fn().mockResolvedValue(undefined),
@@ -56,6 +82,7 @@ describe('WorkspaceScanner', () => {
 
   const mockConfig: VibeReportConfig = {
     reportDirectory: 'devplan',
+    analysisRoot: '',
     snapshotFile: '.vscode/state.json',
     enableGitDiff: false,
     excludePatterns: ['**/node_modules/**'],
@@ -92,6 +119,20 @@ describe('WorkspaceScanner', () => {
       expect(result).toHaveProperty('projectName');
     });
 
+    it('should parse JSONC tsconfig and extract strict=true', async () => {
+      const mockFiles = [
+        { fsPath: '/mock/project/src/index.ts' },
+        { fsPath: '/mock/project/package.json' },
+        { fsPath: '/mock/project/tsconfig.json' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await scanner.scan('/mock/project', mockConfig);
+
+      expect(result.mainConfigFiles.tsconfig?.strict).toBe(true);
+    });
+
     it('should detect TypeScript files correctly', async () => {
       const mockFiles = [
         { fsPath: '/mock/project/src/app.ts' },
@@ -114,6 +155,47 @@ describe('WorkspaceScanner', () => {
 
       expect(result.filesCount).toBe(0);
       expect(result.languageStats).toEqual({});
+    });
+
+    it('includes normalized excludePatterns in the file-list cache key', async () => {
+      const mockFilesFirst = [{ fsPath: '/mock/project/src/a.ts' }];
+      const mockFilesSecond = [{ fsPath: '/mock/project/src/b.ts' }];
+
+      (vscode.workspace.findFiles as any)
+        .mockResolvedValueOnce(mockFilesFirst)
+        .mockResolvedValueOnce(mockFilesSecond);
+
+      const configA: VibeReportConfig = {
+        ...mockConfig,
+        excludePatterns: [' **/node_modules/** ', '**/dist/**', ''],
+      };
+
+      const configASameNormalized: VibeReportConfig = {
+        ...mockConfig,
+        excludePatterns: ['**/node_modules/**', ' **/dist/** '],
+      };
+
+      const configB: VibeReportConfig = {
+        ...mockConfig,
+        excludePatterns: ['**/node_modules/**'],
+      };
+
+      await scanner.scan('/mock/project', configA);
+
+      const keysAfterFirst = getCacheStats().keys.filter((k) => k.startsWith('file-list:'));
+      expect(keysAfterFirst).toHaveLength(1);
+      expect(vscode.workspace.findFiles).toHaveBeenCalledTimes(1);
+
+      // Same normalized patterns should reuse cache and avoid a second listing within TTL
+      await scanner.scan('/mock/project', configASameNormalized);
+      expect(vscode.workspace.findFiles).toHaveBeenCalledTimes(1);
+
+      // Different excludePatterns should produce a new cache key and force a new listing within TTL
+      await scanner.scan('/mock/project', configB);
+      expect(vscode.workspace.findFiles).toHaveBeenCalledTimes(2);
+
+      const keysAfterSecond = getCacheStats().keys.filter((k) => k.startsWith('file-list:'));
+      expect(keysAfterSecond).toHaveLength(2);
     });
   });
 

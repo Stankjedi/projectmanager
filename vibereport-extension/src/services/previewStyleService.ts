@@ -33,23 +33,35 @@ export class PreviewStyleService {
     const cssPath = path.join(this.extensionPath, 'media', 'report-preview.css');
     
     try {
-      let cssContent = await fs.readFile(cssPath, 'utf-8');
-      
+      const cssContent = await fs.readFile(cssPath, 'utf-8');
+
       // CSS 변수 섹션 업데이트 또는 추가
       const customVarsSection = this.generateCustomVarsSection(backgroundColor);
-      
+
       // 기존 커스텀 변수 섹션 제거
-      cssContent = cssContent.replace(
+      const withoutCustomVars = cssContent.replace(
         /\/\* ===== CUSTOM VARIABLES START =====[\s\S]*?===== CUSTOM VARIABLES END ===== \*\//g,
         ''
       );
-      
+
+      const removedCustomVars = withoutCustomVars !== cssContent;
+
       // 새 커스텀 변수 섹션 추가 (파일 맨 앞에)
-      if (customVarsSection) {
-        cssContent = customVarsSection + '\n' + cssContent.trim();
-        await fs.writeFile(cssPath, cssContent, 'utf-8');
-        this.log(`Preview styles updated with background: ${backgroundColor || 'default'}`);
+      // ide 모드(customVarsSection === '')에서도 기존 섹션 제거 결과를 항상 반영해야 함.
+      const nextContent = customVarsSection
+        ? customVarsSection + '\n' + withoutCustomVars.trim()
+        : removedCustomVars
+          ? withoutCustomVars.trimStart()
+          : withoutCustomVars;
+
+      // 파일 쓰기(idempotent): 변경이 있을 때만 저장
+      if (nextContent === cssContent) {
+        this.log(`Preview styles already up to date (background: ${backgroundColor || 'default'})`);
+        return;
       }
+
+      await fs.writeFile(cssPath, nextContent, 'utf-8');
+      this.log(`Preview styles updated with background: ${backgroundColor || 'default'}`);
     } catch (error) {
       this.log(`Failed to update preview styles: ${error}`);
     }
