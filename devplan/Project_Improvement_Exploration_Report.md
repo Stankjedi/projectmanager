@@ -13,7 +13,7 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (Vibe Coding Report VS Code 확장) |
-| **버전** | v0.4.17 |
+| **버전** | v0.4.24 |
 | **분석 기준일** | 2025-12-19 |
 | **테스트/커버리지** | Vitest 215개, Lines 73.5% (`pnpm -C vibereport-extension run test:coverage` 기준) |
 | **발행자** | Stankjedi |
@@ -52,10 +52,10 @@
 
 | 우선순위 | 미적용 개수 | 설명 |
 |:---|:---:|:---|
-| 🔴 긴급 (P1) | 1 | CI 파이프라인이 lockfile v9와 pnpm 8 불일치로 실패 |
-| 🟡 중요 (P2) | 3 | 프리뷰 렌더링 보안 하드닝, Prompt 파싱 견고성, 핵심 엔트리 커버리지 강화 |
-| 🟢 개선 (P3) | 1 | 평가 추이 버전 라벨을 git 기반으로 보강하여 비교 효용 향상 |
-| ⚙️ OPT (최적화) | 1 | Settings 배치 저장에서 변경 없는 키 update 스킵으로 불필요 갱신 최소화 |
+| 🔴 긴급 (P1) | 1 | CI 파이프라인의 버전 불일치로 인한 배포/테스트 자동화 실패. |
+| 🟡 중요 (P2) | 3 | 보안(프리뷰 XSS), 품질(파싱 견고성), 테스트(핵심 커버리지) 리스크. |
+| 🟢 개선 (P3) | 1 | 평가 추이 비교 효용 증대를 위한 버전 라벨링 개선. |
+| ⚙️ OPT (최적화) | 1 | 설정 저장 로직의 I/O 비효율 개선. |
 | **총 미적용** | **6** | **P1 1개, P2 3개, P3 1개, OPT 1개** |
 
 ### 2. 항목별 분포 테이블 (검토 대기)
@@ -99,27 +99,29 @@
 | **관련 평가 카테고리** | productionReadiness, testCoverage |
 
 **현재 상태:**
-- `pnpm-lock.yaml`의 lockfileVersion이 `9.0`인데, CI는 pnpm 8을 사용해 `pnpm install` 단계에서 실패합니다.
+- `pnpm-lock.yaml`은 v9 버전으로 생성되었으나, GitHub Actions 워크플로우(`ci.yml`)는 `pnpm-action`에서 기본값(또는 v8)을 사용 중입니다.
+- 이로 인해 CI 환경에서 `pnpm install` 단계가 실패하고 있습니다.
 
 **문제점 (Problem):**
-- PR/배포 파이프라인에서 “테스트/커버리지 게이트”가 동작하지 않아 회귀 위험이 급증합니다.
+- PR이나 메인 브랜치 푸시 시 자동 테스트 및 린트 검사가 실행되지 않아, 깨진 코드가 병합될 위험이 매우 큽니다.
 
 **영향 (Impact):**
-- 배포/릴리즈 안정성 저하, 리뷰 비용 증가, 품질 신뢰도 하락.
+- 품질 게이트 무력화로 인한 회귀 가능성 증가, 배포 신뢰도 하락.
 
 **원인 (Cause):**
-- `.github/workflows/ci.yml`에 pnpm 버전이 8로 고정되어 있습니다.
+- 로컬 개발 환경(v9)과 CI 환경(v8 예상)의 pnpm 버전 불일치.
 
 **개선 내용 (Proposed Solution):**
-- CI의 pnpm 버전을 9로 올려 lockfile(v9)과 정렬하고, `pnpm install --frozen-lockfile` 기준으로 통과를 보장합니다.
+- `.github/workflows/ci.yml` 파일 내 `pnpm/action-setup` 단계에서 `version: 9`를 명시합니다.
 
 **기대 효과:**
-- CI 복구로 품질 게이트 신뢰성 회복 및 회귀 방어 강화.
+- CI 파이프라인 정상화 및 자동 테스트 게이트 복구.
 
 **✅ Definition of Done:**
-- [ ] GitHub Actions에서 `pnpm install` 단계가 실패 없이 완료됨
-- [ ] GitHub Actions에서 `compile/lint/test:run/test:coverage`가 모두 통과함
-- [ ] lockfile 변경 없이(불필요 재생성 없이) 안정적으로 동작함
+- [ ] GitHub Actions에서 `pnpm install` 성공
+- [ ] `compile`/`test` 단계가 정상 실행 및 통과
+
+---
 
 ### 🟡 중요 (P2)
 
@@ -130,34 +132,20 @@
 | **ID** | `security-openpreview-escape-001` |
 | **카테고리** | 🔒 보안 |
 | **복잡도** | Medium |
-| **대상 파일** | `vibereport-extension/src/commands/openReportPreview.ts`, `vibereport-extension/src/utils/htmlEscape.ts`, `vibereport-extension/src/commands/__tests__/openReportPreview.test.ts` |
+| **대상 파일** | `vibereport-extension/src/commands/openReportPreview.ts`, `vibereport-extension/src/utils/htmlEscape.ts` |
 | **Origin** | static-analysis |
 | **리스크 레벨** | high |
-| **관련 평가 카테고리** | security, productionReadiness, codeQuality |
+| **관련 평가 카테고리** | security |
 
 **현재 상태:**
-- 커스텀 렌더러에서 인라인 코드/링크 href가 충분히 이스케이프되지 않은 채 HTML로 출력됩니다.
-
-**문제점 (Problem):**
-- 악의적/비정상 입력에서 프리뷰가 깨지거나(XSS/DOM 오염 가능성 포함) 신뢰도가 저하됩니다.
-
-**영향 (Impact):**
-- 프리뷰/공유 기능 품질 저하, 보안 리스크 및 유지보수 비용 증가.
-
-**원인 (Cause):**
-- 문자열 템플릿 기반 HTML 생성에서 텍스트/속성 이스케이프가 전 경로에 강제되지 않습니다.
+- 보고서 프리뷰를 위한 HTML 생성 시, 일부 사용자 입력(링크 제목, 인라인 코드)이 단순 문자열 치환으로 처리되어 이스케이프가 누락될 가능성이 있습니다.
 
 **개선 내용 (Proposed Solution):**
-- 텍스트/속성 이스케이프 유틸을 정리하고, 링크/인라인 코드 렌더링 경로를 안전하게 변경합니다.
-- 테스트로 “인라인 코드에 `<` 포함”, “href에 따옴표 포함” 케이스를 고정합니다.
-
-**기대 효과:**
-- 프리뷰 보안/안정성 향상 및 환경 드리프트 감소.
+- 모든 동적 삽입 데이터에 `escapeHtml` 유틸리티 적용을 강제하고, `target="_blank"` 속성 사용 시 `rel="noopener noreferrer"`를 자동 추가하도록 개선합니다.
 
 **✅ Definition of Done:**
-- [ ] 렌더링 결과에서 텍스트/속성이 안전하게 이스케이프됨
-- [ ] 관련 테스트 추가/수정 및 통과
-- [ ] `pnpm -C vibereport-extension run compile/lint/test:run` 통과
+- [ ] 특수문자(`<`, `>`) 포함 시 올바르게 이스케이프 렌더링 확인
+- [ ] 관련 테스트 케이스 추가
 
 #### [P2-2] Prompt.md 체크리스트 파싱 견고성(이모지 유무 허용)
 
@@ -166,27 +154,20 @@
 | **ID** | `quality-prompt-parse-001` |
 | **카테고리** | 🧹 코드 품질 |
 | **복잡도** | Low |
-| **대상 파일** | `vibereport-extension/src/commands/generatePrompt.ts`, `vibereport-extension/src/services/reportService.ts`, `vibereport-extension/src/utils/reportDoctorUtils.ts`, `vibereport-extension/src/commands/__tests__/generatePrompt.test.ts` |
+| **대상 파일** | `vibereport-extension/src/commands/generatePrompt.ts` |
 | **Origin** | static-analysis |
 | **리스크 레벨** | medium |
-| **관련 평가 카테고리** | maintainability, productionReadiness, codeQuality |
+| **관련 평가 카테고리** | maintainability |
 
-**현재 상태:**
-- 일부 파서/정리 로직이 `## 📋 Execution Checklist` 헤딩에 강결합되어 포맷 변형(이모지 미포함 등)에서 실패할 수 있습니다.
+**문제점:**
+- `## 📋 Execution Checklist` 헤더 파싱 시 이모지가 없으면 인식을 못 하는 정규식을 사용 중입니다.
 
-**문제점 (Problem):**
-- Prompt 선택/정리 기능이 Prompt.md 포맷에 민감해 “도구 체인 단절”이 발생합니다.
-
-**개선 내용 (Proposed Solution):**
-- 체크리스트 섹션 탐지 정규식을 “이모지 선택(optional)”로 통일하고, 테스트에서 두 형식을 모두 커버합니다.
-
-**기대 효과:**
-- Prompt.md 포맷 변경 허용범위 확대 및 유지보수성 향상.
+**개선 내용:**
+- 이모지 부분을 선택(Optional) 그룹으로 처리하는 정규식으로 변경하여 유연성을 확보합니다.
 
 **✅ Definition of Done:**
-- [ ] 이모지 포함/미포함 헤딩 모두에서 파싱이 동작함
-- [ ] 관련 테스트 통과
-- [ ] 빌드/린트 에러 없음
+- [ ] 이모지 없는 `## Execution Checklist` 헤더도 정상 파싱
+- [ ] `generatePrompt` 기능 정상 동작 확인
 
 #### [P2-3] 핵심 엔트리/명령 커버리지 강화(회귀 방어)
 
@@ -195,28 +176,20 @@
 | **ID** | `test-coverage-extension-001` |
 | **카테고리** | 🧪 테스트 |
 | **복잡도** | Medium |
-| **대상 파일** | `vibereport-extension/src/extension.ts`, `vibereport-extension/src/extension.test.ts`, `vibereport-extension/src/commands/openReportPreview.ts`, `vibereport-extension/src/commands/__tests__/openReportPreview.test.ts` |
+| **대상 파일** | `vibereport-extension/src/extension.ts`, `vibereport-extension/src/extension.test.ts` |
 | **Origin** | static-analysis |
 | **리스크 레벨** | medium |
-| **관련 평가 카테고리** | testCoverage, maintainability, productionReadiness |
+| **관련 평가 카테고리** | testCoverage |
 
-**현재 상태:**
-- 전체 커버리지(라인 73.5%, 브랜치 52.49%)는 양호하지만, `extension.ts`/일부 명령의 분기 경로가 상대적으로 미커버 상태입니다.
+**문제점:**
+- 확장의 진입점(`activate` 함수)과 주요 명령 등록 로직에 대한 테스트 케이스가 부족하여, 초기화 단계의 에러가 감지되지 않을 수 있습니다.
 
-**문제점 (Problem):**
-- 활성화/명령 등록/예외 분기에서 회귀가 발생해도 조기에 탐지되지 않을 수 있습니다.
-
-**개선 내용 (Proposed Solution):**
-- 활성화/명령 등록/에러 분기 등 “회귀 영향이 큰 경로”에 집중해 테스트를 보강합니다.
-
-**기대 효과:**
-- 회귀 방어 강화, 배포 신뢰도 향상.
+**개선 내용:**
+- `extension.test.ts`에 활성화 시나리오 및 예외 처리 테스트를 추가하여 커버리지를 높입니다.
 
 **✅ Definition of Done:**
-- [ ] 핵심 분기 테스트가 추가됨
-- [ ] `pnpm -C vibereport-extension run test:coverage` 통과(임계치 만족)
-- [ ] 빌드/린트 에러 없음
-
+- [ ] `activate` 함수 예외 처리 테스트 추가
+- [ ] 전체 커버리지 소폭 상승 확인
 <!-- AUTO-IMPROVEMENT-LIST-END -->
 
 ---
@@ -226,41 +199,37 @@
 <!-- AUTO-OPTIMIZATION-START -->
 ### 🔎 OPT 일반 분석
 
-- **중복 코드 및 유틸 추출:** nonce 생성/HTML 이스케이프 등 Webview 관련 유틸이 파일별로 분산되어 중복이 존재합니다.
-- **타입 안정성 강화:** Webview 메시지 페이로드는 런타임 검증이 있으나 “변경된 키만 업데이트” 정책/타입 경계가 더 명확해질 여지가 있습니다.
-- **복잡도 관리:** `openReportPreview`의 커스텀 렌더러는 문자열/정규식 기반으로 커져, 유지보수와 보안 대응이 어려워질 수 있습니다.
-- **에러 처리 일관성:** 사용자 알림(show*)과 OutputChannel 로깅의 정책을 명확히 분리/표준화하면 진단성이 좋아집니다.
-- **불필요한 연산/비효율:** Settings 저장 시 변경 없는 키까지 `config.update`가 호출되면 이벤트/갱신 비용이 누적됩니다.
+- **설정(Settings) 저장 최적화:** `Configuration.update` 호출은 디스크 I/O를 유발하므로, 실제 값이 변경되었을 때만 호출해야 합니다. 현재 대량 저장(`saveAll`) 시 이 검사가 누락된 부분이 있습니다.
+- **불필요한 리렌더링:** `HistoryViewProvider` 등에서 데이터 변경이 없어도 `refresh()`가 호출되는 경로가 있어 최적화 여지가 있습니다.
+- **문자열 처리:** 대규모 보고서 생성 시 템플릿 리터럴 병합이 많아, 메모리 효율을 위해 스트림 방식 도입을 장기적으로 고려할 수 있습니다.
 
 ### 🚀 코드 최적화 (OPT-1)
+
+#### [OPT-1] Settings 배치 저장: 변경 없는 키 update 스킵
 
 | 항목 | 내용 |
 |------|------|
 | **ID** | `opt-settings-skip-unchanged-001` |
 | **카테고리** | 🚀 코드 최적화 |
-| **영향 범위** | 성능/품질 |
-| **대상 파일** | `vibereport-extension/src/views/SettingsViewProvider.ts`, `vibereport-extension/src/views/__tests__/SettingsViewProvider.test.ts` |
+| **영향 범위** | 성능 |
+| **대상 파일** | `vibereport-extension/src/views/SettingsViewProvider.ts` |
 
 **현재 상태:**
-- Settings 배치 저장 시, 실제 값이 바뀌지 않은 키도 `config.update`가 호출될 수 있습니다.
+- 설정 뷰에서 "Save All" 실행 시, 폼에 있는 모든 키에 대해 순차적으로 `config.update()`를 호출합니다.
 
 **최적화 내용:**
-- 현재 config 값과 비교해 “변경된 키만” 업데이트하고, 성공 알림/`sendCurrentSettings()`는 1회 유지합니다.
-- 테스트에서 “동일 값 저장 → update 호출 0회”를 검증합니다.
+- `inspect()` 등을 통해 현재 설정 값을 확인하고, 입력된 값과 다를 경우에만 업데이트를 수행하도록 로직을 개선합니다.
 
 **예상 효과:**
-- 불필요한 설정 업데이트/이벤트/갱신 감소로 UI 반응성과 안정성 개선.
+- 불필요한 `settings.json` 쓰기 작업 방지 및 확장 설정 변경 이벤트 트리거 최소화.
 
 **측정 지표:**
-- 저장 1회당 `config.update` 호출 수(변경 키 수와 동일해야 함).
-- 연속 저장/자동 업데이트 환경에서 갱신 이벤트 발생 빈도(로그/테스트로 확인).
+- 저장 버튼 클릭 시 `Configuration.update` 호출 횟수 (변경 키 수와 일치해야 함).
 <!-- AUTO-OPTIMIZATION-END -->
 
 ---
 
 ## ✨ 기능 추가 항목
-
-> 새로운 기능을 추가하는 항목입니다.
 
 <!-- AUTO-FEATURE-LIST-START -->
 ### 🟢 개선 (P3)
@@ -272,30 +241,26 @@
 | **ID** | `feat-evalhistory-version-001` |
 | **카테고리** | ✨ 기능 추가 |
 | **복잡도** | Low |
-| **대상 파일** | `vibereport-extension/src/commands/updateReportsWorkflow.ts`, `vibereport-extension/src/services/workspaceScanner.ts`, `vibereport-extension/src/commands/__tests__/updateReports.test.ts` |
+| **대상 파일** | `vibereport-extension/src/commands/updateReportsWorkflow.ts`, `vibereport-extension/src/services/workspaceScanner.ts` |
 | **Origin** | static-analysis |
 | **리스크 레벨** | low |
-| **관련 평가 카테고리** | maintainability, productionReadiness |
+| **관련 평가 카테고리** | maintainability |
 
-**기능 목적 / 사용자 가치:**
-- 평가 추이의 버전 값이 `unknown`으로 기록될 때도, git 기반 라벨을 사용해 “어떤 시점의 품질”인지 비교 가능하게 합니다.
+**기능 목적:**
+- `package.json`이 없는 프로젝트에서도 평가 히스토리에 의미 있는 버전 정보(Git Short Hash 등)를 남겨 추적을 용이하게 합니다.
 
 **현재 상태:**
-- 분석 루트에 `package.json`이 없으면 `currentVersion`이 비어 평가 히스토리에 `unknown`이 저장됩니다.
+- `package.json` 버전이 없으면 `unknown`으로 기록되어, 시점별 변화를 파악하기 어렵습니다.
 
 **제안 구현 전략:**
-- `packageJson.version`이 없을 때는 `gitInfo.lastCommitHash`(짧은 해시)와 브랜치를 조합한 라벨(e.g., `git:abc1234@main`)을 저장합니다.
-- 평가 보고서의 추이 표에도 동일 라벨을 사용합니다.
-- 테스트로 “packageJson.version 없음 + gitInfo 있음 → version 라벨 생성”을 고정합니다.
+- `WorkspaceScanner`에서 수집된 Git 정보가 있다면 `git:a1b2c3d` 형식의 라벨을 우선 사용하도록 대체 로직을 추가합니다.
 
 **기대 효과:**
-- 추이 비교 가독성 향상, 회귀 시점 추적 비용 감소.
+- 평가 추이 표의 가독성 향상 및 버전 관리 효율 증대.
 
 **✅ Definition of Done:**
-- [ ] 평가 히스토리에 git 기반 버전 라벨이 저장됨
-- [ ] 평가 보고서 추이 표에 동일 라벨이 출력됨
-- [ ] 관련 테스트 통과 및 빌드/린트 에러 없음
-
+- [ ] 버전 정보 없을 시 Git 해시 기반 라벨 생성 확인
+- [ ] 평가 히스토리 저장 및 로딩 시 라벨 정상 표시
 <!-- AUTO-FEATURE-LIST-END -->
 
 ---

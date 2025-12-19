@@ -29,7 +29,7 @@ Total: 6 prompts | Completed: 0 | Remaining: 6
 
 Execute this prompt now, then proceed to PROMPT-002.
 
-**Linked Improvement ID:** `ci-pnpm-version-001`  
+**Linked Improvement ID:** `ci-pnpm-version-001`
 **Priority:** P1
 
 **Task**
@@ -64,7 +64,7 @@ After completing this prompt, proceed to PROMPT-002.
 
 Execute this prompt now, then proceed to PROMPT-003.
 
-**Linked Improvement ID:** `security-openpreview-escape-001`  
+**Linked Improvement ID:** `security-openpreview-escape-001`
 **Priority:** P2
 
 **Task**
@@ -99,11 +99,12 @@ Harden the custom Markdown-to-HTML renderer used by `vibereport.openReportPrevie
 After completing this prompt, proceed to PROMPT-003.
 
 ---
+
 ### [PROMPT-003] Make Prompt.md checklist parsing resilient
 
 Execute this prompt now, then proceed to PROMPT-004.
 
-**Linked Improvement ID:** `quality-prompt-parse-001`  
+**Linked Improvement ID:** `quality-prompt-parse-001`
 **Priority:** P2
 
 **Task**
@@ -144,7 +145,7 @@ After completing this prompt, proceed to PROMPT-004.
 
 Execute this prompt now, then proceed to PROMPT-005.
 
-**Linked Improvement ID:** `test-coverage-extension-001`  
+**Linked Improvement ID:** `test-coverage-extension-001`
 **Priority:** P2
 
 **Task**
@@ -176,13 +177,14 @@ Increase test coverage for high-impact runtime paths (extension activation and r
 After completing this prompt, proceed to PROMPT-005.
 
 ---
+
 ## P3 Prompts
 
 ### [PROMPT-005] Improve evaluation history version labeling
 
 Execute this prompt now, then proceed to OPT-1.
 
-**Linked Improvement ID:** `feat-evalhistory-version-001`  
+**Linked Improvement ID:** `feat-evalhistory-version-001`
 **Priority:** P3
 
 **Task**
@@ -220,7 +222,7 @@ After completing this prompt, proceed to OPT-1.
 
 Execute this prompt now, then proceed to Final Completion.
 
-**Linked Improvement ID:** `opt-settings-skip-unchanged-001`  
+**Linked Improvement ID:** `opt-settings-skip-unchanged-001`
 **Priority:** OPT
 
 **Task**

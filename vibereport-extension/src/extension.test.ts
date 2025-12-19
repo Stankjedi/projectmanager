@@ -282,4 +282,29 @@ describe('extension', () => {
     expect(statusBar.tooltip).toBe('프로젝트 보고서 업데이트 (Vibe Coding)');
     expect(statusBar.tooltip).not.toContain('자동 업데이트');
   });
+
+  it('activate() skips auto-refresh watchers when no workspace folder is open', async () => {
+    const { activate } = await import('./extension.js');
+
+    const context = {
+      subscriptions: [],
+      extensionUri: { fsPath: 'C:\\test\\ext' },
+      extensionPath: 'C:\\test\\ext',
+    } as unknown as vscode.ExtensionContext;
+
+    vi.mocked(vscode.workspace).workspaceFolders = undefined as unknown as vscode.WorkspaceFolder[];
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+    } as any);
+
+    await activate(context);
+
+    const output = vi.mocked(vscode.window.createOutputChannel).mock.results[0]
+      ?.value as { appendLine: ReturnType<typeof vi.fn> };
+
+    expect(output.appendLine).toHaveBeenCalledWith(
+      '[FileWatcher] No workspace folder open; skipping auto-refresh watchers'
+    );
+    expect(vscode.workspace.createFileSystemWatcher).not.toHaveBeenCalled();
+  });
 });
