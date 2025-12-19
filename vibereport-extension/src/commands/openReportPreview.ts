@@ -121,6 +121,9 @@ export class OpenReportPreviewCommand {
   private markdownToHtml(markdown: string): string {
     let content = markdown; // Initialize content
 
+    // 0. HTML 주석 마커 제거 (<!-- ... --> 형식의 마커들이 프리뷰에 표시되지 않도록)
+    content = content.replace(/<!--[\s\S]*?-->/g, '');
+
     // 1. Mermaid 블록 보호 (플레이스홀더로 변환)
     const mermaidBlocks: string[] = [];
     content = content.replace(/```mermaid\s*([\s\S]*?)```/g, (_, code: string) => {
@@ -344,8 +347,18 @@ export class OpenReportPreviewCommand {
     const style = getPreviewStyle(config);
     const previewBackgroundColor = config.get<string>('previewBackgroundColor', 'ide');
 
-    // Deterministic mapping (do not guess based on CSS)
-    const mermaidTheme = previewBackgroundColor === 'black' ? 'dark' : 'default';
+    // Deterministic mapping: check VS Code's active color theme for 'ide' mode
+    let mermaidTheme: string;
+    if (previewBackgroundColor === 'black') {
+      mermaidTheme = 'dark';
+    } else if (previewBackgroundColor === 'white') {
+      mermaidTheme = 'default';
+    } else {
+      // 'ide' mode - detect from VS Code's active color theme
+      const colorTheme = vscode.window.activeColorTheme;
+      mermaidTheme = colorTheme.kind === vscode.ColorThemeKind.Dark ||
+        colorTheme.kind === vscode.ColorThemeKind.HighContrastLight ? 'dark' : 'default';
+    }
 
     // CSP nonce for inline scripts/styles
     const nonce = getNonce();
@@ -394,6 +407,29 @@ export class OpenReportPreviewCommand {
         background-color: rgba(255, 255, 0, 0.3);
         transition: background-color 0.5s;
       }
+
+      /* Mermaid Diagram Fixes - subgraph background */
+      .mermaid {
+        background: transparent !important;
+      }
+      .mermaid .cluster rect {
+        fill: ${mermaidTheme === 'dark' ? '#2d2d2d' : '#f5f5f5'} !important;
+        stroke: ${mermaidTheme === 'dark' ? '#454545' : '#e0e0e0'} !important;
+      }
+      .mermaid .cluster text {
+        fill: ${mermaidTheme === 'dark' ? '#d4d4d4' : '#1a1a1a'} !important;
+      }
+      .mermaid .node rect, .mermaid .node polygon {
+        fill: ${mermaidTheme === 'dark' ? '#2d2d2d' : '#f5f5f5'} !important;
+        stroke: ${mermaidTheme === 'dark' ? '#454545' : '#e0e0e0'} !important;
+      }
+      .mermaid .nodeLabel {
+        color: ${mermaidTheme === 'dark' ? '#d4d4d4' : '#1a1a1a'} !important;
+      }
+      .mermaid .edgeLabel {
+        background-color: ${mermaidTheme === 'dark' ? '#2d2d2d' : '#ffffff'} !important;
+        color: ${mermaidTheme === 'dark' ? '#d4d4d4' : '#1a1a1a'} !important;
+      }
     `;
 
     // Process Markdown
@@ -413,16 +449,44 @@ export class OpenReportPreviewCommand {
   ${htmlContent}
   <script src="${mermaidScriptUri}"></script>
   <script nonce="${nonce}">
-    // Mermaid Init
+    // Mermaid Init - subgraph 배경색 문제 해결
+    const isDarkTheme = '${mermaidTheme}' === 'dark';
     mermaid.initialize({
       startOnLoad: true,
       theme: '${mermaidTheme}',
-      securityLevel: 'strict',
-      themeVariables: {
+      securityLevel: 'loose',
+      themeVariables: isDarkTheme ? {
         fontSize: '14px',
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        primaryColor: '${style.link}',
-        lineColor: '${style.fg}'
+        background: '#1e1e1e',
+        primaryColor: '#3794ff',
+        primaryTextColor: '#d4d4d4',
+        primaryBorderColor: '#454545',
+        lineColor: '#858585',
+        secondaryColor: '#3a3d41',
+        tertiaryColor: '#2d2d2d',
+        mainBkg: '#2d2d2d',
+        nodeBorder: '#454545',
+        clusterBkg: '#2d2d2d',
+        clusterBorder: '#454545',
+        titleColor: '#d4d4d4',
+        edgeLabelBackground: '#2d2d2d'
+      } : {
+        fontSize: '14px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        background: '#ffffff',
+        primaryColor: '#0066cc',
+        primaryTextColor: '#1a1a1a',
+        primaryBorderColor: '#e0e0e0',
+        lineColor: '#666666',
+        secondaryColor: '#f5f5f5',
+        tertiaryColor: '#ffffff',
+        mainBkg: '#f5f5f5',
+        nodeBorder: '#e0e0e0',
+        clusterBkg: '#f5f5f5',
+        clusterBorder: '#e0e0e0',
+        titleColor: '#1a1a1a',
+        edgeLabelBackground: '#ffffff'
       }
     });
 

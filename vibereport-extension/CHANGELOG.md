@@ -4,6 +4,16 @@
 
 ---
 
+## [0.4.26] - 2025-12-19
+
+### 🐛 버그 수정
+
+- **Mermaid 다이어그램 subgraph 검은색 배경 문제 해결**: 다크 테마에서 Mermaid 다이어그램의 subgraph(그룹 영역)가 검은색으로 표시되어 텍스트가 보이지 않던 버그를 수정했습니다.
+  - `mermaid-init.js`와 `openReportPreview.ts`에 `themeVariables`(`clusterBkg`, `mainBkg`, `nodeBorder` 등) 추가
+  - 다크/라이트 테마별 최적화된 색상 팔레트 적용
+
+---
+
 ## [0.4.25] - 2025-12-19
 
 ### 🧼 리팩토링 / 최적화
