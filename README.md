@@ -52,7 +52,7 @@
 
 ### From VSIX
 ```bash
-code --install-extension vibereport-0.1.0.vsix
+code --install-extension vibereport-0.4.18.vsix
 ```
 
 ### Development
@@ -76,11 +76,22 @@ pnpm run compile
 | 명령어 | 설명 |
 |--------|------|
 | `VibeCoding: Update Project Reports` | 프로젝트 분석 및 보고서 업데이트 |
+| `VibeCoding: Update Project Reports (All Workspaces)` | 모든 워크스페이스 보고서 업데이트 |
+| `VibeCoding: Export Settings` | 설정 내보내기 |
+| `VibeCoding: Import Settings` | 설정 가져오기 |
+| `VibeCoding: Clear Session History` | 세션 히스토리 초기화 |
 | `VibeCoding: Open Evaluation Report` | 평가 보고서 열기 |
 | `VibeCoding: Open Improvement Report` | 개선 보고서 열기 |
+| `VibeCoding: Mark Improvement Applied` | 개선 항목 적용 완료 마킹 |
 | `VibeCoding: Open Prompt File` | AI 프롬프트 파일 열기 |
+| `VibeCoding: Set Project Vision` | 프로젝트 비전 설정 |
+| `VibeCoding: Open Session History` | 세션 히스토리 열기 |
+| `VibeCoding: Generate Improvement Prompt` | 개선 프롬프트 생성 |
+| `VibeCoding: Share Report Preview` | 보고서 프리뷰 공유 |
+| `VibeCoding: Open Code Reference` | 코드 레퍼런스 열기 |
+| `VibeCoding: Open Report Preview (with Mermaid)` | Mermaid 지원 보고서 프리뷰 |
+| `VibeCoding: Report Doctor: Validate/Repair Reports` | 보고서 검증/복구 |
 | `VibeCoding: Initialize Project Reports` | 보고서 초기화 |
-| `VibeCoding: Show Last Run Summary` | 마지막 실행 요약 보기 |
 
 ## ⚙️ Configuration
 
@@ -159,7 +170,7 @@ pnpm run test:coverage
 pnpm test -- --watch
 ```
 
-현재 49개 단위 테스트 통과 (서비스/유틸/뷰 레이어)
+현재 200+ 단위 테스트 통과 (서비스/유틸/뷰 레이어)
 
 ## 📚 API Documentation
 
@@ -185,7 +196,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.1.0.vsix 생성
+# vibereport-0.4.18.vsix 생성
 ```
 
 ## 📝 License

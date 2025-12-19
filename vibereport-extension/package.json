@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.4.13",
+  "version": "0.4.18",
   "publisher": "Stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -48,6 +48,30 @@
         "icon": "$(notebook-render-output)"
       },
       {
+        "command": "vibereport.updateReportsAll",
+        "title": "Update Project Reports (All Workspaces)",
+        "category": "VibeCoding",
+        "icon": "$(notebook-render-output)"
+      },
+      {
+        "command": "vibereport.exportSettings",
+        "title": "Export Settings",
+        "category": "VibeCoding",
+        "icon": "$(export)"
+      },
+      {
+        "command": "vibereport.importSettings",
+        "title": "Import Settings",
+        "category": "VibeCoding",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "vibereport.clearHistory",
+        "title": "Clear Session History",
+        "category": "VibeCoding",
+        "icon": "$(trash)"
+      },
+      {
         "command": "vibereport.openEvaluationReport",
         "title": "Open Evaluation Report",
         "category": "VibeCoding",
@@ -64,6 +88,12 @@
         "title": "Initialize Project Reports",
         "category": "VibeCoding",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "vibereport.markApplied",
+        "title": "Mark Improvement Applied",
+        "category": "VibeCoding",
+        "icon": "$(check)"
       },
       {
         "command": "vibereport.openPrompt",
@@ -106,6 +136,12 @@
         "title": "Open Report Preview (with Mermaid)",
         "category": "VibeCoding",
         "icon": "$(preview)"
+      },
+      {
+        "command": "vibereport.reportDoctor",
+        "title": "Report Doctor: Validate/Repair Reports",
+        "category": "VibeCoding",
+        "icon": "$(tools)"
       }
     ],
     "configuration": {
@@ -115,6 +151,11 @@
           "type": "string",
           "default": "devplan",
           "description": "보고서 파일이 저장될 디렉토리 (워크스페이스 루트 기준 상대 경로)"
+        },
+        "vibereport.analysisRoot": {
+          "type": "string",
+          "default": "",
+          "description": "모노레포/서브폴더 분석 루트 (워크스페이스 루트 기준 상대 경로). 비어있으면 워크스페이스 루트를 사용"
         },
         "vibereport.snapshotFile": {
           "type": "string",
@@ -143,7 +184,8 @@
             "**/.venv/**",
             "**/coverage/**",
             "**/*.log",
-            "**/*.lock"
+            "**/*.lock",
+            "**/*.vsix"
           ],
           "description": "스캔에서 제외할 파일/폴더 패턴"
         },
@@ -269,6 +311,17 @@
             "MD 에디터만 열기 (기본 마크다운 뷰어 사용)"
           ],
           "description": "보고서 열기 시 표시 방식을 선택합니다"
+        },
+        "vibereport.enableAutoUpdateReports": {
+          "type": "boolean",
+          "default": false,
+          "description": "파일 변경 시 보고서 업데이트를 자동 실행합니다 (기본값: 비활성화)"
+        },
+        "vibereport.autoUpdateDebounceMs": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 0,
+          "description": "자동 업데이트 실행 디바운스 시간(ms). 변경이 잠잠해진 뒤 이 시간 후 업데이트가 실행됩니다."
         }
       }
     },
@@ -314,11 +367,31 @@
           "when": "workspaceFolderCount > 0"
         },
         {
+          "command": "vibereport.updateReportsAll",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vibereport.exportSettings",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vibereport.importSettings",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vibereport.clearHistory",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
           "command": "vibereport.openEvaluationReport",
           "when": "workspaceFolderCount > 0"
         },
         {
           "command": "vibereport.openImprovementReport",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vibereport.markApplied",
           "when": "workspaceFolderCount > 0"
         }
       ],
@@ -368,6 +441,7 @@
     "vitest": "^4.0.14"
   },
   "dependencies": {
+    "jsonc-parser": "^3.3.1",
     "mermaid": "^11.12.2",
     "simple-git": "^3.27.0"
   }

@@ -15,14 +15,14 @@
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
-  <img src="https://img.shields.io/badge/version-0.4.13-brightgreen" alt="Current Version">
+  <img src="https://img.shields.io/badge/version-0.4.18-brightgreen" alt="Current Version">
 </p>
 
 ---
 
 바이브 코딩(AI 페어 프로그래밍)을 통해 프로그램을 제작할 때, 프로젝트 상태를 분석하고 AI 에이전트에게 전달할 개선 프롬프트를 자동으로 생성하는 확장 프로그램입니다.
 
-> **🚀 v0.4.13 주요 업데이트**: 로컬 Mermaid 번들링으로 오프라인 환경 완벽 지원, CSP 보안 강화, 보고서 프리뷰 기능 대폭 개선
+> **🚀 v0.4.18 주요 업데이트**: 프리뷰 HTML 이스케이프 강화, Execution Checklist 헤더 파싱 유연화, 평가 히스토리 git 버전 라벨 지원
 
 ## ✨ Features
 
@@ -84,20 +84,20 @@ GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니�
 #### 방법 2: 명령줄에서 설치
 ```bash
 # VSIX 파일 다운로드 후
-code --install-extension vibereport-0.4.13.vsix
+code --install-extension vibereport-0.4.18.vsix
 ```
 
 #### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
 ```powershell
 # GitHub에서 직접 다운로드 (PowerShell)
-Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.13/vibereport-0.4.13.vsix" -OutFile "vibereport-0.4.13.vsix"
-code --install-extension vibereport-0.4.13.vsix
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.18/vibereport-0.4.18.vsix" -OutFile "vibereport-0.4.18.vsix"
+code --install-extension vibereport-0.4.18.vsix
 ```
 
 ```bash
 # Linux/Mac
-curl -L -o vibereport-0.4.13.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.13/vibereport-0.4.13.vsix
-code --install-extension vibereport-0.4.13.vsix
+curl -L -o vibereport-0.4.18.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.18/vibereport-0.4.18.vsix
+code --install-extension vibereport-0.4.18.vsix
 ```
 
 ### Development (개발자용)
@@ -121,15 +121,22 @@ pnpm run compile
 | 명령어 | 설명 | 단축키 |
 |--------|------|--------|
 | `VibeCoding: Update Project Reports` | 프로젝트 분석 및 보고서 업데이트 | - |
+| `VibeCoding: Update Project Reports (All Workspaces)` | 모든 워크스페이스 보고서 업데이트 | - |
+| `VibeCoding: Export Settings` | 설정 내보내기 | - |
+| `VibeCoding: Import Settings` | 설정 가져오기 | - |
+| `VibeCoding: Clear Session History` | 세션 히스토리 초기화 | - |
 | `VibeCoding: Open Evaluation Report` | 평가 보고서 열기 | - |
 | `VibeCoding: Open Improvement Report` | 개선 보고서 열기 | - |
+| `VibeCoding: Mark Improvement Applied` | 개선 항목 적용 완료 마킹 | - |
 | `VibeCoding: Open Prompt File` | AI 프롬프트 파일 열기 | - |
 | `VibeCoding: Initialize Project Reports` | 보고서 초기화 | - |
 | `VibeCoding: Set Project Vision` | 프로젝트 비전 설정 | - |
 | `VibeCoding: Open Session History` | 세션 히스토리 열기 | - |
 | `VibeCoding: Generate Improvement Prompt` | 개선 프롬프트 생성 | - |
+| `VibeCoding: Open Code Reference` | 코드 레퍼런스 열기 | - |
 | `VibeCoding: Open Report Preview` | Mermaid 지원 보고서 프리뷰 | `Ctrl+K M` |
 | `VibeCoding: Share Report Preview` | 보고서 공유 | - |
+| `VibeCoding: Report Doctor: Validate/Repair Reports` | 보고서 검증/복구 | - |
 
 ## ⚙️ Configuration
 
@@ -214,7 +221,7 @@ pnpm run test:coverage
 pnpm test -- --watch
 ```
 
-현재 49개 단위 테스트 통과 (서비스/유틸/뷰 레이어)
+현재 200+ 단위 테스트 통과 (서비스/유틸/뷰 레이어)
 
 ## 📚 API Documentation
 
@@ -240,31 +247,25 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.13.vsix 생성
+# vibereport-0.4.18.vsix 생성
 ```
 
 ## 📝 Changelog
 
-### v0.4.13 (2025-12-15) - 🚀 Major Update
+### v0.4.18 (2025-12-19) - ✨ Improvements
 
-#### 📦 로컬 Mermaid 번들링 및 오프라인 지원
-- **Local Mermaid Integration**: 외부 CDN 의존성 완전 제거, 확장 프로그램 내부에 Mermaid.js 번들링
-- 오프라인 환경에서도 보고서 프리뷰가 완벽하게 동작
-- 프리뷰 로딩 속도 획기적 개선
+#### 🔒 보안 / 안정성
+- **프리뷰 HTML 이스케이프 강화**: 인라인 코드/링크 라벨 이스케이프 및 `href` 안전 처리로 XSS 위험을 줄였습니다.
 
-#### 🔒 보안 강화 (CSP)
-- **Strict Content Security Policy**: Webview에 엄격한 CSP 적용
-- `script-src 'nonce-...'` 적용으로 보안성 극대화
+#### 🧪 품질/검증
+- **Execution Checklist 헤더 파싱 유연화**: 이모지 유무 모두 지원하여 체크리스트 파싱 실패를 방지합니다.
+- **확장 활성화/프리뷰 테스트 보강**: 비활성화 분기, 에디터 부재/비마크다운 문서 등을 추가 검증합니다.
 
-#### 📊 보고서 시스템 고도화
-- **기능 기반 패키지 구조도**: Mermaid 기반 아키텍처 다이어그램 자동 생성
-- **상세 평가 지표**: 10개 항목에 대한 정량적 점수와 등급(A~F) 제공
-- **개선 보고서 필터링**: 적용된 항목 자동 제외, 미완료 작업만 표시
+#### 📊 평가/히스토리
+- **평가 히스토리 버전 라벨 개선**: 버전 미존재 시 `git:abcdef0@branch` 형식으로 표시합니다.
 
-#### 🛠 기타 개선사항
-- Session History 안정화
-- 주요 명령어 UX 개선
-- 프리뷰 테마 완전 지원 (white/black/ide)
+#### 🚀 최적화
+- **설정 저장 최적화**: 변경 없는 설정 키는 업데이트를 건너뛰어 불필요한 config write를 줄입니다.
 
 ---
 
