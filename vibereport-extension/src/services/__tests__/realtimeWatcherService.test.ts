@@ -53,6 +53,33 @@ describe('RealtimeWatcherService', () => {
     expect(onPending).not.toHaveBeenCalled();
   });
 
+  it('filters out report directory and state file changes under analysisRoot', async () => {
+    const onPending = vi.fn();
+    const { RealtimeWatcherService } = await import('../realtimeWatcherService.js');
+
+    const service = new RealtimeWatcherService(
+      {
+        reportDirectory: 'devplan',
+        analysisRoot: 'packages/app',
+        snapshotFile: '.vscode/vibereport-state.json',
+        debounceMs: 1500,
+        excludePatterns: [],
+      },
+      onPending
+    );
+
+    service.start([
+      { uri: { fsPath: 'C:\\root' }, name: 'root', index: 0 } as any,
+    ]);
+
+    service.recordChange('C:\\root\\packages\\app\\devplan\\Project_Evaluation_Report.md');
+    service.recordChange('C:\\root\\packages\\app\\.vscode\\vibereport-state.json');
+
+    vi.advanceTimersByTime(2000);
+
+    expect(onPending).not.toHaveBeenCalled();
+  });
+
   it('debounces and aggregates changes into a single pending state', async () => {
     const onPending = vi.fn();
     const { RealtimeWatcherService } = await import('../realtimeWatcherService.js');

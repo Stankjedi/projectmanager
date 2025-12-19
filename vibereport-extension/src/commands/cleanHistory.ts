@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { SnapshotService } from '../services/snapshotService.js';
-import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 
 /**
  * Clean History Command
@@ -22,8 +22,8 @@ export class CleanHistoryCommand {
 
     async execute(): Promise<void> {
         // Get workspace root
-        const rootPath = await selectWorkspaceRoot();
-        if (!rootPath) {
+        const workspaceRoot = await selectWorkspaceRoot();
+        if (!workspaceRoot) {
             return;
         }
 
@@ -42,6 +42,17 @@ export class CleanHistoryCommand {
 
         try {
             const config = loadConfig();
+            let rootPath = workspaceRoot;
+            try {
+                rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+            } catch (error) {
+                vscode.window.showErrorMessage(
+                    'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+                );
+                this.log(`analysisRoot invalid: ${String(error)}`);
+                return;
+            }
+
             await this.snapshotService.clearHistory(rootPath, config);
 
             vscode.window.showInformationMessage('Session history cleared successfully.');

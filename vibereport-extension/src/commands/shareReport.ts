@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { loadConfig, getRootPath } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import { getPreviewStyle } from '../utils/previewStyle.js';
 import { buildPreviewHtml, extractScoreTable } from './shareReportPreview.js';
 
@@ -19,14 +19,34 @@ export class ShareReportCommand {
   }
 
   async execute(): Promise<void> {
-    const rootPath = getRootPath();
-    if (!rootPath) {
-      vscode.window.showErrorMessage('워크스페이스가 열려있지 않습니다.');
+    const workspaceRoot = await selectWorkspaceRoot();
+    if (!workspaceRoot) {
       return;
     }
 
     const config = loadConfig();
+
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+      );
+      this.log(`analysisRoot invalid: ${String(error)}`);
+      return;
+    }
+
     const reportDir = path.join(rootPath, config.reportDirectory);
+
+    const analysisRootRel = config.analysisRoot.trim();
+    const reportRelativePath = analysisRootRel
+      ? path.posix.join(
+          analysisRootRel.replace(/\\/g, '/'),
+          config.reportDirectory,
+          'Project_Evaluation_Report.md'
+        )
+      : path.posix.join(config.reportDirectory, 'Project_Evaluation_Report.md');
 
     try {
       // 평가 보고서 읽기
@@ -34,7 +54,11 @@ export class ShareReportCommand {
       const evalContent = await fs.readFile(evalPath, 'utf-8');
 
       // 프리뷰 보고서 생성
-      const preview = this.generatePreviewReport(evalContent, rootPath);
+      const preview = this.generatePreviewReport(
+        evalContent,
+        workspaceRoot,
+        reportRelativePath
+      );
 
       // 클립보드에 복사
       await vscode.env.clipboard.writeText(preview);
@@ -60,8 +84,12 @@ export class ShareReportCommand {
   /**
    * 평가 보고서에서 프리뷰용 요약 생성
    */
-  private generatePreviewReport(evalContent: string, rootPath: string): string {
-    const projectName = path.basename(rootPath);
+  private generatePreviewReport(
+    evalContent: string,
+    workspaceRootPath: string,
+    reportRelativePath: string
+  ): string {
+    const projectName = path.basename(workspaceRootPath);
     const now = new Date().toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
@@ -116,7 +144,7 @@ ${scoreTable}
 
 이 보고서는 [Vibe Coding Report](https://marketplace.visualstudio.com/items?itemName=stankjedi.vibereport) VS Code 확장으로 자동 생성되었습니다.
 
-전체 보고서는 프로젝트의 \`devplan/Project_Evaluation_Report.md\` 파일에서 확인 할 수 있습니다.
+전체 보고서는 프로젝트의 \`${reportRelativePath}\` 파일에서 확인 할 수 있습니다.
 `;
   }
 

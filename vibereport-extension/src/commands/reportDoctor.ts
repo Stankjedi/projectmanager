@@ -11,7 +11,7 @@ import * as path from 'path';
 import type { ProjectSnapshot, VibeReportConfig } from '../models/types.js';
 import { ReportService } from '../services/reportService.js';
 import { SnapshotService } from '../services/snapshotService.js';
-import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import {
   repairReportMarkdown,
   validateReportMarkdown,
@@ -37,10 +37,20 @@ export class ReportDoctorCommand {
   }
 
   async execute(): Promise<void> {
-    const rootPath = await selectWorkspaceRoot();
-    if (!rootPath) return;
+    const workspaceRoot = await selectWorkspaceRoot();
+    if (!workspaceRoot) return;
 
     const config = loadConfig();
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+      );
+      this.outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+      return;
+    }
     const paths = this.reportService.getReportPaths(rootPath, config);
 
     const snapshot = await this.loadSnapshotBestEffort(rootPath, config);
@@ -79,7 +89,10 @@ export class ReportDoctorCommand {
     this.outputChannel.appendLine(
       `[ReportDoctor] Started: ${new Date().toISOString()}`
     );
-    this.outputChannel.appendLine(`Workspace: ${rootPath}`);
+    this.outputChannel.appendLine(`Workspace: ${workspaceRoot}`);
+    if (rootPath !== workspaceRoot) {
+      this.outputChannel.appendLine(`Analysis root: ${rootPath}`);
+    }
     this.outputChannel.appendLine('='.repeat(60));
 
     const results: Array<{

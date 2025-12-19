@@ -24,10 +24,12 @@ vi.mock('fs/promises');
 vi.mock('../../utils/index.js', () => ({
   loadConfig: vi.fn(() => ({
     reportDirectory: 'devplan',
+    analysisRoot: '',
     snapshotFile: '.vscode/vibereport-state.json',
     language: 'ko',
   })),
   selectWorkspaceRoot: vi.fn(),
+  resolveAnalysisRoot: vi.fn((workspaceRoot: string) => workspaceRoot),
 }));
 
 function createValidEvaluationTemplate(): string {

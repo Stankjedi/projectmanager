@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 const mockSelectWorkspaceRoot = vi.fn<() => Promise<string | null>>();
 const mockLoadConfig = vi.fn();
 const mockClearHistory = vi.fn();
+const mockResolveAnalysisRoot = vi.fn((workspaceRoot: string) => workspaceRoot);
 
 // Mock vscode module
 vi.mock('vscode', () => ({
@@ -27,6 +28,7 @@ vi.mock('vscode', () => ({
 vi.mock('../../utils/index.js', () => ({
   selectWorkspaceRoot: mockSelectWorkspaceRoot,
   loadConfig: mockLoadConfig,
+  resolveAnalysisRoot: mockResolveAnalysisRoot,
 }));
 
 // Mock SnapshotService
@@ -84,6 +86,7 @@ describe('CleanHistoryCommand', () => {
   it('clears history when user confirms', async () => {
     const rootPath = 'C:\\test\\workspace';
     const config = {
+      analysisRoot: '',
       reportDirectory: 'devplan',
       snapshotFile: '.vscode/vibereport-state.json',
     } as unknown;
@@ -110,6 +113,7 @@ describe('CleanHistoryCommand', () => {
   it('shows an error when clearHistory throws', async () => {
     const rootPath = 'C:\\test\\workspace';
     const config = {
+      analysisRoot: '',
       reportDirectory: 'devplan',
       snapshotFile: '.vscode/vibereport-state.json',
     } as unknown;

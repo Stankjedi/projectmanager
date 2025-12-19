@@ -15,7 +15,7 @@ import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
-import { formatTimestampForUi, loadConfig, selectWorkspaceRoot } from './utils/index.js';
+import { formatTimestampForUi, loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from './utils/index.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -61,6 +61,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const autoUpdateManager = new AutoUpdateReportsManager(
     {
       reportDirectory: baseConfig.reportDirectory,
+      analysisRoot: baseConfig.analysisRoot,
       snapshotFile: baseConfig.snapshotFile,
       excludePatterns: baseConfig.excludePatterns,
     },
@@ -166,10 +167,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Open Evaluation Report
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openEvaluationReport', async () => {
-      const rootPath = await selectWorkspaceRoot();
-      if (!rootPath) return;
+      const workspaceRoot = await selectWorkspaceRoot();
+      if (!workspaceRoot) return;
 
       const config = loadConfig();
+      let rootPath = workspaceRoot;
+      try {
+        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+        );
+        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+        return;
+      }
       const reportOpenMode = vscode.workspace.getConfiguration('vibereport').get<string>('reportOpenMode', 'previewOnly');
 
       if (reportOpenMode === 'editorOnly') {
@@ -198,10 +209,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Open Improvement Report
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openImprovementReport', async () => {
-      const rootPath = await selectWorkspaceRoot();
-      if (!rootPath) return;
+      const workspaceRoot = await selectWorkspaceRoot();
+      if (!workspaceRoot) return;
 
       const config = loadConfig();
+      let rootPath = workspaceRoot;
+      try {
+        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+        );
+        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+        return;
+      }
       const reportOpenMode = vscode.workspace.getConfiguration('vibereport').get<string>('reportOpenMode', 'previewOnly');
 
       if (reportOpenMode === 'editorOnly') {
@@ -227,10 +248,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Open Prompt File
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openPrompt', async () => {
-      const rootPath = await selectWorkspaceRoot();
-      if (!rootPath) return;
+      const workspaceRoot = await selectWorkspaceRoot();
+      if (!workspaceRoot) return;
 
       const config = loadConfig();
+      let rootPath = workspaceRoot;
+      try {
+        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+        );
+        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+        return;
+      }
       const promptPath = vscode.Uri.file(
         require('path').join(rootPath, config.reportDirectory, 'Prompt.md')
       );
@@ -249,10 +280,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Open Session History
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.openSessionHistory', async () => {
-      const rootPath = await selectWorkspaceRoot();
-      if (!rootPath) return;
+      const workspaceRoot = await selectWorkspaceRoot();
+      if (!workspaceRoot) return;
 
       const config = loadConfig();
+      let rootPath = workspaceRoot;
+      try {
+        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+        );
+        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+        return;
+      }
       const historyPath = vscode.Uri.file(
         require('path').join(rootPath, config.reportDirectory, 'Session_History.md')
       );
@@ -281,10 +322,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // 명령 등록: Initialize Reports
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.initializeReports', async () => {
-      const rootPath = await selectWorkspaceRoot();
-      if (!rootPath) return;
+      const workspaceRoot = await selectWorkspaceRoot();
+      if (!workspaceRoot) return;
 
       const config = loadConfig();
+      let rootPath = workspaceRoot;
+      try {
+        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+        );
+        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+        return;
+      }
+
       const exists = await reportService.reportsExist(rootPath, config);
 
       if (exists) {
@@ -406,40 +458,56 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // ===== File System Watcher for Auto-Refresh =====
   const config = loadConfig();
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-  const reportDir = require('path').join(workspaceRoot, config.reportDirectory);
-  const stateFile = require('path').join(workspaceRoot, config.snapshotFile);
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    outputChannel.appendLine('[FileWatcher] No workspace folder open; skipping auto-refresh watchers');
+  } else {
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+    let analysisRootPath = workspaceRoot;
+    try {
+      analysisRootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      outputChannel.appendLine(`[FileWatcher] Invalid analysisRoot: ${String(error)}`);
+    }
 
-  // 보고서 파일 감시 (.md)
-  const reportWatcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(reportDir, '*.md')
-  );
+    const reportDir = require('path').join(analysisRootPath, config.reportDirectory);
+    const stateFile = require('path').join(analysisRootPath, config.snapshotFile);
 
-  // 상태 파일 감시 (.json)
-  const stateWatcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(
-      require('path').dirname(stateFile),
-      require('path').basename(stateFile)
-    )
-  );
+    try {
+      // 보고서 파일 감시 (.md)
+      const reportWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(reportDir, '*.md')
+      );
 
-  const refreshViews = () => {
-    summaryViewProvider.refresh();
-    historyViewProvider.refresh();
-    outputChannel.appendLine('[FileWatcher] Files changed, refreshing views...');
-  };
+      // 상태 파일 감시 (.json)
+      const stateWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(
+          require('path').dirname(stateFile),
+          require('path').basename(stateFile)
+        )
+      );
 
-  reportWatcher.onDidChange(refreshViews);
-  reportWatcher.onDidCreate(refreshViews);
-  reportWatcher.onDidDelete(refreshViews);
+      const refreshViews = () => {
+        summaryViewProvider.refresh();
+        historyViewProvider.refresh();
+        outputChannel.appendLine('[FileWatcher] Files changed, refreshing views...');
+      };
 
-  stateWatcher.onDidChange(refreshViews);
-  stateWatcher.onDidCreate(refreshViews);
+      reportWatcher.onDidChange(refreshViews);
+      reportWatcher.onDidCreate(refreshViews);
+      reportWatcher.onDidDelete(refreshViews);
 
-  context.subscriptions.push(reportWatcher);
-  context.subscriptions.push(stateWatcher);
-  outputChannel.appendLine(`[FileWatcher] Watching for changes in: ${reportDir}/*.md`);
-  outputChannel.appendLine(`[FileWatcher] Watching state file: ${stateFile}`);
+      stateWatcher.onDidChange(refreshViews);
+      stateWatcher.onDidCreate(refreshViews);
+
+      context.subscriptions.push(reportWatcher);
+      context.subscriptions.push(stateWatcher);
+      outputChannel.appendLine(`[FileWatcher] Watching for changes in: ${reportDir}/*.md`);
+      outputChannel.appendLine(`[FileWatcher] Watching state file: ${stateFile}`);
+    } catch (error) {
+      outputChannel.appendLine(`[FileWatcher] Failed to initialize watchers: ${error}`);
+    }
+  }
 
   // 명령 등록: Show Session Detail
   context.subscriptions.push(

@@ -12,7 +12,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { parse, type ParseError } from 'jsonc-parser';
+import type { ParseError } from 'jsonc-parser';
 import type {
   ProjectSnapshot,
   DirectoryNode,
@@ -214,7 +214,7 @@ export class WorkspaceScanner {
     try {
       const tscPath = path.join(rootPath, 'tsconfig.json');
       const content = await fs.readFile(tscPath, 'utf-8');
-      const tsc = this.parseJsoncObject(content);
+      const tsc = await this.parseJsoncObject(content);
       if (tsc) {
         configs.tsconfig = this.parseTsConfig(tsc);
       }
@@ -230,7 +230,7 @@ export class WorkspaceScanner {
     for (const tauriPath of tauriPaths) {
       try {
         const content = await fs.readFile(tauriPath, 'utf-8');
-        const tauri = this.parseJsoncObject(content);
+        const tauri = await this.parseJsoncObject(content);
         if (tauri) {
           configs.tauriConfig = this.parseTauriConfig(tauri);
           break;
@@ -292,8 +292,11 @@ export class WorkspaceScanner {
     return configs;
   }
 
-  private parseJsoncObject(content: string): Record<string, unknown> | null {
+  private async parseJsoncObject(
+    content: string
+  ): Promise<Record<string, unknown> | null> {
     try {
+      const { parse } = await import('jsonc-parser');
       const errors: ParseError[] = [];
       const parsed = parse(content, errors, { allowTrailingComma: true });
 

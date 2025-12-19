@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.4.18",
+  "version": "0.4.23",
   "publisher": "Stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -347,16 +347,19 @@
         {
           "id": "vibereport.summary",
           "name": "Summary",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(graph)"
         },
         {
           "id": "vibereport.history",
-          "name": "Session History"
+          "name": "Session History",
+          "icon": "$(history)"
         },
         {
           "id": "vibereport.settings",
           "name": "Settings",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(gear)"
         }
       ]
     },
@@ -413,8 +416,9 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run compile",
+    "vscode:prepublish": "pnpm run compile && pnpm run bundle",
     "compile": "tsc -p ./",
+    "bundle": "node scripts/bundle.js",
     "watch": "tsc -watch -p ./",
     "pretest": "pnpm run compile",
     "lint": "eslint src --ext ts",
@@ -433,7 +437,9 @@
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^4.0.14",
     "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.12",
     "eslint": "^9.0.0",
+    "mermaid": "^11.12.2",
     "memfs": "^4.9.2",
     "mock-fs": "^5.2.0",
     "typedoc": "^0.28.15",
@@ -442,7 +448,6 @@
   },
   "dependencies": {
     "jsonc-parser": "^3.3.1",
-    "mermaid": "^11.12.2",
     "simple-git": "^3.27.0"
   }
 }

@@ -11,9 +11,6 @@ importers:
       jsonc-parser:
         specifier: ^3.3.1
         version: 3.3.1
-      mermaid:
-        specifier: ^11.12.2
-        version: 11.12.2
       simple-git:
         specifier: ^3.27.0
         version: 3.30.0
@@ -39,12 +36,18 @@ importers:
       '@vscode/vsce':
         specifier: ^3.0.0
         version: 3.7.1
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
       eslint:
         specifier: ^9.0.0
         version: 9.39.1
       memfs:
         specifier: ^4.9.2
         version: 4.51.1
+      mermaid:
+        specifier: ^11.12.2
+        version: 11.12.2
       mock-fs:
         specifier: ^5.2.0
         version: 5.5.0

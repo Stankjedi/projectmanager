@@ -4,9 +4,16 @@
  */
 
 import * as vscode from 'vscode';
-import type { SessionRecord, VibeReportConfig } from '../models/types.js';
+import type { SessionRecord } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { formatRelativeTime, formatTimestampForUi, loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath } from '../utils/index.js';
+import {
+  formatRelativeTime,
+  formatTimestampForUi,
+  loadConfig,
+  getLastSelectedWorkspaceRoot,
+  getRootPath as getWorkspaceRootPath,
+  resolveAnalysisRoot,
+} from '../utils/index.js';
 
 /**
  * 히스토리 아이템 타입
@@ -64,10 +71,18 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
   }
 
   private async loadSessions(): Promise<SessionRecord[]> {
-    const rootPath = this.getRootPath();
-    if (!rootPath) return [];
+    const workspaceRoot = getLastSelectedWorkspaceRoot() ?? getWorkspaceRootPath();
+    if (!workspaceRoot) return [];
 
     const config = loadConfig();
+
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      this.outputChannel.appendLine(`[HistoryView] Invalid analysisRoot: ${String(error)}`);
+    }
+
     const state = await this.snapshotService.loadState(rootPath, config);
 
     if (!state) return [];
@@ -275,9 +290,6 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
     return items;
   }
 
-  private getRootPath(): string | null {
-    return getLastSelectedWorkspaceRoot() ?? getWorkspaceRootPath();
-  }
 } 
 
 class HistoryItem extends vscode.TreeItem {

@@ -4,10 +4,16 @@
  */
 
 import * as vscode from 'vscode';
-import type { VibeReportConfig, VibeReportState } from '../models/types.js';
+import type { VibeReportState } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
 import type { AutoUpdateStatus } from '../services/realtimeWatcherService.js';
-import { loadConfig, getLastSelectedWorkspaceRoot, getRootPath as getWorkspaceRootPath, formatTimestampForUi } from '../utils/index.js';
+import {
+  loadConfig,
+  getLastSelectedWorkspaceRoot,
+  getRootPath as getWorkspaceRootPath,
+  formatTimestampForUi,
+  resolveAnalysisRoot,
+} from '../utils/index.js';
 
 export class SummaryViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'vibereport.summary';
@@ -97,28 +103,45 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const state = await this.loadState();
-    this._view.webview.html = this.getHtmlContent(state);
+    try {
+      const state = await this.loadState();
+      this._view.webview.html = this.getHtmlContent(state);
+    } catch (error) {
+      this.outputChannel.appendLine(`[SummaryView] Error loading state: ${error}`);
+      // Fallback to null state - shows "no data" message instead of infinite loading
+      this._view.webview.html = this.getHtmlContent(null);
+    }
   }
 
   private async loadState(): Promise<VibeReportState | null> {
-    const rootPath = this.getRootPath();
-    if (!rootPath) return null;
+    const workspaceRoot = getLastSelectedWorkspaceRoot() ?? getWorkspaceRootPath();
+    if (!workspaceRoot) {
+      this.outputChannel.appendLine('[SummaryView] No workspace root path available');
+      return null;
+    }
 
     const config = loadConfig();
+
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      this.outputChannel.appendLine(`[SummaryView] Invalid analysisRoot: ${String(error)}`);
+    }
+
     return await this.snapshotService.loadState(rootPath, config);
   }
 
   private getHtmlContent(state: VibeReportState | null): string {
     const nonce = this.getNonce();
     const cspSource = this._view?.webview.cspSource || '';
-    
+
     const sessionsCount = state?.sessions.length || 0;
     const appliedCount = state?.appliedImprovements.length || 0;
     const lastUpdate = state?.lastUpdated
       ? formatTimestampForUi(state.lastUpdated)
       : '없음';
-    const projectName = state?.lastSnapshot?.projectName || '프로젝트 미설정';  
+    const projectName = state?.lastSnapshot?.projectName || '프로젝트 미설정';
 
     const autoUpdate = this.autoUpdateStatus;
     const autoUpdateEnabledLabel = autoUpdate?.enabled ? '켜짐' : '꺼짐';
@@ -143,10 +166,10 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     const lineMetrics =
       lastSession?.diffSummary?.linesTotal !== undefined && lastSession.diffSummary.linesTotal > 0
         ? {
-            added: lastSession.diffSummary.linesAdded ?? 0,
-            removed: lastSession.diffSummary.linesRemoved ?? 0,
-            total: lastSession.diffSummary.linesTotal,
-          }
+          added: lastSession.diffSummary.linesAdded ?? 0,
+          removed: lastSession.diffSummary.linesRemoved ?? 0,
+          total: lastSession.diffSummary.linesTotal,
+        }
         : null;
 
     return `<!DOCTYPE html>
@@ -321,7 +344,4 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
 </html>`;
   }
 
-  private getRootPath(): string | null {
-    return getLastSelectedWorkspaceRoot() ?? getWorkspaceRootPath();
-  }
 }

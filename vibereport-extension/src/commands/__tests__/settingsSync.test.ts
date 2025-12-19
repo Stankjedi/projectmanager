@@ -116,5 +116,40 @@ describe('settingsSync', () => {
       vscode.ConfigurationTarget.Workspace
     );
   });
-});
 
+  it('importSettings maps legacy realtime keys to auto update settings', async () => {
+    const mockUpdate = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    vi.mocked(vscode.window.showOpenDialog).mockResolvedValue([
+      { fsPath: 'C:\\tmp\\vibereport-settings.json' } as any,
+    ]);
+
+    vi.mocked(fs.readFile).mockResolvedValue(
+      JSON.stringify({
+        exportedAt: '2025-01-01T00:00:00.000Z',
+        extensionVersion: '0.4.19',
+        settings: {
+          enableRealtimeAnalysis: true,
+          realtimeDebounceMs: 2500,
+        },
+      })
+    );
+
+    const { importSettings } = await import('../settingsSync.js');
+    await importSettings();
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'enableAutoUpdateReports',
+      true,
+      vscode.ConfigurationTarget.Workspace
+    );
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'autoUpdateDebounceMs',
+      2500,
+      vscode.ConfigurationTarget.Workspace
+    );
+  });
+});

@@ -7,6 +7,7 @@ import {
 
 export interface RealtimeWatcherOptions {
   reportDirectory: string;
+  analysisRoot?: string;
   snapshotFile: string;
   debounceMs: number;
   excludePatterns: string[];
@@ -29,7 +30,33 @@ export interface AutoUpdateStatus {
 function normalizeFsPath(p: string): string {
   const withSlashes = p.replace(/\\/g, '/');
   const normalized = path.posix.normalize(withSlashes);
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+
+  const isWindowsPath =
+    process.platform === 'win32' ||
+    /^[A-Za-z]:\//.test(normalized) ||
+    normalized.startsWith('//');
+
+  return isWindowsPath ? normalized.toLowerCase() : normalized;
+}
+
+function isWindowsFsPath(p: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(p) || p.startsWith('\\\\');
+}
+
+function resolveAnalysisRootPath(workspaceRoot: string, analysisRoot: string | undefined): string {
+  const trimmed = (analysisRoot ?? '').trim();
+  if (!trimmed) {
+    return workspaceRoot;
+  }
+
+  const pathLib = isWindowsFsPath(workspaceRoot) ? path.win32 : path.posix;
+  const resolved = pathLib.resolve(workspaceRoot, trimmed);
+  const relative = pathLib.relative(workspaceRoot, resolved);
+  if (relative === '' || (!relative.startsWith('..') && !pathLib.isAbsolute(relative))) {
+    return resolved;
+  }
+
+  return workspaceRoot;
 }
 
 const globRegexCache = new Map<string, RegExp>();
@@ -106,11 +133,13 @@ export class RealtimeWatcherService implements vscode.Disposable {
       const root = folder.uri.fsPath;
       this.workspaceRoots.push(root);
       this.workspaceRootsNormalized.push(normalizeFsPath(root));
+
+      const analysisRootPath = resolveAnalysisRootPath(root, this.options.analysisRoot);
       this.ignoredReportDirs.add(
-        normalizeFsPath(path.join(root, this.options.reportDirectory))
+        normalizeFsPath(path.join(analysisRootPath, this.options.reportDirectory))
       );
       this.ignoredStateFiles.add(
-        normalizeFsPath(path.join(root, this.options.snapshotFile))
+        normalizeFsPath(path.join(analysisRootPath, this.options.snapshotFile))
       );
 
       const watcher = vscode.workspace.createFileSystemWatcher(
@@ -243,6 +272,7 @@ export class RealtimeWatcherService implements vscode.Disposable {
 
 export interface AutoUpdateReportsManagerOptions {
   reportDirectory: string;
+  analysisRoot?: string;
   snapshotFile: string;
   excludePatterns: string[];
 }
@@ -313,13 +343,14 @@ export class AutoUpdateReportsManager implements vscode.Disposable {
       return;
     }
 
-    this.watcher = new RealtimeWatcherService(
-      {
-        reportDirectory: this.options.reportDirectory,
-        snapshotFile: this.options.snapshotFile,
-        debounceMs: this.settings.debounceMs,
-        excludePatterns: this.options.excludePatterns,
-      },
+      this.watcher = new RealtimeWatcherService(
+        {
+          reportDirectory: this.options.reportDirectory,
+          analysisRoot: this.options.analysisRoot,
+          snapshotFile: this.options.snapshotFile,
+          debounceMs: this.settings.debounceMs,
+          excludePatterns: this.options.excludePatterns,
+        },
       state => this.onPendingChanges(state)
     );
 

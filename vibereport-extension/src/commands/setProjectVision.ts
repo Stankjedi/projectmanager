@@ -13,7 +13,7 @@ import type {
   VibeReportConfig,
 } from '../models/types.js';
 import { SnapshotService } from '../services/index.js';
-import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 
 export class SetProjectVisionCommand {
   private snapshotService: SnapshotService;
@@ -28,12 +28,23 @@ export class SetProjectVisionCommand {
    * 프로젝트 비전 설정 실행
    */
   async execute(): Promise<void> {
-    const rootPath = await selectWorkspaceRoot();
-    if (!rootPath) {
+    const workspaceRoot = await selectWorkspaceRoot();
+    if (!workspaceRoot) {
       this.log('워크스페이스 선택이 취소되었습니다.');
       return;
     }
     const config = loadConfig();
+
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+      );
+      this.log(`analysisRoot invalid: ${String(error)}`);
+      return;
+    }
 
     // 기존 상태 로드
     let state = await this.snapshotService.loadState(rootPath, config);

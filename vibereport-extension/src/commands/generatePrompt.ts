@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import { EXECUTION_CHECKLIST_BLOCK_REGEX } from '../utils/promptChecklistUtils.js';
 
 /**
@@ -54,12 +54,24 @@ export class GeneratePromptCommand {
    * 메인 실행: Prompt.md에서 프롬프트와 OPT 항목을 선택하여 클립보드에 복사
    */
   async execute(): Promise<void> {
-    const rootPath = await selectWorkspaceRoot();
-    if (!rootPath) {
+    const workspaceRoot = await selectWorkspaceRoot();
+    if (!workspaceRoot) {
       this.log('워크스페이스 선택이 취소되었습니다.');
       return;
     }
     const config = loadConfig();
+
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+      );
+      this.log(`analysisRoot invalid: ${String(error)}`);
+      return;
+    }
+
     const promptPath = path.join(rootPath, config.reportDirectory, 'Prompt.md');
 
     // Prompt.md에서 프롬프트와 OPT 항목 파싱

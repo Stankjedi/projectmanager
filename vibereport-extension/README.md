@@ -15,14 +15,14 @@
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
-  <img src="https://img.shields.io/badge/version-0.4.18-brightgreen" alt="Current Version">
+  <img src="https://img.shields.io/badge/version-0.4.22-brightgreen" alt="Current Version">
 </p>
 
 ---
 
 바이브 코딩(AI 페어 프로그래밍)을 통해 프로그램을 제작할 때, 프로젝트 상태를 분석하고 AI 에이전트에게 전달할 개선 프롬프트를 자동으로 생성하는 확장 프로그램입니다.
 
-> **🚀 v0.4.18 주요 업데이트**: 프리뷰 HTML 이스케이프 강화, Execution Checklist 헤더 파싱 유연화, 평가 히스토리 git 버전 라벨 지원
+> **🚀 v0.4.22 주요 업데이트**: 사이드바 뷰/명령 실행 시 확장 활성화 누락으로 발생하던 무한 로딩/빈 화면을 해결하고, 개발 환경의 TypeScript `vscode` 타입 오류를 수정했습니다.
 
 ## ✨ Features
 
@@ -84,20 +84,20 @@ GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니�
 #### 방법 2: 명령줄에서 설치
 ```bash
 # VSIX 파일 다운로드 후
-code --install-extension vibereport-0.4.18.vsix
+code --install-extension vibereport-0.4.22.vsix
 ```
 
 #### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
 ```powershell
 # GitHub에서 직접 다운로드 (PowerShell)
-Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.18/vibereport-0.4.18.vsix" -OutFile "vibereport-0.4.18.vsix"
-code --install-extension vibereport-0.4.18.vsix
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.22/vibereport-0.4.22.vsix" -OutFile "vibereport-0.4.22.vsix"
+code --install-extension vibereport-0.4.22.vsix
 ```
 
 ```bash
 # Linux/Mac
-curl -L -o vibereport-0.4.18.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.18/vibereport-0.4.18.vsix
-code --install-extension vibereport-0.4.18.vsix
+curl -L -o vibereport-0.4.22.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.22/vibereport-0.4.22.vsix
+code --install-extension vibereport-0.4.22.vsix
 ```
 
 ### Development (개발자용)
@@ -247,10 +247,25 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.18.vsix 생성
+# vibereport-0.4.22.vsix 생성
 ```
 
 ## 📝 Changelog
+
+### v0.4.22 (2025-12-19) - 🐛 Bug Fix
+
+- **확장 활성화 안정화**: `onView:*` / `onCommand:*` activation event를 추가하여 사이드바 뷰/명령 실행 시 항상 확장이 활성화되도록 수정했습니다.
+- **개발 환경 타입 오류 수정**: `tsconfig.json`에 `vscode` 타입을 포함하여 TypeScript 에러를 제거했습니다.
+
+### v0.4.21 (2025-12-19) - 🐛 Bug Fix
+
+- **analysisRoot 경로 정합**: Summary/History/명령/Auto-update가 analysisRoot 하위 생성 파일을 올바르게 사용합니다.
+- **설정 Export/Import 개선**: 누락된 키 추가 및 레거시 키 자동 매핑으로 설정 동기화가 안정화됩니다.
+
+### v0.4.20 (2025-12-19) - 🐛 Bug Fix
+
+- **런타임 의존성 번들링**: 0.4.19에서 발생한 확장 미작동/무한로딩 이슈를 수정했습니다.
+- **활성화 안정성 개선**: `jsonc-parser` 동적 import 및 워크스페이스 없는 창에서의 watcher 가드로 활성화 실패를 방지합니다.
 
 ### v0.4.18 (2025-12-19) - ✨ Improvements
 

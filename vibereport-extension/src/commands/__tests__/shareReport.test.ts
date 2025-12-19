@@ -8,8 +8,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 
-const mockGetRootPath = vi.fn();
+const mockSelectWorkspaceRoot = vi.fn();
 const mockLoadConfig = vi.fn();
+const mockResolveAnalysisRoot = vi.fn();
 
 // Mock vscode module
 vi.mock('vscode', () => ({
@@ -40,8 +41,9 @@ vi.mock('fs/promises', () => ({
 
 // Mock config utils
 vi.mock('../../utils/index.js', () => ({
-  getRootPath: mockGetRootPath,
+  selectWorkspaceRoot: mockSelectWorkspaceRoot,
   loadConfig: mockLoadConfig,
+  resolveAnalysisRoot: mockResolveAnalysisRoot,
 }));
 
 describe('ShareReportCommand', () => {
@@ -60,11 +62,13 @@ describe('ShareReportCommand', () => {
   });
 
   it('writes preview report to clipboard when evaluation report can be read', async () => {
-    mockGetRootPath.mockReturnValue('C:\\test\\workspace');
+    mockSelectWorkspaceRoot.mockResolvedValue('C:\\test\\workspace');
     mockLoadConfig.mockReturnValue({
       reportDirectory: 'devplan',
+      analysisRoot: '',
       snapshotFile: '.vscode/vibereport-state.json',
     } as unknown);
+    mockResolveAnalysisRoot.mockImplementation((_root: string) => 'C:\\test\\workspace');
 
     const evalContent = [
       '**현재 버전** | 0.4.15 |',
@@ -97,8 +101,9 @@ describe('ShareReportCommand', () => {
   });
 
   it('shows an error when evaluation report is missing', async () => {
-    mockGetRootPath.mockReturnValue('C:\\test\\workspace');
-    mockLoadConfig.mockReturnValue({ reportDirectory: 'devplan' } as unknown);
+    mockSelectWorkspaceRoot.mockResolvedValue('C:\\test\\workspace');
+    mockLoadConfig.mockReturnValue({ reportDirectory: 'devplan', analysisRoot: '' } as unknown);
+    mockResolveAnalysisRoot.mockImplementation((_root: string) => 'C:\\test\\workspace');
 
     vi.mocked(fs.readFile).mockRejectedValue(new Error('ENOENT'));
 
@@ -111,4 +116,3 @@ describe('ShareReportCommand', () => {
     expect(vscode.env.clipboard.writeText).not.toHaveBeenCalled();
   });
 });
-

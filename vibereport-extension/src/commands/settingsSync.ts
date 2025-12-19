@@ -5,6 +5,7 @@ const EXTENSION_ID = 'stankjedi.vibereport';
 
 const ALLOWLIST_KEYS = [
   'reportDirectory',
+  'analysisRoot',
   'snapshotFile',
   'enableGitDiff',
   'excludePatterns',
@@ -17,14 +18,25 @@ const ALLOWLIST_KEYS = [
   'previewBackgroundColor',
   'previewEnabled',
   'enableDirectAi',
-  'enableRealtimeAnalysis',
-  'realtimeDebounceMs',
+  'enableAutoUpdateReports',
+  'autoUpdateDebounceMs',
   'preferredMarkdownViewer',
   'reportOpenMode',
   'ai.customInstructions',
 ] as const;
 
 type AllowlistKey = (typeof ALLOWLIST_KEYS)[number];
+
+const LEGACY_KEY_MAP: Readonly<Record<string, AllowlistKey>> = {
+  enableRealtimeAnalysis: 'enableAutoUpdateReports',
+  realtimeDebounceMs: 'autoUpdateDebounceMs',
+};
+
+const ALLOWLIST_SET = new Set<string>(ALLOWLIST_KEYS as readonly string[]);
+
+function isAllowlistKey(key: string): key is AllowlistKey {
+  return ALLOWLIST_SET.has(key);
+}
 
 function getExtensionVersion(): string {
   const ext = vscode.extensions.getExtension(EXTENSION_ID);
@@ -105,12 +117,14 @@ export async function importSettings(): Promise<void> {
   let skipped = 0;
 
   for (const [key, value] of Object.entries(settings)) {
-    if ((ALLOWLIST_KEYS as readonly string[]).includes(key)) {
-      await config.update(key, value, vscode.ConfigurationTarget.Workspace);
-      applied++;
-    } else {
+    const resolvedKey = isAllowlistKey(key) ? key : LEGACY_KEY_MAP[key];
+    if (!resolvedKey) {
       skipped++;
+      continue;
     }
+
+    await config.update(resolvedKey, value, vscode.ConfigurationTarget.Workspace);
+    applied++;
   }
 
   vscode.window.showInformationMessage(
