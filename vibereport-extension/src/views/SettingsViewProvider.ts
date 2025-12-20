@@ -53,6 +53,29 @@ function isSettingsKey(key: string): key is SettingsKey {
   return SETTINGS_KEYS.has(key as SettingsKey);
 }
 
+function isDeepEqual(left: unknown, right: unknown): boolean {
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return Object.is(left, right);
+  }
+}
+
+async function updateSettingIfChanged(
+  config: vscode.WorkspaceConfiguration,
+  key: SettingsKey,
+  newValue: unknown,
+  target: vscode.ConfigurationTarget
+): Promise<boolean> {
+  const currentValue = config.get(key, SETTINGS_DEFAULT_FACTORIES[key]());
+  if (isDeepEqual(currentValue, newValue)) {
+    return false;
+  }
+
+  await config.update(key, newValue, target);
+  return true;
+}
+
 const SETTINGS_DEFAULT_FACTORIES: Record<SettingsKey, () => unknown> = {
   reportDirectory: () => DEFAULT_CONFIG.reportDirectory,
   analysisRoot: () => DEFAULT_CONFIG.analysisRoot,
@@ -326,37 +349,30 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 
       const config = vscode.workspace.getConfiguration('vibereport');
 
-      const updates: Array<{ key: SettingsKey; value: unknown }> = [];
+      let updatedCount = 0;
       for (const key of SETTINGS_KEYS) {
         if (!validated.has(key)) continue;
         const value = validated.get(key);
-        const current = config.get(key, SETTINGS_DEFAULT_FACTORIES[key]());
 
-        const isEqual =
-          key === 'excludePatterns'
-            ? Array.isArray(current) &&
-              Array.isArray(value) &&
-              current.length === value.length &&
-              current.every((item, index) => item === value[index])
-            : Object.is(current, value);
+        const wasUpdated = await updateSettingIfChanged(
+          config,
+          key,
+          value,
+          vscode.ConfigurationTarget.Workspace
+        );
 
-        if (isEqual) {
-          continue;
+        if (wasUpdated) {
+          updatedCount += 1;
+          this.log(`설정 배치 업데이트: ${key} = ${JSON.stringify(value)}`);
         }
-
-        updates.push({ key, value });
       }
 
-      for (const { key, value } of updates) {
-        await config.update(key, value, vscode.ConfigurationTarget.Workspace);
-        this.log(`설정 배치 업데이트: ${key} = ${JSON.stringify(value)}`);
-      }
-
-      if (updates.length === 0) {
+      if (updatedCount === 0) {
         this.log('설정 배치 업데이트: 변경 사항 없음 (config.update 생략)');
+        vscode.window.showInformationMessage('변경된 설정이 없습니다.');
+      } else {
+        vscode.window.showInformationMessage(`설정 ${updatedCount}개가 업데이트되었습니다.`);
       }
-
-      vscode.window.showInformationMessage('설정이 저장되었습니다.');
       await this.sendCurrentSettings();
     } catch (error) {
       this.log(`설정 배치 업데이트 실패: ${error}`);
@@ -428,11 +444,25 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       autoUpdateDebounceMs: 1500,
     };
 
-    for (const [key, value] of Object.entries(defaults)) {
-      await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+    const entries = Object.entries(defaults) as Array<[SettingsKey, unknown]>;
+    let updatedCount = 0;
+    for (const [key, value] of entries) {
+      const wasUpdated = await updateSettingIfChanged(
+        config,
+        key,
+        value,
+        vscode.ConfigurationTarget.Workspace
+      );
+      if (wasUpdated) {
+        updatedCount += 1;
+      }
     }
 
-    vscode.window.showInformationMessage('설정이 기본값으로 초기화되었습니다.');
+    if (updatedCount === 0) {
+      vscode.window.showInformationMessage('변경된 설정이 없습니다.');
+    } else {
+      vscode.window.showInformationMessage('설정이 기본값으로 초기화되었습니다.');
+    }
     await this.sendCurrentSettings();
   }
 

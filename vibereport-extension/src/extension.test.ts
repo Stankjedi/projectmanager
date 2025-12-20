@@ -307,4 +307,102 @@ describe('extension', () => {
     );
     expect(vscode.workspace.createFileSystemWatcher).not.toHaveBeenCalled();
   });
+
+  it('activate() registers view providers', async () => {
+    const { activate } = await import('./extension.js');
+
+    const context = {
+      subscriptions: [],
+      extensionUri: { fsPath: 'C:\\test\\ext' },
+      extensionPath: 'C:\\test\\ext',
+    } as unknown as vscode.ExtensionContext;
+
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+    } as any);
+
+    await activate(context);
+
+    expect(vscode.window.registerTreeDataProvider).toHaveBeenCalledWith(
+      'vibereport.history',
+      expect.any(Object)
+    );
+    expect(vscode.window.registerWebviewViewProvider).toHaveBeenCalledWith(
+      'vibereport.summary',
+      expect.any(Object)
+    );
+    expect(vscode.window.registerWebviewViewProvider).toHaveBeenCalledWith(
+      'vibereport.settings',
+      expect.any(Object)
+    );
+  });
+
+  it('activate() registers updateReports command and stores disposables', async () => {
+    const { activate } = await import('./extension.js');
+
+    const context = {
+      subscriptions: [],
+      extensionUri: { fsPath: 'C:\\test\\ext' },
+      extensionPath: 'C:\\test\\ext',
+    } as unknown as vscode.ExtensionContext;
+
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+    } as any);
+
+    await activate(context);
+
+    const registeredCommands = vi.mocked(vscode.commands.registerCommand).mock.calls.map(
+      args => args[0]
+    );
+    expect(registeredCommands).toContain('vibereport.updateReports');
+    expect(context.subscriptions.length).toBeGreaterThan(0);
+  });
+
+  it('activate() handles file watcher initialization errors gracefully', async () => {
+    const { activate } = await import('./extension.js');
+
+    const context = {
+      subscriptions: [],
+      extensionUri: { fsPath: 'C:\\test\\ext' },
+      extensionPath: 'C:\\test\\ext',
+    } as unknown as vscode.ExtensionContext;
+
+    vi.mocked(vscode.workspace).workspaceFolders = [
+      { uri: { fsPath: 'C:\\test\\workspace' }, name: 'test', index: 0 },
+    ] as unknown as vscode.WorkspaceFolder[];
+
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+    } as any);
+
+    vi.mocked(vscode.workspace.createFileSystemWatcher).mockImplementationOnce(() => {
+      throw new Error('watcher boom');
+    });
+
+    await expect(activate(context)).resolves.not.toThrow();
+
+    const output = vi.mocked(vscode.window.createOutputChannel).mock.results[0]
+      ?.value as { appendLine: ReturnType<typeof vi.fn> };
+
+    expect(output.appendLine).toHaveBeenCalledWith(
+      expect.stringContaining('[FileWatcher] Failed to initialize watchers')
+    );
+  });
+
+  it('activate() surfaces output channel failures', async () => {
+    const { activate } = await import('./extension.js');
+
+    const context = {
+      subscriptions: [],
+      extensionUri: { fsPath: 'C:\\test\\ext' },
+      extensionPath: 'C:\\test\\ext',
+    } as unknown as vscode.ExtensionContext;
+
+    vi.mocked(vscode.window.createOutputChannel).mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+
+    await expect(activate(context)).rejects.toThrow('boom');
+  });
 });

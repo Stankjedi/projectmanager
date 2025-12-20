@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import { escapeHtml, escapeHtmlAttribute } from '../utils/htmlEscape.js';
+import { escapeHtml } from '../utils/htmlEscape.js';
 import { getPreviewStyle } from '../utils/previewStyle.js';
 
 export class OpenReportPreviewCommand {
@@ -75,7 +75,7 @@ export class OpenReportPreviewCommand {
 
     // Get URI for local mermaid.min.js
     let mermaidScriptUri = '';
-    if (this.extensionUri) {
+    if (this.extensionUri && panel.webview.asWebviewUri) {
       const mermaidPath = vscode.Uri.joinPath(this.extensionUri, 'media', 'mermaid.min.js');
       mermaidScriptUri = panel.webview.asWebviewUri(mermaidPath).toString();
     }
@@ -136,10 +136,7 @@ export class OpenReportPreviewCommand {
     const codeBlocks: string[] = [];
     content = content.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang: string, code: string) => {
       const index = codeBlocks.length;
-      const escapedCode = code
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      const escapedCode = escapeHtml(code);
       codeBlocks.push(`<pre><code class="language-${lang || 'text'}">${escapedCode}</code></pre>`);
       return `__CODE_BLOCK_${index}__`;
     });
@@ -290,22 +287,25 @@ export class OpenReportPreviewCommand {
     let working = text;
 
     // Inline code first: treat as literal text (no further inline parsing inside <code>).
-    working = working.replace(/`([^`]+)`/g, (_m, code: string) =>
-      pushToken('INLINE_CODE', `<code>${escapeHtml(code)}</code>`)
-    );
+    working = working.replace(/`([^`]+)`/g, (_m, code: string) => {
+      const safeCode = escapeHtml(code);
+      return pushToken('INLINE_CODE', `<code>${safeCode}</code>`);
+    });
 
-    // Links next: sanitize and attribute-escape href; escape/format label independently.
+    // Links next: sanitize href; escape label and href to prevent HTML injection.
     working = working.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       (_m, label: string, href: string) => {
         const safeHref = this.sanitizeHref(href);
         if (!safeHref) return label;
 
-        const safeLabelHtml = this.renderLinkLabel(label);
+        const safeLabelHtml = this.renderLinkLabel(escapeHtml(label));
+        const relAttr = /^https?:/i.test(safeHref) ? ' rel="noopener noreferrer"' : '';
+        const escapedHref = escapeHtml(safeHref);
 
         return pushToken(
           'LINK',
-          `<a href="${escapeHtmlAttribute(safeHref)}" rel="noopener noreferrer">${safeLabelHtml}</a>`
+          `<a href="${escapedHref}"${relAttr}>${safeLabelHtml}</a>`
         );
       }
     );
@@ -330,9 +330,8 @@ export class OpenReportPreviewCommand {
    * Link label rendering: escape text and allow basic emphasis/code formatting.
    * (No links inside labels.)
    */
-  private renderLinkLabel(label: string): string {
-    const escaped = escapeHtml(label);
-    return escaped
+  private renderLinkLabel(escapedLabel: string): string {
+    return escapedLabel
       // 볼드
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       // 이탤릭
@@ -343,7 +342,9 @@ export class OpenReportPreviewCommand {
    * 전체 프리뷰 HTML 생성 (로컬 Mermaid.js 포함)
    */
   private buildFullPreviewHtml(markdown: string, mermaidScriptUri: string, webview: vscode.Webview): string {
-    const config = vscode.workspace.getConfiguration('vibereport');
+    const config =
+      vscode.workspace.getConfiguration?.('vibereport') ??
+      ({ get: (_key: string, defaultValue: unknown) => defaultValue } as vscode.WorkspaceConfiguration);
     const style = getPreviewStyle(config);
     const previewBackgroundColor = config.get<string>('previewBackgroundColor', 'ide');
 
@@ -356,15 +357,20 @@ export class OpenReportPreviewCommand {
     } else {
       // 'ide' mode - detect from VS Code's active color theme
       const colorTheme = vscode.window.activeColorTheme;
-      mermaidTheme = colorTheme.kind === vscode.ColorThemeKind.Dark ||
-        colorTheme.kind === vscode.ColorThemeKind.HighContrastLight ? 'dark' : 'default';
+      // VS Code ColorThemeKind enum values: Light=1, Dark=2, HighContrast=3, HighContrastLight=4.
+      // Avoid accessing vscode.ColorThemeKind directly so tests can mock vscode without defining the enum.
+      const colorThemeKind = typeof colorTheme?.kind === 'number' ? colorTheme.kind : undefined;
+      const isDarkTheme = colorThemeKind === 2 || colorThemeKind === 4;
+      mermaidTheme = isDarkTheme ? 'dark' : 'default';
     }
 
     // CSP nonce for inline scripts/styles
     const nonce = getNonce();
 
     // CSS file URI
-    const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri!, 'media', 'report-preview.css'));
+    const cssUri = this.extensionUri && webview.asWebviewUri
+      ? webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'report-preview.css')).toString()
+      : '';
 
     // Inject custom CSS variables for coloring
     const customStyle = `
@@ -454,7 +460,7 @@ export class OpenReportPreviewCommand {
     mermaid.initialize({
       startOnLoad: true,
       theme: '${mermaidTheme}',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
       themeVariables: isDarkTheme ? {
         fontSize: '14px',
         fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -534,4 +540,3 @@ function getNonce(): string {
   }
   return text;
 }
-

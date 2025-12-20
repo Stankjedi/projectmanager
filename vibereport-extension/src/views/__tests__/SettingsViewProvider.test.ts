@@ -222,6 +222,13 @@ describe('SettingsViewProvider', () => {
     const { SettingsViewProvider } = await import('../SettingsViewProvider.js');
     const provider = new SettingsViewProvider(mockExtensionUri, mockOutput);
 
+    mockConfigGet.mockImplementation((key: string, def: any) => {
+      if (key === 'excludePatterns') {
+        return ['**/node_modules/**'];
+      }
+      return def;
+    });
+
     let onMessage: ((message: any) => Promise<void>) | undefined;
     const webviewView = {
       webview: {

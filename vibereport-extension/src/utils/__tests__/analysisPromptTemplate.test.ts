@@ -130,6 +130,29 @@ describe('analysisPromptTemplate', () => {
     expect(idx8).toBeGreaterThan(idx7);
   });
 
+  it('renders TODO/FIXME findings when available', () => {
+    const snapshotWithFindings: ProjectSnapshot = {
+      ...snapshot,
+      todoFixmeFindings: [
+        { file: 'src/todo.ts', line: 12, tag: 'TODO', text: 'add validation' },
+        { file: 'src/fixme.ts', line: 3, tag: 'FIXME', text: 'handle edge cases' },
+      ],
+    };
+
+    const prompt = buildAnalysisPrompt(
+      snapshotWithFindings,
+      baseDiff,
+      [],
+      true,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('### TODO/FIXME Findings (Auto Scan)');
+    expect(prompt).toContain('| `src/todo.ts` | 12 | TODO | add validation |');
+    expect(prompt).toContain('| `src/fixme.ts` | 3 | FIXME | handle edge cases |');
+  });
+
   it('includes custom instructions, recent changes, applied items, and project vision when provided', () => {
     const diff: SnapshotDiff = {
       ...baseDiff,

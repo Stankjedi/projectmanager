@@ -22,6 +22,8 @@ import type {
   TauriConfigSummary,
   CargoTomlSummary,
   GitInfo,
+  TodoFixmeFinding,
+  TodoFixmeTag,
   ProgressCallback,
   VibeReportConfig,
 } from '../models/types.js';
@@ -100,6 +102,9 @@ export class WorkspaceScanner {
     // 기능 기반 프로젝트 구조 다이어그램 생성
     const structureDiagram = this.generateFunctionBasedStructure(files, rootPath, mainConfigFiles);
 
+    onProgress?.('TODO/FIXME 스캔 중...', 80);
+    const todoFixmeFindings = await this.scanTodoFixmeFindings(rootPath, files);
+
     onProgress?.('Git 정보 수집 중...', 85);
 
     // Git 정보
@@ -123,6 +128,7 @@ export class WorkspaceScanner {
       structureSummary,
       structureDiagram,
       gitInfo,
+      todoFixmeFindings: todoFixmeFindings.length > 0 ? todoFixmeFindings : undefined,
     };
 
     this.log(`스캔 완료: ${files.length}개 파일, ${directories.size}개 디렉토리`);
@@ -190,6 +196,69 @@ export class WorkspaceScanner {
       .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {} as Record<string, number>);
 
     return sorted;
+  }
+
+  private async scanTodoFixmeFindings(
+    rootPath: string,
+    files: string[]
+  ): Promise<TodoFixmeFinding[]> {
+    const maxFilesToInspect = 300;
+    const maxFileBytes = 200_000;
+    const maxFindings = 200;
+    const findings: TodoFixmeFinding[] = [];
+    const tagRegex = /\b(TODO|FIXME)\b/;
+
+    const isTextFile = (relativePath: string): boolean => {
+      const ext = path.extname(relativePath).slice(1).toLowerCase();
+      const baseName = path.basename(relativePath).toLowerCase();
+      if (ext && LANGUAGE_EXTENSIONS[ext]) return true;
+      return baseName === 'dockerfile' || baseName === 'makefile';
+    };
+
+    let inspected = 0;
+    for (const relativePath of files) {
+      if (inspected >= maxFilesToInspect || findings.length >= maxFindings) break;
+      if (!isTextFile(relativePath)) continue;
+
+      inspected += 1;
+      const fullPath = path.join(rootPath, relativePath);
+
+      try {
+        const stat = await fs.stat(fullPath);
+        if (stat.size > maxFileBytes) continue;
+
+        const content = await fs.readFile(fullPath, 'utf-8');
+        if (content.includes('\u0000')) continue;
+
+        const lines = content.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const match = line.match(tagRegex);
+          if (!match) continue;
+
+          const tag = match[1] as TodoFixmeTag;
+          const matchIndex = match.index ?? 0;
+          let text = line.slice(matchIndex + match[0].length);
+          text = text.replace(/^[:\s-]+/, '').trim();
+          if (!text) text = line.trim();
+          text = text.replace(/\s+/g, ' ').trim();
+          if (text.length > 200) text = `${text.slice(0, 200)}...`;
+
+          findings.push({
+            file: relativePath,
+            line: i + 1,
+            tag,
+            text,
+          });
+
+          if (findings.length >= maxFindings) break;
+        }
+      } catch {
+        // Ignore read errors and continue scanning other files.
+      }
+    }
+
+    return findings;
   }
 
   /**
@@ -318,10 +387,12 @@ export class WorkspaceScanner {
     const scripts = Object.keys((pkg.scripts as Record<string, string>) || {});
     const deps = Object.keys((pkg.dependencies as Record<string, string>) || {});
     const devDeps = Object.keys((pkg.devDependencies as Record<string, string>) || {});
+    const rawVersion = typeof pkg.version === 'string' ? pkg.version.trim() : '';
+    const version = rawVersion.length > 0 ? rawVersion : undefined;
 
     return {
       name: (pkg.name as string) || 'unknown',
-      version: (pkg.version as string) || '0.0.0',
+      version,
       description: pkg.description as string | undefined,
       scripts,
       dependencies: deps,
@@ -529,6 +600,7 @@ export class WorkspaceScanner {
 
       return {
         branch: branch.current,
+        currentCommit: lastCommit.hash,
         lastCommitHash: lastCommit.hash,
         lastCommitMessage: lastCommit.message,
         lastCommitDate: lastCommit.date,
@@ -748,7 +820,8 @@ export class WorkspaceScanner {
     lines.push('### 주요 설정');
     if (snapshot.mainConfigFiles.packageJson) {
       const pkg = snapshot.mainConfigFiles.packageJson;
-      lines.push(`- package.json: ${pkg.name}@${pkg.version}`);
+      const versionLabel = pkg.version ? `@${pkg.version}` : '@unknown';
+      lines.push(`- package.json: ${pkg.name}${versionLabel}`);
       if (pkg.hasTypeScript) lines.push('  - TypeScript 사용');
       if (pkg.hasTest) lines.push('  - 테스트 스크립트 있음');
       if (pkg.hasLint) lines.push('  - 린트 스크립트 있음');

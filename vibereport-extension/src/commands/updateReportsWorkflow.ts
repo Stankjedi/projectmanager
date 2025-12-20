@@ -731,9 +731,11 @@ async function saveSessionRecord(args: {
     }
 
     const gitInfo = snapshot.gitInfo;
+    const gitCommit = gitInfo?.currentCommit ?? gitInfo?.lastCommitHash;
+    const gitBranch = gitInfo?.branch || 'HEAD';
     const gitVersion =
-      !currentVersion && gitInfo?.branch && gitInfo?.lastCommitHash
-        ? `git:${gitInfo.lastCommitHash.slice(0, 7)}@${gitInfo.branch}`
+      !currentVersion && gitCommit
+        ? `git:${gitCommit.slice(0, 7)}@${gitBranch}`
         : undefined;
 
     const entry: EvaluationHistoryEntry = {

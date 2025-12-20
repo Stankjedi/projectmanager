@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.4.27",
+  "version": "0.4.28",
   "publisher": "Stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -36,7 +36,11 @@
     "documentation"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:vibereport.summary",
+    "onView:vibereport.history",
+    "onView:vibereport.settings",
+    "onCommand:vibereport.updateReports"
   ],
   "main": "./out/extension.js",
   "contributes": {

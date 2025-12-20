@@ -78,6 +78,15 @@ export type ImprovementCategory =
 
 // ===== Project Snapshot Types =====
 
+export type TodoFixmeTag = 'TODO' | 'FIXME';
+
+export interface TodoFixmeFinding {
+  file: string;
+  line: number;
+  tag: TodoFixmeTag;
+  text: string;
+}
+
 /**
  * 프로젝트 스냅샷 - 워크스페이스 상태 캡처
  */
@@ -106,6 +115,8 @@ export interface ProjectSnapshot {
   structureDiagram?: string;
   /** Git 정보 (optional) */
   gitInfo?: GitInfo;
+  /** TODO/FIXME 자동 스캔 결과 (optional) */
+  todoFixmeFindings?: TodoFixmeFinding[];
 }
 
 /**
@@ -125,7 +136,7 @@ export interface MainConfigFiles {
  */
 export interface PackageJsonSummary {
   name: string;
-  version: string;
+  version?: string;
   description?: string;
   scripts: string[];
   dependencies: string[];
@@ -168,6 +179,7 @@ export interface CargoTomlSummary {
  */
 export interface GitInfo {
   branch: string;
+  currentCommit?: string;
   lastCommitHash?: string;
   lastCommitMessage?: string;
   lastCommitDate?: string;

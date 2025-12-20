@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.34% </span>
+                <span class="strong">83.9% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>69/79</span>
+                <span class='fraction'>73/87</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72.72% </span>
+                <span class="strong">70.83% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>16/22</span>
+                <span class='fraction'>17/24</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.54% </span>
+                <span class="strong">86.58% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>67/74</span>
+                <span class='fraction'>71/82</span>
             </div>
         
             
@@ -298,7 +298,20 @@
 <a name='L233'></a><a href='#L233'>233</a>
 <a name='L234'></a><a href='#L234'>234</a>
 <a name='L235'></a><a href='#L235'>235</a>
-<a name='L236'></a><a href='#L236'>236</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -342,6 +355,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
@@ -380,6 +403,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -546,7 +572,7 @@ import * as path from 'path';
 import type { ProjectSnapshot, VibeReportConfig } from '../models/types.js';
 import { ReportService } from '../services/reportService.js';
 import { SnapshotService } from '../services/snapshotService.js';
-import { loadConfig, selectWorkspaceRoot } from '../utils/index.js';
+import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import {
   repairReportMarkdown,
   validateReportMarkdown,
@@ -572,10 +598,20 @@ export class ReportDoctorCommand {
   }
 &nbsp;
   async execute(): Promise&lt;void&gt; {
-    const rootPath = await selectWorkspaceRoot();
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!rootPath) <span class="cstat-no" title="statement not covered" >return;</span>
+    const workspaceRoot = await selectWorkspaceRoot();
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!workspaceRoot) <span class="cstat-no" title="statement not covered" >return;</span>
 &nbsp;
     const config = loadConfig();
+    let rootPath = workspaceRoot;
+    try {
+      rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+    } catch (error) {
+<span class="cstat-no" title="statement not covered" >      vscode.window.showErrorMessage(</span>
+        'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+      );
+<span class="cstat-no" title="statement not covered" >      this.outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
     const paths = this.reportService.getReportPaths(rootPath, config);
 &nbsp;
     const snapshot = await this.loadSnapshotBestEffort(rootPath, config);
@@ -614,7 +650,10 @@ export class ReportDoctorCommand {
     this.outputChannel.appendLine(
       `[ReportDoctor] Started: ${new Date().toISOString()}`
     );
-    this.outputChannel.appendLine(`Workspace: ${rootPath}`);
+    this.outputChannel.appendLine(`Workspace: ${workspaceRoot}`);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (rootPath !== workspaceRoot) {
+<span class="cstat-no" title="statement not covered" >      this.outputChannel.appendLine(`Analysis root: ${rootPath}`);</span>
+    }
     this.outputChannel.appendLine('='.repeat(60));
 &nbsp;
     const results: Array&lt;{
@@ -775,7 +814,7 @@ export class ReportDoctorCommand {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-19T05:12:40.643Z
+                at 2025-12-20T14:28:43.113Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

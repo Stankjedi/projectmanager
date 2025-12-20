@@ -202,6 +202,27 @@ export function buildAnalysisPrompt(
     lines.push('');
   }
 
+  lines.push('### TODO/FIXME Findings (Auto Scan)');
+  lines.push('');
+  if (!snapshot.todoFixmeFindings || snapshot.todoFixmeFindings.length === 0) {
+    lines.push('- None detected.');
+    lines.push('');
+  } else {
+    const sanitize = (value: string) =>
+      value.replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
+
+    lines.push('| File | Line | Tag | Text |');
+    lines.push('| --- | ---: | --- | --- |');
+    snapshot.todoFixmeFindings.slice(0, 20).forEach(finding => {
+      const text = sanitize(finding.text);
+      lines.push(`| \`${finding.file}\` | ${finding.line} | ${finding.tag} | ${text} |`);
+    });
+    if (snapshot.todoFixmeFindings.length > 20) {
+      lines.push(`| ... | ... | ... | ... and ${snapshot.todoFixmeFindings.length - 20} more |`);
+    }
+    lines.push('');
+  }
+
   lines.push('Use this context when scoring, identifying risks, and proposing improvements.');
   lines.push('Session logs and historical application status of items are managed separately in `Session_History.md`.');
   lines.push('Do **not** write any session log or past history into the three target files.');

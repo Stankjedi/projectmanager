@@ -1,17 +1,28 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  appendBetweenMarkers,
+  calculateAverageScore,
+  createChecklist,
+  createCollapsible,
+  createDefaultScores,
   scoreToGrade,
   generateImprovementId,
   extractImprovementIdFromText,
   parseImprovementItems,
   parseScoresFromAIResponse,
   extractBetweenMarkers,
+  extractCodeBlocks,
+  extractHeaders,
+  extractSection,
+  formatRelativeTime,
   replaceBetweenMarkers,
   formatScoreChange,
   gradeEmoji,
   formatDateTimeKorean,
   MARKERS,
   createMarkdownTable,
+  formatScoreTable,
+  prependBetweenMarkers,
 } from '../markdownUtils.js';
 
 describe('markdownUtils', () => {
@@ -409,6 +420,181 @@ describe('markdownUtils', () => {
       expect(scores?.codeQuality.score).toBe(97);
       expect(scores?.security.score).toBe(100);
       expect(scores?.testCoverage.score).toBe(83);
+    });
+
+    it('returns null for invalid JSON code fences', () => {
+      const content = ['```json', '{not valid}', '```'].join('\n');
+      expect(parseScoresFromAIResponse(content)).toBeNull();
+    });
+
+    it('parses loose JSON with string scores and computes totals', () => {
+      const content = [
+        'prefix text',
+        '{"evaluationScores": {"codeQuality": {"score": "95", "grade": "A"}, "testCoverage": {"score": "not-a-number"}}}',
+        'suffix text',
+      ].join('\n');
+
+      const scores = parseScoresFromAIResponse(content);
+      expect(scores).not.toBeNull();
+      expect(scores?.codeQuality.score).toBe(95);
+      expect(scores?.codeQuality.grade).toBe('A');
+      expect(scores?.totalAverage.score).toBeTypeOf('number');
+    });
+  });
+
+  describe('appendBetweenMarkers / prependBetweenMarkers', () => {
+    it('appends and prepends inside existing markers', () => {
+      const content = [
+        MARKERS.SUMMARY_START,
+        'Existing',
+        MARKERS.SUMMARY_END,
+      ].join('\n');
+
+      const appended = appendBetweenMarkers(
+        content,
+        MARKERS.SUMMARY_START,
+        MARKERS.SUMMARY_END,
+        'Appended'
+      );
+      expect(appended).toContain('Existing');
+      expect(appended).toContain('Appended');
+
+      const prepended = prependBetweenMarkers(
+        content,
+        MARKERS.SUMMARY_START,
+        MARKERS.SUMMARY_END,
+        'Prepended'
+      );
+      const extracted = extractBetweenMarkers(
+        prepended,
+        MARKERS.SUMMARY_START,
+        MARKERS.SUMMARY_END
+      );
+      expect(extracted).toContain('Prepended');
+      expect(extracted).toContain('Existing');
+    });
+
+    it('adds markers when missing', () => {
+      const content = 'No markers';
+      const appended = appendBetweenMarkers(
+        content,
+        MARKERS.SUMMARY_START,
+        MARKERS.SUMMARY_END,
+        'New'
+      );
+      expect(appended).toContain(MARKERS.SUMMARY_START);
+      expect(appended).toContain(MARKERS.SUMMARY_END);
+    });
+  });
+
+  describe('formatRelativeTime', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-12-20T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('formats minutes, hours, days, and absolute dates', () => {
+      expect(formatRelativeTime(new Date(Date.now() - 30_000).toISOString())).toBe('방금 전');
+      expect(formatRelativeTime(new Date(Date.now() - 5 * 60_000).toISOString())).toBe('5분 전');
+      expect(formatRelativeTime(new Date(Date.now() - 2 * 3_600_000).toISOString())).toBe('2시간 전');
+      expect(formatRelativeTime(new Date(Date.now() - 3 * 86_400_000).toISOString())).toBe('3일 전');
+
+      const older = new Date(Date.now() - 8 * 86_400_000);
+      expect(formatRelativeTime(older.toISOString())).toBe(formatDateTimeKorean(older));
+    });
+  });
+
+  describe('extractCodeBlocks / extractHeaders / extractSection', () => {
+    it('extracts code blocks with and without language', () => {
+      const content = [
+        '```ts',
+        'const a = 1;',
+        '```',
+        '```',
+        'plain text',
+        '```',
+      ].join('\n');
+
+      const blocks = extractCodeBlocks(content);
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0].language).toBe('ts');
+      expect(blocks[1].language).toBe('text');
+      expect(blocks[1].code).toBe('plain text');
+    });
+
+    it('extracts headers and sections', () => {
+      const content = [
+        '# Title',
+        '',
+        '## Section A',
+        'A content',
+        '### Nested',
+        'Nested content',
+        '## Section B',
+        'B content',
+      ].join('\n');
+
+      const headers = extractHeaders(content);
+      expect(headers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ level: 1, text: 'Title' }),
+          expect.objectContaining({ level: 2, text: 'Section A' }),
+        ])
+      );
+
+      const sectionA = extractSection(content, 'Section A', 2);
+      expect(sectionA).toContain('Section A');
+      expect(sectionA).toContain('Nested content');
+
+      const missing = extractSection(content, 'Missing', 2);
+      expect(missing).toBeNull();
+    });
+  });
+
+  describe('createChecklist / createCollapsible', () => {
+    it('creates checklist and collapsible blocks', () => {
+      const checklist = createChecklist([
+        { text: 'Done', checked: true },
+        { text: 'Todo', checked: false },
+      ]);
+      expect(checklist).toContain('- [x] Done');
+      expect(checklist).toContain('- [ ] Todo');
+
+      const collapsible = createCollapsible('Summary', 'Details');
+      expect(collapsible).toContain('<details>');
+      expect(collapsible).toContain('<summary>Summary</summary>');
+      expect(collapsible).toContain('Details');
+    });
+  });
+
+  describe('calculateAverageScore / formatScoreTable', () => {
+    it('handles empty scores and previous score changes', () => {
+      const empty = calculateAverageScore([{ score: -1, grade: 'F' }]);
+      expect(empty.score).toBe(0);
+      expect(empty.grade).toBe('F');
+
+      const avg = calculateAverageScore([
+        { score: 80, grade: 'B', previousScore: 70 },
+        { score: 90, grade: 'A-', previousScore: 95 },
+      ]);
+      expect(avg.score).toBe(85);
+      expect(avg.change).toBe(2);
+      expect(avg.grade).toBe('B');
+    });
+
+    it('formats score tables in English with totals', () => {
+      const scores = createDefaultScores();
+      scores.codeQuality = { score: 88, grade: 'B+', change: 5 };
+      scores.totalAverage = { score: 88, grade: 'B+', change: 5 };
+
+      const table = formatScoreTable(scores, 'en');
+      expect(table).toContain('**Code Quality**');
+      expect(table).toContain('B+');
+      expect(table).toContain('**Total Average**');
     });
   });
 });

@@ -10,6 +10,10 @@ import * as path from 'path';
 import type { ProjectSnapshot, VibeReportConfig, SessionRecord, SnapshotDiff } from '../../models/types.js';
 import { MARKERS, formatDateTimeKorean } from '../../utils/markdownUtils.js';
 import * as markerUtils from '../../utils/markerUtils.js';
+import {
+  createEvaluationTemplate,
+  createImprovementTemplate,
+} from '../reportTemplates.js';
 
 // Mock vscode
 vi.mock('vscode', () => ({
@@ -142,7 +146,12 @@ describe('ReportService', () => {
 
   describe('createEvaluationTemplate', () => {
     it('should create Korean template with correct markers', () => {
-      const template = service.createEvaluationTemplate(mockSnapshot, 'ko');
+      const template = createEvaluationTemplate({
+        snapshot: mockSnapshot,
+        language: 'ko',
+        mainLanguage: (service as any).getMainLanguage(mockSnapshot),
+        framework: (service as any).getFramework(mockSnapshot),
+      });
 
       expect(template).toContain('# 📊 프로젝트 종합 평가 보고서');
       expect(template).toContain(mockSnapshot.projectName);
@@ -156,7 +165,12 @@ describe('ReportService', () => {
     });
 
     it('should create English template when language is en', () => {
-      const template = service.createEvaluationTemplate(mockSnapshot, 'en');
+      const template = createEvaluationTemplate({
+        snapshot: mockSnapshot,
+        language: 'en',
+        mainLanguage: (service as any).getMainLanguage(mockSnapshot),
+        framework: (service as any).getFramework(mockSnapshot),
+      });
 
       expect(template).toContain('# 📊 Project Evaluation Report');
       expect(template).toContain('Project Overview');
@@ -164,7 +178,12 @@ describe('ReportService', () => {
     });
 
     it('should include project version from package.json', () => {
-      const template = service.createEvaluationTemplate(mockSnapshot, 'ko');
+      const template = createEvaluationTemplate({
+        snapshot: mockSnapshot,
+        language: 'ko',
+        mainLanguage: (service as any).getMainLanguage(mockSnapshot),
+        framework: (service as any).getFramework(mockSnapshot),
+      });
 
       expect(template).toContain('1.0.0');
     });
@@ -176,7 +195,12 @@ describe('ReportService', () => {
           otherConfigs: [],
         },
       };
-      const template = service.createEvaluationTemplate(snapshotWithoutVersion, 'ko');
+      const template = createEvaluationTemplate({
+        snapshot: snapshotWithoutVersion,
+        language: 'ko',
+        mainLanguage: (service as any).getMainLanguage(snapshotWithoutVersion),
+        framework: (service as any).getFramework(snapshotWithoutVersion),
+      });
 
       expect(template).toContain('| **버전** | - |');
     });
@@ -184,7 +208,10 @@ describe('ReportService', () => {
 
   describe('createImprovementTemplate', () => {
     it('should create Korean improvement template with correct markers', () => {
-      const template = service.createImprovementTemplate(mockSnapshot, 'ko');
+      const template = createImprovementTemplate({
+        snapshot: mockSnapshot,
+        language: 'ko',
+      });
 
       expect(template).toContain('# 🚀 프로젝트 개선 탐색 보고서');
       expect(template).toContain(mockSnapshot.projectName);
@@ -196,7 +223,10 @@ describe('ReportService', () => {
     });
 
     it('should create English template when language is en', () => {
-      const template = service.createImprovementTemplate(mockSnapshot, 'en');
+      const template = createImprovementTemplate({
+        snapshot: mockSnapshot,
+        language: 'en',
+      });
 
       expect(template).toContain('# 🚀 Project Improvement Exploration Report');
       expect(template).toContain('How to Use');
@@ -799,7 +829,9 @@ Other content`;
       const writeFileMock = vi.mocked(fs.writeFile);
       const mkdirMock = vi.mocked(fs.mkdir);
 
-      readFileMock.mockResolvedValue(templateWithMarkers);
+      readFileMock
+        .mockResolvedValueOnce(templateWithMarkers)
+        .mockResolvedValueOnce('stale report content');
       writeFileMock.mockResolvedValue(undefined);
       mkdirMock.mockResolvedValue(undefined);
 

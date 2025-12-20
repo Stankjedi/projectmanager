@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/services/realtimeWatcherService.ts</title>
+    <title>Code coverage report for src/services/reportTemplates.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/services</a> realtimeWatcherService.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/services</a> reportTemplates.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>176/192</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.75% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>63/80</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.87% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>29/33</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.54% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>174/186</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
@@ -436,946 +436,751 @@
 <a name='L371'></a><a href='#L371'>371</a>
 <a name='L372'></a><a href='#L372'>372</a>
 <a name='L373'></a><a href='#L373'>373</a>
-<a name='L374'></a><a href='#L374'>374</a>
-<a name='L375'></a><a href='#L375'>375</a>
-<a name='L376'></a><a href='#L376'>376</a>
-<a name='L377'></a><a href='#L377'>377</a>
-<a name='L378'></a><a href='#L378'>378</a>
-<a name='L379'></a><a href='#L379'>379</a>
-<a name='L380'></a><a href='#L380'>380</a>
-<a name='L381'></a><a href='#L381'>381</a>
-<a name='L382'></a><a href='#L382'>382</a>
-<a name='L383'></a><a href='#L383'>383</a>
-<a name='L384'></a><a href='#L384'>384</a>
-<a name='L385'></a><a href='#L385'>385</a>
-<a name='L386'></a><a href='#L386'>386</a>
-<a name='L387'></a><a href='#L387'>387</a>
-<a name='L388'></a><a href='#L388'>388</a>
-<a name='L389'></a><a href='#L389'>389</a>
-<a name='L390'></a><a href='#L390'>390</a>
-<a name='L391'></a><a href='#L391'>391</a>
-<a name='L392'></a><a href='#L392'>392</a>
-<a name='L393'></a><a href='#L393'>393</a>
-<a name='L394'></a><a href='#L394'>394</a>
-<a name='L395'></a><a href='#L395'>395</a>
-<a name='L396'></a><a href='#L396'>396</a>
-<a name='L397'></a><a href='#L397'>397</a>
-<a name='L398'></a><a href='#L398'>398</a>
-<a name='L399'></a><a href='#L399'>399</a>
-<a name='L400'></a><a href='#L400'>400</a>
-<a name='L401'></a><a href='#L401'>401</a>
-<a name='L402'></a><a href='#L402'>402</a>
-<a name='L403'></a><a href='#L403'>403</a>
-<a name='L404'></a><a href='#L404'>404</a>
-<a name='L405'></a><a href='#L405'>405</a>
-<a name='L406'></a><a href='#L406'>406</a>
-<a name='L407'></a><a href='#L407'>407</a>
-<a name='L408'></a><a href='#L408'>408</a>
-<a name='L409'></a><a href='#L409'>409</a>
-<a name='L410'></a><a href='#L410'>410</a>
-<a name='L411'></a><a href='#L411'>411</a>
-<a name='L412'></a><a href='#L412'>412</a>
-<a name='L413'></a><a href='#L413'>413</a>
-<a name='L414'></a><a href='#L414'>414</a>
-<a name='L415'></a><a href='#L415'>415</a>
-<a name='L416'></a><a href='#L416'>416</a>
-<a name='L417'></a><a href='#L417'>417</a>
-<a name='L418'></a><a href='#L418'>418</a>
-<a name='L419'></a><a href='#L419'>419</a>
-<a name='L420'></a><a href='#L420'>420</a>
-<a name='L421'></a><a href='#L421'>421</a>
-<a name='L422'></a><a href='#L422'>422</a>
-<a name='L423'></a><a href='#L423'>423</a>
-<a name='L424'></a><a href='#L424'>424</a>
-<a name='L425'></a><a href='#L425'>425</a>
-<a name='L426'></a><a href='#L426'>426</a>
-<a name='L427'></a><a href='#L427'>427</a>
-<a name='L428'></a><a href='#L428'>428</a>
-<a name='L429'></a><a href='#L429'>429</a>
-<a name='L430'></a><a href='#L430'>430</a>
-<a name='L431'></a><a href='#L431'>431</a>
-<a name='L432'></a><a href='#L432'>432</a>
-<a name='L433'></a><a href='#L433'>433</a>
-<a name='L434'></a><a href='#L434'>434</a>
-<a name='L435'></a><a href='#L435'>435</a>
-<a name='L436'></a><a href='#L436'>436</a>
-<a name='L437'></a><a href='#L437'>437</a>
-<a name='L438'></a><a href='#L438'>438</a>
-<a name='L439'></a><a href='#L439'>439</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L374'></a><a href='#L374'>374</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">38x</span>
-<span class="cline-any cline-yes">38x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">38x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">38x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
-<span class="cline-any cline-yes">26x</span>
-<span class="cline-any cline-yes">109x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">26x</span>
-<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import * as vscode from 'vscode';
-import * as path from 'path';
-import {
-  decideRealtimeWatcherAction,
-  type RealtimeWatcherSettings,
-} from '../utils/realtimeWatcherDecision.js';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { ProjectSnapshot } from '../models/types.js';
+import { MARKERS, formatDateTimeKorean } from '../utils/markdownUtils.js';
 &nbsp;
-export interface RealtimeWatcherOptions {
-  reportDirectory: string;
-  analysisRoot?: string;
-  snapshotFile: string;
-  debounceMs: number;
-  excludePatterns: string[];
+export function createEvaluationTemplate(args: {
+  snapshot: ProjectSnapshot;
+  language: 'ko' | 'en';
+  mainLanguage: string;
+  framework: string;
+}): string {
+  const { snapshot, language, mainLanguage, framework } = args;
+  const now = formatDateTimeKorean(new Date());
+  const version = snapshot.mainConfigFiles.packageJson?.version || '-';
+&nbsp;
+  if (language === 'ko') {
+    return `# 📊 프로젝트 종합 평가 보고서
+&nbsp;
+&gt; 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.
+&nbsp;
+---
+&nbsp;
+${MARKERS.OVERVIEW_START}
+## 📋 프로젝트 개요
+&nbsp;
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | ${snapshot.projectName} |
+| **버전** | ${version} |
+| **최초 분석일** | ${now} |
+| **최근 분석일** | ${now} |
+| **파일 수** | ${snapshot.filesCount} |
+| **디렉토리 수** | ${snapshot.dirsCount} |
+| **주요 언어** | ${mainLanguage} |
+| **프레임워크** | ${framework} |
+${MARKERS.OVERVIEW_END}
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-STRUCTURE-START --&gt;
+## 📐 프로젝트 구조
+&nbsp;
+${snapshot.structureDiagram || '*프로젝트 구조 다이어그램이 생성 중입니다...*'}
+&lt;!-- AUTO-STRUCTURE-END --&gt;
+&nbsp;
+---
+&nbsp;
+${MARKERS.SCORE_START}
+## 📊 종합 점수 요약
+&nbsp;
+| 항목 | 점수 (100점 만점) | 등급 | 변화 |
+|------|------------------|------|------|
+| **코드 품질** | - | - | - |
+| **아키텍처 설계** | - | - | - |
+| **보안** | - | - | - |
+| **성능** | - | - | - |
+| **테스트 커버리지** | - | - | - |
+| **에러 처리** | - | - | - |
+| **문서화** | - | - | - |
+| **확장성** | - | - | - |
+| **유지보수성** | - | - | - |
+| **프로덕션 준비도** | - | - | - |
+| **총점 평균** | **-** | **-** | - |
+&nbsp;
+*첫 번째 분석 후 점수가 표시됩니다.*
+${MARKERS.SCORE_END}
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-DETAIL-START --&gt;
+## 🔍 기능별 상세 평가
+&nbsp;
+*첫 번째 분석 후 상세 평가가 표시됩니다.*
+&lt;!-- AUTO-DETAIL-END --&gt;
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-TREND-START --&gt;
+## 📈 버전별 점수 추이
+&nbsp;
+| 버전 | 날짜 | 총점 | 주요 변경 |
+|------|------|------|----------|
+| - | - | - | - |
+&nbsp;
+*버전 업데이트 시 점수 추이가 기록됩니다.*
+&lt;!-- AUTO-TREND-END --&gt;
+`;
+  }
+&nbsp;
+  return `# 📊 Project Evaluation Report
+&nbsp;
+&gt; This document is automatically managed by Vibe Coding Report VS Code extension.
+&nbsp;
+---
+&nbsp;
+${MARKERS.OVERVIEW_START}
+## 📋 Project Overview
+&nbsp;
+| Item | Value |
+|------|-------|
+| **Project Name** | ${snapshot.projectName} |
+| **Version** | ${version} |
+| **First Analyzed** | ${now} |
+| **Last Analyzed** | ${now} |
+| **Files** | ${snapshot.filesCount} |
+| **Directories** | ${snapshot.dirsCount} |
+| **Main Language** | ${mainLanguage} |
+| **Framework** | ${framework} |
+${MARKERS.OVERVIEW_END}
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-STRUCTURE-START --&gt;
+## 📐 Project Structure
+&nbsp;
+${snapshot.structureDiagram || '*Project structure diagram is being generated...*'}
+&lt;!-- AUTO-STRUCTURE-END --&gt;
+&nbsp;
+---
+&nbsp;
+${MARKERS.SCORE_START}
+## 📊 Score Summary
+&nbsp;
+| Category | Score (out of 100) | Grade | Change |
+|----------|-------------------|-------|--------|
+| **Code Quality** | - | - | - |
+| **Architecture Design** | - | - | - |
+| **Security** | - | - | - |
+| **Performance** | - | - | - |
+| **Test Coverage** | - | - | - |
+| **Error Handling** | - | - | - |
+| **Documentation** | - | - | - |
+| **Scalability** | - | - | - |
+| **Maintainability** | - | - | - |
+| **Production Readiness** | - | - | - |
+| **Total Average** | **-** | **-** | - |
+&nbsp;
+*Scores will be displayed after the first analysis.*
+${MARKERS.SCORE_END}
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-DETAIL-START --&gt;
+## 🔍 Detailed Feature Evaluation
+&nbsp;
+*Detailed evaluation will be displayed after the first analysis.*
+&lt;!-- AUTO-DETAIL-END --&gt;
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-TREND-START --&gt;
+## 📈 Version Score Trend
+&nbsp;
+| Version | Date | Total | Major Changes |
+|---------|------|-------|---------------|
+| - | - | - | - |
+&nbsp;
+*Score trends will be recorded with version updates.*
+&lt;!-- AUTO-TREND-END --&gt;
+`;
 }
 &nbsp;
-export interface PendingChangesState {
-  hasPendingChanges: boolean;
-  changedPaths: string[];
+export function createImprovementTemplate(args: {
+  snapshot: ProjectSnapshot;
+  language: 'ko' | 'en';
+}): string {
+  const { snapshot, language } = args;
+  const now = formatDateTimeKorean(new Date());
+&nbsp;
+  if (language === 'ko') {
+    return `# 🚀 프로젝트 개선 탐색 보고서
+&nbsp;
+&gt; 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.  
+&gt; **적용된 개선 항목은 자동으로 필터링되어 미적용 항목만 표시됩니다.**
+&gt;
+&gt; 💡 **구체적인 구현 코드는 \`Prompt.md\` 파일을 참조하세요.**
+&nbsp;
+---
+&nbsp;
+## 📋 프로젝트 정보
+&nbsp;
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | ${snapshot.projectName} |
+| **최초 분석일** | ${now} |
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-ERROR-EXPLORATION-START --&gt;
+## 🔍 오류 및 리스크 탐색 절차
+&nbsp;
+&gt; 이 섹션은 개선 항목이 어떤 기준으로 도출되었는지를 설명합니다.
+&nbsp;
+### 1. 데이터 수집
+- 최근 빌드/테스트/런타임 로그 분석
+- VS Code 문제 패널(Problems) 확인
+- Git diff 및 커밋 메시지 검토
+- TODO/FIXME 주석 스캔
+&nbsp;
+### 2. 자동 분석
+- 테스트 실패/스킵 케이스 분류
+- 빌드 오류/경고 메시지 그룹화
+- 빈번하게 수정되는 파일/모듈 탐지
+- 정적 분석(lint, type-check) 결과 검토
+&nbsp;
+### 3. 개선 후보 도출
+- 동일 원인의 오류/경고를 하나의 "개선 항목 후보"로 묶기
+- 영향도(테스트 실패, 빌드 실패, 성능 저하)에 따라 우선순위 부여
+- 프로젝트 비전과의 일치 여부 검토
+&nbsp;
+### 4. 최종 백로그 정제
+- 복잡도/리스크 대비 효용 검토
+- Definition of Done 명시
+- 관련 평가 점수 카테고리 매핑
+&lt;!-- AUTO-ERROR-EXPLORATION-END --&gt;
+&nbsp;
+---
+&nbsp;
+## 📌 사용 방법
+&nbsp;
+1. 이 보고서의 개선 항목을 검토합니다
+2. 적용하고 싶은 항목을 선택하여 \`Prompt.md\`를 생성합니다
+3. AI 에이전트(Copilot Chat 등)에 붙여넣어 구현을 요청합니다
+4. 다음 보고서 업데이트 시 적용된 항목은 자동으로 제외됩니다
+&nbsp;
+---
+&nbsp;
+${MARKERS.SUMMARY_START}
+## 📊 개선 현황 요약
+&nbsp;
+| 상태 | 개수 |
+|------|------|
+| 🔴 긴급 (P1) | 0 |
+| 🟡 중요 (P2) | 0 |
+| 🟢 개선 (P3) | 0 |
+| 🚀 최적화 | 0 |
+${MARKERS.SUMMARY_END}
+&nbsp;
+---
+&nbsp;
+${MARKERS.IMPROVEMENT_LIST_START}
+## 📝 개선 항목 목록
+&nbsp;
+*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
+${MARKERS.IMPROVEMENT_LIST_END}
+&nbsp;
+---
+&nbsp;
+${MARKERS.OPTIMIZATION_START}
+## 🚀 코드 품질 및 성능 최적화
+&nbsp;
+&gt; 기존 기능을 해치지 않으면서 코드 품질과 성능을 향상시킬 수 있는 개선점입니다.
+&nbsp;
+*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
+${MARKERS.OPTIMIZATION_END}
+`;
+  }
+&nbsp;
+  return `# 🚀 Project Improvement Exploration Report
+&nbsp;
+&gt; This document is automatically managed by Vibe Coding Report VS Code extension.  
+&gt; **Applied improvements are automatically filtered out - only pending items are shown.**
+&gt;
+&gt; 💡 **For concrete implementation code, refer to the \`Prompt.md\` file.**
+&nbsp;
+---
+&nbsp;
+## 📋 Project Information
+&nbsp;
+| Item | Value |
+|------|-------|
+| **Project Name** | ${snapshot.projectName} |
+| **First Analyzed** | ${now} |
+&nbsp;
+---
+&nbsp;
+&lt;!-- AUTO-ERROR-EXPLORATION-START --&gt;
+## 🔍 Error and Risk Exploration Process
+&nbsp;
+&gt; This section explains how improvement items were derived.
+&nbsp;
+### 1. Data Collection
+- Recent build/test/runtime log analysis
+- VS Code Problems panel review
+- Git diff and commit message inspection
+- TODO/FIXME comment scanning
+&nbsp;
+### 2. Automated Analysis
+- Test failure/skip case classification
+- Build error/warning message grouping
+- Frequently modified file/module detection
+- Static analysis (lint, type-check) result review
+&nbsp;
+### 3. Improvement Candidate Derivation
+- Group errors/warnings with same root cause into one "improvement candidate"
+- Assign priority based on impact (test failure, build failure, performance degradation)
+- Review alignment with project vision
+&nbsp;
+### 4. Final Backlog Refinement
+- Evaluate complexity/risk vs. benefit
+- Specify Definition of Done
+- Map to related evaluation score categories
+&lt;!-- AUTO-ERROR-EXPLORATION-END --&gt;
+&nbsp;
+---
+&nbsp;
+## 📌 How to Use
+&nbsp;
+1. Review improvement items in this report
+2. Select items you want to apply and generate \`Prompt.md\`
+3. Paste to AI agent (like Copilot Chat) and request implementation
+4. Applied items will be automatically excluded in the next update
+&nbsp;
+---
+&nbsp;
+${MARKERS.SUMMARY_START}
+## 📊 Improvement Status Summary
+&nbsp;
+| Status | Count |
+|--------|-------|
+| 🔴 Critical (P1) | 0 |
+| 🟡 Important (P2) | 0 |
+| 🟢 Nice to have (P3) | 0 |
+| 🚀 Optimization | 0 |
+${MARKERS.SUMMARY_END}
+&nbsp;
+---
+&nbsp;
+${MARKERS.IMPROVEMENT_LIST_START}
+## 📝 Improvement Items
+&nbsp;
+*Not analyzed yet. Please run the first report update.*
+${MARKERS.IMPROVEMENT_LIST_END}
+&nbsp;
+---
+&nbsp;
+${MARKERS.OPTIMIZATION_START}
+## 🚀 Code Quality &amp; Performance Optimization
+&nbsp;
+&gt; Improvements that enhance code quality and performance without breaking existing functionality.
+&nbsp;
+*Not analyzed yet. Please run the first report update.*
+${MARKERS.OPTIMIZATION_END}
+`;
 }
 &nbsp;
-export interface AutoUpdateStatus {
-  enabled: boolean;
-  isRunning: boolean;
-  hasPendingChanges: boolean;
-  pendingPathsCount: number;
-  lastRunAt: string | null;
-  lastRunResult: 'success' | 'failed' | null;
-}
+export function createSessionHistoryTemplate(): string {
+  return `# 📜 세션 히스토리
 &nbsp;
-function normalizeFsPath(p: string): string {
-  const withSlashes = p.replace(/\\/g, '/');
-  const normalized = path.posix.normalize(withSlashes);
+&gt; 이 문서는 Vibe Coding Report VS Code 확장에서 자동으로 관리됩니다.
+&gt; 모든 분석 세션 기록이 이 파일에 저장됩니다.
 &nbsp;
-  const isWindowsPath =
-    process.platform === 'win32' ||
-    /^[A-Za-z]:\//.test(normalized) ||
-<span class="branch-2 cbranch-no" title="branch not covered" >    normalized.startsWith('//');</span>
+---
 &nbsp;
-  return isWindowsPath ? normalized.toLowerCase() : <span class="branch-1 cbranch-no" title="branch not covered" >normalized;</span>
-}
+&lt;!-- STATS-START --&gt;
+## 📊 세션 통계
 &nbsp;
-function isWindowsFsPath(p: string): boolean {
-  return /^[A-Za-z]:[\\/]/.test(p) || <span class="branch-1 cbranch-no" title="branch not covered" >p.startsWith('\\\\');</span>
-}
+| 항목 | 값 |
+|------|-----|
+| **총 세션 수** | 0 |
+| **첫 세션** | - |
+| **마지막 세션** | - |
+| **마지막 업데이트** | - |
+| **적용 완료 항목** | 0 |
+&lt;!-- STATS-END --&gt;
 &nbsp;
-function resolveAnalysisRootPath(workspaceRoot: string, analysisRoot: string | undefined): string {
-  const trimmed = (analysisRoot ?? '').trim();
-  if (!trimmed) {
-    return workspaceRoot;
-  }
+---
 &nbsp;
-  const pathLib = isWindowsFsPath(workspaceRoot) ? path.win32 : <span class="branch-1 cbranch-no" title="branch not covered" >path.posix;</span>
-  const resolved = pathLib.resolve(workspaceRoot, trimmed);
-  const relative = pathLib.relative(workspaceRoot, resolved);
-  if (relative === '' || (!relative.startsWith('..') &amp;&amp; !pathLib.isAbsolute(relative))) {
-    return resolved;
-  }
+&lt;!-- SESSION-LIST-START --&gt;
+## 🕐 전체 세션 기록
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return workspaceRoot;</span>
-}
-&nbsp;
-const globRegexCache = new Map&lt;string, RegExp&gt;();
-&nbsp;
-function escapeRegexChar(ch: string): string {
-  return /[\\^$+?.()|{}[\]]/.test(ch) ? <span class="branch-0 cbranch-no" title="branch not covered" >`\\${ch}` : c</span>h;
-}
-&nbsp;
-function compileGlob(pattern: string): RegExp {
-  const normalized = pattern.replace(/\\/g, '/').trim();
-  const cached = globRegexCache.get(normalized);
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (cached) <span class="cstat-no" title="statement not covered" >return cached;</span>
-&nbsp;
-  let regex = '^';
-  for (let i = 0; i &lt; normalized.length; ) {
-    if (normalized.startsWith('**/', i)) {
-      regex += '(?:.*/)?';
-      i += 3;
-      continue;
-    }
-&nbsp;
-    if (normalized.startsWith('**', i)) {
-      regex += '.*';
-      i += 2;
-      continue;
-    }
-&nbsp;
-    const ch = normalized[i];
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (ch === '*') {
-<span class="cstat-no" title="statement not covered" >      regex += '[^/]*';</span>
-<span class="cstat-no" title="statement not covered" >      i += 1;</span>
-<span class="cstat-no" title="statement not covered" >      continue;</span>
-    }
-&nbsp;
-    regex += escapeRegexChar(ch);
-    i += 1;
-  }
-&nbsp;
-  regex += '$';
-  const compiled = new RegExp(regex);
-  globRegexCache.set(normalized, compiled);
-  return compiled;
-}
-&nbsp;
-export class RealtimeWatcherService implements vscode.Disposable {
-  private watchers: vscode.FileSystemWatcher[] = [];
-  private changedPaths = new Set&lt;string&gt;();
-  private debounceTimer: NodeJS.Timeout | undefined;
-  private ignoredReportDirs = new Set&lt;string&gt;();
-  private ignoredStateFiles = new Set&lt;string&gt;();
-  private workspaceRoots: string[] = [];
-  private workspaceRootsNormalized: string[] = [];
-  private excludeMatchers: RegExp[] = [];
-&nbsp;
-  constructor(
-    private options: RealtimeWatcherOptions,
-    private onPendingChanges: (state: PendingChangesState) =&gt; void
-  ) {
-    this.excludeMatchers = (options.excludePatterns ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>
-      .filter(pattern =&gt; pattern.trim().length &gt; 0)
-      .map(pattern =&gt; compileGlob(pattern));
-  }
-&nbsp;
-  start(workspaceFolders: readonly vscode.WorkspaceFolder[]): void {
-    this.stop();
-&nbsp;
-    // Build ignore lists per workspace folder
-    this.ignoredReportDirs.clear();
-    this.ignoredStateFiles.clear();
-    this.workspaceRoots = [];
-    this.workspaceRootsNormalized = [];
-&nbsp;
-    for (const folder of workspaceFolders) {
-      const root = folder.uri.fsPath;
-      this.workspaceRoots.push(root);
-      this.workspaceRootsNormalized.push(normalizeFsPath(root));
-&nbsp;
-      const analysisRootPath = resolveAnalysisRootPath(root, this.options.analysisRoot);
-      this.ignoredReportDirs.add(
-        normalizeFsPath(path.join(analysisRootPath, this.options.reportDirectory))
-      );
-      this.ignoredStateFiles.add(
-        normalizeFsPath(path.join(analysisRootPath, this.options.snapshotFile))
-      );
-&nbsp;
-      const watcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(folder, '**/*')
-      );
-&nbsp;
-      watcher.onDidChange(<span class="fstat-no" title="function not covered" >uri =&gt; <span class="cstat-no" title="statement not covered" >t</span>his.recordChange(uri.fsPath))</span>;
-      watcher.onDidCreate(<span class="fstat-no" title="function not covered" >uri =&gt; <span class="cstat-no" title="statement not covered" >t</span>his.recordChange(uri.fsPath))</span>;
-      watcher.onDidDelete(<span class="fstat-no" title="function not covered" >uri =&gt; <span class="cstat-no" title="statement not covered" >t</span>his.recordChange(uri.fsPath))</span>;
-&nbsp;
-      this.watchers.push(watcher);
-    }
-  }
-&nbsp;
-  stop(): void {
-    this.clearDebounceTimer();
-    for (const watcher of this.watchers) {
-      watcher.dispose();
-    }
-    this.watchers = [];
-    this.workspaceRoots = [];
-    this.workspaceRootsNormalized = [];
-  }
-&nbsp;
-  dispose(): void {
-    this.stop();
-    this.changedPaths.clear();
-  }
-&nbsp;
-  clearPendingChanges(): void {
-    this.changedPaths.clear();
-    this.onPendingChanges({ hasPendingChanges: false, changedPaths: [] });
-  }
-&nbsp;
-  shouldTrackChange(fsPath: string): boolean {
-    const normalized = normalizeFsPath(fsPath);
-&nbsp;
-    if (this.ignoredStateFiles.has(normalized)) {
-      return false;
-    }
-&nbsp;
-    for (const reportDir of this.ignoredReportDirs) {
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (normalized === reportDir) {
-<span class="cstat-no" title="statement not covered" >        return false;</span>
-      }
-      if (normalized.startsWith(reportDir + '/')) {
-        return false;
-      }
-    }
-&nbsp;
-    if (this.excludeMatchers.length &gt; 0) {
-      const relative = this.getRelativePosixPath(fsPath, normalized);
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (relative) {
-        const candidates = relative.endsWith('/') ? <span class="branch-0 cbranch-no" title="branch not covered" >[relative] : [</span>relative, `${relative}/`];
-        for (const candidate of candidates) {
-          for (const matcher of this.excludeMatchers) {
-            if (matcher.test(candidate)) {
-              return false;
-            }
-          }
-        }
-      }
-    }
-&nbsp;
-    return true;
-  }
-&nbsp;
-  private getRelativePosixPath(
-    fsPath: string,
-    normalizedFsPath: string
-  ): string | null {
-    let bestIndex = -1;
-    let bestLength = -1;
-    let bestRootNormalized = '';
-&nbsp;
-    for (let i = 0; i &lt; this.workspaceRootsNormalized.length; i++) {
-      const rootNormalized = this.workspaceRootsNormalized[i];
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (
-        normalizedFsPath === rootNormalized ||
-        normalizedFsPath.startsWith(rootNormalized + path.sep)
-      ) {
-        <span class="missing-if-branch" title="else path not taken" >E</span>if (rootNormalized.length &gt; bestLength) {
-          bestIndex = i;
-          bestLength = rootNormalized.length;
-          bestRootNormalized = rootNormalized;
-        }
-      }
-    }
-&nbsp;
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (bestIndex === -1) {
-<span class="cstat-no" title="statement not covered" >      return null;</span>
-    }
-&nbsp;
-    const relative = path.posix.relative(bestRootNormalized, normalizedFsPath);
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!relative || relative.startsWith('..')) {
-<span class="cstat-no" title="statement not covered" >      return null;</span>
-    }
-&nbsp;
-    return relative;
-  }
-&nbsp;
-  recordChange(fsPath: string): void {
-    if (!this.shouldTrackChange(fsPath)) {
-      return;
-    }
-&nbsp;
-    this.changedPaths.add(fsPath);
-    this.scheduleEmit();
-  }
-&nbsp;
-  private scheduleEmit(): void {
-    this.clearDebounceTimer();
-&nbsp;
-    this.debounceTimer = setTimeout(() =&gt; {
-      const changedPaths = Array.from(this.changedPaths);
-      this.onPendingChanges({
-        hasPendingChanges: changedPaths.length &gt; 0,
-        changedPaths,
-      });
-    }, this.options.debounceMs);
-  }
-&nbsp;
-  private clearDebounceTimer(): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = undefined;
-    }
-  }
-}
-&nbsp;
-export interface AutoUpdateReportsManagerOptions {
-  reportDirectory: string;
-  analysisRoot?: string;
-  snapshotFile: string;
-  excludePatterns: string[];
-}
-&nbsp;
-/**
- * Auto-update reports when source files change (opt-in).
- *
- * @description Wraps RealtimeWatcherService + a single-flight runner so update
- * runs do not overlap. If changes happen during a run, schedules one follow-up
- * run after completion.
- */
-export class AutoUpdateReportsManager implements vscode.Disposable {
-  private watcher: RealtimeWatcherService | undefined;
-  private settings: RealtimeWatcherSettings = { enabled: false, debounceMs: 1500 };
-  private isRunning = false;
-  private rerunQueued = false;
-  private status: AutoUpdateStatus = {
-    enabled: false,
-    isRunning: false,
-    hasPendingChanges: false,
-    pendingPathsCount: 0,
-    lastRunAt: null,
-    lastRunResult: null,
-  };
-  private statusEmitter = new vscode.EventEmitter&lt;AutoUpdateStatus&gt;();
-  public readonly onDidChangeStatus = this.statusEmitter.event;
-&nbsp;
-  constructor(
-    private options: AutoUpdateReportsManagerOptions,
-    private getWorkspaceFolders: () =&gt; readonly vscode.WorkspaceFolder[] | undefined,
-    private runUpdate: () =&gt; Promise&lt;void&gt;
-  ) {}
-&nbsp;
-  getStatus(): AutoUpdateStatus {
-    return { ...this.status };
-  }
-&nbsp;
-  applySettings(next: RealtimeWatcherSettings): void {
-    const action = decideRealtimeWatcherAction(this.settings, next);
-    this.settings = next;
-&nbsp;
-    this.updateStatus({
-      enabled: next.enabled,
-      ...(next.enabled ? {} : { hasPendingChanges: false, pendingPathsCount: 0 }),
-    });
-&nbsp;
-    switch (action) {
-      case 'start':
-        this.start();
-        break;
-      case 'stop':
-        this.stop();
-        break;
-      case 'restart':
-        this.stop();
-        this.start();
-        break;
-      case 'noop':
-        break;
-    }
-  }
-&nbsp;
-  private start(): void {
-    this.stop();
-&nbsp;
-    const workspaceFolders = this.getWorkspaceFolders() ?? <span class="branch-1 cbranch-no" title="branch not covered" >[];</span>
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!this.settings.enabled || workspaceFolders.length === 0) {
-<span class="cstat-no" title="statement not covered" >      return;</span>
-    }
-&nbsp;
-      this.watcher = new RealtimeWatcherService(
-        {
-          reportDirectory: this.options.reportDirectory,
-          analysisRoot: this.options.analysisRoot,
-          snapshotFile: this.options.snapshotFile,
-          debounceMs: this.settings.debounceMs,
-          excludePatterns: this.options.excludePatterns,
-        },
-      state =&gt; this.onPendingChanges(state)
-    );
-&nbsp;
-    this.watcher.start(workspaceFolders);
-  }
-&nbsp;
-  private stop(): void {
-    this.watcher?.dispose();
-    this.watcher = undefined;
-    this.rerunQueued = false;
-    this.updateStatus({ hasPendingChanges: false, pendingPathsCount: 0 });
-  }
-&nbsp;
-<span class="fstat-no" title="function not covered" >  dispose(): void {</span>
-<span class="cstat-no" title="statement not covered" >    this.stop();</span>
-<span class="cstat-no" title="statement not covered" >    this.statusEmitter.dispose();</span>
-  }
-&nbsp;
-  private onPendingChanges(state: PendingChangesState): void {
-    if (!state.hasPendingChanges) {
-      return;
-    }
-&nbsp;
-    this.updateStatus({
-      hasPendingChanges: true,
-      pendingPathsCount: state.changedPaths.length,
-    });
-&nbsp;
-    // Clear now so changes during the run are tracked independently.
-    this.watcher?.clearPendingChanges();
-    this.triggerUpdate();
-  }
-&nbsp;
-  private triggerUpdate(): void {
-    if (this.isRunning) {
-      this.rerunQueued = true;
-      return;
-    }
-&nbsp;
-    void this.runUpdateLoop();
-  }
-&nbsp;
-  private async runUpdateLoop(): Promise&lt;void&gt; {
-    this.isRunning = true;
-    this.updateStatus({
-      isRunning: true,
-      hasPendingChanges: false,
-      pendingPathsCount: 0,
-    });
-&nbsp;
-    let lastRunResult: AutoUpdateStatus['lastRunResult'] = 'success';
-    try {
-      await this.runUpdate();
-    } catch (error) {
-<span class="cstat-no" title="statement not covered" >      lastRunResult = 'failed';</span>
-<span class="cstat-no" title="statement not covered" >      throw error;</span>
-    } finally {
-      this.isRunning = false;
-      this.updateStatus({
-        isRunning: false,
-        lastRunAt: new Date().toISOString(),
-        lastRunResult,
-      });
-    }
-&nbsp;
-    if (this.rerunQueued) {
-      this.rerunQueued = false;
-      this.triggerUpdate();
-    }
-  }
-&nbsp;
-  private updateStatus(patch: Partial&lt;AutoUpdateStatus&gt;): void {
-    const nextStatus: AutoUpdateStatus = { ...this.status, ...patch };
-    const changed = (Object.keys(nextStatus) as (keyof AutoUpdateStatus)[]).some(
-      key =&gt; nextStatus[key] !== this.status[key]
-    );
-&nbsp;
-    if (!changed) {
-      return;
-    }
-&nbsp;
-    this.status = nextStatus;
-    this.statusEmitter.fire(this.status);
-  }
+*세션 기록이 여기에 추가됩니다.*
+&lt;!-- SESSION-LIST-END --&gt;
+`;
 }
 &nbsp;</pre></td></tr></table></pre>
 
