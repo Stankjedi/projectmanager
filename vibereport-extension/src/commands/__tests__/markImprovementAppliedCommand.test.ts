@@ -97,6 +97,62 @@ describe('MarkImprovementAppliedCommand', () => {
     vi.resetModules();
   });
 
+  it('shows warning when there is no active editor', async () => {
+    (vscode.window as unknown as { activeTextEditor: any }).activeTextEditor = undefined;
+
+    const { MarkImprovementAppliedCommand } = await import('../updateReports.js');
+    const command = new MarkImprovementAppliedCommand(mockOutputChannel);
+
+    await command.execute();
+
+    expect(mockShowWarningMessage).toHaveBeenCalledWith('활성화된 에디터가 없습니다.');
+    expect(mockSelectWorkspaceRoot).not.toHaveBeenCalled();
+    expect(mockSaveState).not.toHaveBeenCalled();
+  });
+
+  it('returns early when workspace selection is cancelled', async () => {
+    mockSelectWorkspaceRoot.mockResolvedValueOnce(null);
+
+    (vscode.window as unknown as { activeTextEditor: any }).activeTextEditor = {
+      selection: {},
+      document: {
+        getText: () => '',
+      },
+    };
+
+    const { MarkImprovementAppliedCommand } = await import('../updateReports.js');
+    const command = new MarkImprovementAppliedCommand(mockOutputChannel);
+
+    await command.execute();
+
+    expect(mockSaveState).not.toHaveBeenCalled();
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+  it('shows error when analysisRoot is invalid', async () => {
+    mockResolveAnalysisRoot.mockImplementationOnce(() => {
+      throw new Error('invalid analysisRoot');
+    });
+
+    (vscode.window as unknown as { activeTextEditor: any }).activeTextEditor = {
+      selection: {},
+      document: {
+        getText: () => '',
+      },
+    };
+
+    const { MarkImprovementAppliedCommand } = await import('../updateReports.js');
+    const command = new MarkImprovementAppliedCommand(mockOutputChannel);
+
+    await command.execute();
+
+    expect(mockShowErrorMessage).toHaveBeenCalledWith(
+      'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+    );
+    expect(mockReadFile).not.toHaveBeenCalled();
+    expect(mockSaveState).not.toHaveBeenCalled();
+  });
+
   it('shows QuickPick and marks the selected improvement when there is no editor selection', async () => {
     const report = [
       '### 🟡 중요 (P2)',
@@ -141,5 +197,76 @@ describe('MarkImprovementAppliedCommand', () => {
     );
     expect(mockShowInformationMessage).toHaveBeenCalled();
   });
-});
 
+  it('shows error when no pending improvements are found in the report', async () => {
+    const reportWithoutIds = ['# 🚀 프로젝트 개선 탐색 보고서', '', '내용만 있고 ID 테이블이 없습니다.'].join('\n');
+    mockReadFile.mockResolvedValue(reportWithoutIds);
+
+    (vscode.window as unknown as { activeTextEditor: any }).activeTextEditor = {
+      selection: {},
+      document: {
+        getText: () => '',
+      },
+    };
+
+    const { MarkImprovementAppliedCommand } = await import('../updateReports.js');
+    const command = new MarkImprovementAppliedCommand(mockOutputChannel);
+
+    await command.execute();
+
+    expect(mockShowErrorMessage).toHaveBeenCalledWith('개선 보고서에서 개선 항목을 찾지 못했습니다.');
+    expect(mockShowQuickPick).not.toHaveBeenCalled();
+    expect(mockSaveState).not.toHaveBeenCalled();
+  });
+
+  it('does not save when QuickPick is cancelled', async () => {
+    const report = [
+      '### 🟡 중요 (P2)',
+      '',
+      '#### [P2-1] Command layer tests',
+      '',
+      '| 항목 | 내용 |',
+      '|------|------|',
+      '| **ID** | `test-commands-001` |',
+      '',
+    ].join('\n');
+
+    mockReadFile.mockResolvedValue(report);
+
+    (vscode.window as unknown as { activeTextEditor: any }).activeTextEditor = {
+      selection: {},
+      document: {
+        getText: () => '',
+      },
+    };
+
+    mockShowQuickPick.mockResolvedValueOnce(undefined);
+
+    const { MarkImprovementAppliedCommand } = await import('../updateReports.js');
+    const command = new MarkImprovementAppliedCommand(mockOutputChannel);
+
+    await command.execute();
+
+    expect(mockSaveState).not.toHaveBeenCalled();
+    expect(mockShowInformationMessage).not.toHaveBeenCalled();
+  });
+
+  it('shows error when the improvement report cannot be read', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('EACCES'));
+
+    (vscode.window as unknown as { activeTextEditor: any }).activeTextEditor = {
+      selection: {},
+      document: {
+        getText: () => '',
+      },
+    };
+
+    const { MarkImprovementAppliedCommand } = await import('../updateReports.js');
+    const command = new MarkImprovementAppliedCommand(mockOutputChannel);
+
+    await command.execute();
+
+    expect(mockShowErrorMessage).toHaveBeenCalledWith(expect.stringMatching(/개선 보고서를 읽을 수 없습니다/i));
+    expect(mockSaveState).not.toHaveBeenCalled();
+  });
+});

@@ -21,27 +21,100 @@ export function extractScoreTable(markdown: string): string {
 }
 
 export function markdownToPreviewRows(markdown: string): string {
-  return markdown
-    .replace(/^# (.+)$/gm, (_, text: string) => `<h1>${escapeHtml(text)}</h1>`)
-    .replace(/^## (.+)$/gm, (_, text: string) => `<h2>${escapeHtml(text)}</h2>`)
-    .replace(
-      /^> (.+)$/gm,
-      (_, text: string) => `<blockquote>${escapeHtml(text)}</blockquote>`
-    )
-    .replace(/\*\*(.+?)\*\*/g, (_, text: string) => `<strong>${escapeHtml(text)}</strong>`)
-    .replace(/\n---\n/g, '<hr>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\|(.+)\|/g, (match) => {
-      const cells = match.split('|').filter(c => c.trim());
-      if (cells.some(c => c.includes('---'))) {
-        return '';
+  const renderInline = (text: string): string => {
+    const escaped = escapeHtml(text);
+    return escaped.replace(/\*\*(.+?)\*\*/g, (_full, inner: string) => `<strong>${inner}</strong>`);
+  };
+
+  const isTableSeparatorRow = (cells: string[]): boolean => {
+    if (cells.length === 0) return false;
+    return cells.every(cell => /^:?-{3,}:?$/.test(cell.trim()));
+  };
+
+  const renderTable = (tableLines: string[]): string => {
+    const rows: string[] = [];
+    for (const line of tableLines) {
+      const cells = line
+        .trim()
+        .split('|')
+        .map(c => c.trim())
+        .filter(Boolean);
+
+      if (isTableSeparatorRow(cells)) {
+        continue;
       }
 
-      const cellHtml = cells
-        .map(c => `<td>${escapeHtml(c.trim())}</td>`)
-        .join('');
-      return `<tr>${cellHtml}</tr>`;
-    });
+      const cellHtml = cells.map(c => `<td>${renderInline(c)}</td>`).join('');
+      rows.push(`<tr>${cellHtml}</tr>`);
+    }
+
+    return `<table>${rows.join('')}</table>`;
+  };
+
+  const blocks: string[] = [];
+  const lines = markdown.split('\n');
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i] ?? '';
+    const trimmed = line.trim();
+    if (!trimmed) {
+      i += 1;
+      continue;
+    }
+
+    if (trimmed === '---') {
+      blocks.push('<hr>');
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('# ')) {
+      blocks.push(`<h1>${renderInline(trimmed.slice(2))}</h1>`);
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      blocks.push(`<h2>${renderInline(trimmed.slice(3))}</h2>`);
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('> ')) {
+      blocks.push(`<blockquote>${renderInline(trimmed.slice(2))}</blockquote>`);
+      i += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && (lines[i] ?? '').trim().startsWith('|')) {
+        tableLines.push(lines[i] ?? '');
+        i += 1;
+      }
+
+      blocks.push(renderTable(tableLines));
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (i < lines.length) {
+      const current = lines[i] ?? '';
+      const currentTrimmed = current.trim();
+      if (!currentTrimmed) break;
+      if (currentTrimmed === '---') break;
+      if (currentTrimmed.startsWith('# ') || currentTrimmed.startsWith('## ') || currentTrimmed.startsWith('> ')) break;
+      if (currentTrimmed.startsWith('|')) break;
+
+      paragraphLines.push(currentTrimmed);
+      i += 1;
+    }
+
+    blocks.push(`<p>${paragraphLines.map(renderInline).join('<br>')}</p>`);
+  }
+
+  return blocks.join('\n');
 }
 
 export function buildPreviewHtml(
@@ -85,10 +158,10 @@ export function buildPreviewHtml(
     tr:nth-child(even) { opacity: 0.9; }
     hr { border: none; border-top: 1px solid ${style.border}; margin: 20px 0; }
     strong { color: ${style.link}; }
-  </style>
+</style>
 </head>
 <body>
-  <table>${rows}</table>
+  ${rows}
 </body>
 </html>`;
 }

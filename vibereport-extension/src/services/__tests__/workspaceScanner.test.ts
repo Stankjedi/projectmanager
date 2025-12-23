@@ -4,6 +4,15 @@ import * as fs from 'fs/promises';
 import { WorkspaceScanner } from '../workspaceScanner.js';
 import { clearAllCache, getCacheStats } from '../snapshotCache.js';
 import type { VibeReportConfig } from '../../models/types.js';
+import { clearGitignoreMatcherCache } from '../../utils/gitignoreUtils.js';
+
+const gitignoreMock = vi.hoisted(() => ({ content: '', mtimeMs: 1 }));
+const gitMock = vi.hoisted(() => ({
+  checkIsRepo: vi.fn().mockResolvedValue(false),
+  branch: vi.fn().mockResolvedValue({ current: 'main' }),
+  status: vi.fn().mockResolvedValue({ isClean: () => true, files: [] }),
+  log: vi.fn().mockResolvedValue({ latest: undefined }),
+}));
 
 // Mock vscode module
 vi.mock('vscode', () => ({
@@ -30,6 +39,10 @@ vi.mock('vscode', () => ({
 // Mock fs/promises
 vi.mock('fs/promises', () => ({
   readFile: vi.fn(async (filePath: string) => {
+    if (filePath.endsWith('.gitignore')) {
+      return gitignoreMock.content;
+    }
+
     if (filePath.endsWith('package.json')) {
       return '{"name": "test-project", "version": "1.0.0"}';
     }
@@ -64,16 +77,19 @@ vi.mock('fs/promises', () => ({
     throw new Error('Not found');
   }),
   readdir: vi.fn().mockResolvedValue([]),
-  stat: vi.fn().mockResolvedValue({ size: 1024 }),
+  stat: vi.fn(async (filePath: string) => {
+    if (filePath.endsWith('.gitignore')) {
+      return { size: gitignoreMock.content.length, mtimeMs: gitignoreMock.mtimeMs } as any;
+    }
+    return { size: 1024, mtimeMs: 0 } as any;
+  }),
   access: vi.fn().mockRejectedValue(new Error('Not found')),
   mkdir: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock simple-git
 vi.mock('simple-git', () => ({
-  simpleGit: vi.fn(() => ({
-    checkIsRepo: vi.fn().mockResolvedValue(false),
-  })),
+  simpleGit: vi.fn(() => gitMock),
 }));
 
 describe('WorkspaceScanner', () => {
@@ -89,26 +105,36 @@ describe('WorkspaceScanner', () => {
     replace: vi.fn(),
   } as unknown as vscode.OutputChannel;
 
-  const mockConfig: VibeReportConfig = {
-    reportDirectory: 'devplan',
-    analysisRoot: '',
-    snapshotFile: '.vscode/state.json',
-    enableGitDiff: false,
-    excludePatterns: ['**/node_modules/**'],
-    maxFilesToScan: 5000,
-    autoOpenReports: true,
-    enableDirectAi: false,
-    language: 'ko',
+	  const mockConfig: VibeReportConfig = {
+	    reportDirectory: 'devplan',
+	    analysisRoot: '',
+	    snapshotFile: '.vscode/state.json',
+	    enableGitDiff: false,
+	    respectGitignore: true,
+	    includeSensitiveFiles: false,
+	    excludePatternsIncludeDefaults: true,
+	    excludePatterns: ['**/node_modules/**'],
+	    maxFilesToScan: 5000,
+	    autoOpenReports: true,
+	    enableDirectAi: false,
+	    language: 'ko',
     projectVisionMode: 'auto',
     defaultProjectType: 'auto-detect',
     defaultQualityFocus: 'development',
   };
 
-  beforeEach(() => {
-    scanner = new WorkspaceScanner(mockOutputChannel);
-    vi.clearAllMocks();
-    clearAllCache(); // 캐시 초기화
-  });
+	  beforeEach(() => {
+	    scanner = new WorkspaceScanner(mockOutputChannel);
+	    vi.clearAllMocks();
+	    clearAllCache(); // 캐시 초기화
+	    clearGitignoreMatcherCache();
+	    gitignoreMock.content = '';
+	    gitignoreMock.mtimeMs = 1;
+	    gitMock.checkIsRepo.mockResolvedValue(false);
+	    gitMock.branch.mockResolvedValue({ current: 'main' });
+	    gitMock.status.mockResolvedValue({ isClean: () => true, files: [] });
+	    gitMock.log.mockResolvedValue({ latest: undefined });
+	  });
 
   describe('scan', () => {
     it('should return project snapshot with correct structure', async () => {
@@ -155,6 +181,21 @@ describe('WorkspaceScanner', () => {
 
       expect(result.languageStats).toHaveProperty('ts');
       expect(result.languageStats).toHaveProperty('tsx');
+    });
+
+    it('supports monorepo src structure and detects nested entrypoints', async () => {
+      const mockFiles = [
+        { fsPath: '/mock/project/vibereport-extension/src/extension.ts' },
+        { fsPath: '/mock/project/vibereport-extension/src/commands/index.ts' },
+        { fsPath: '/mock/project/devplan/Prompt.md' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await scanner.scan('/mock/project', mockConfig);
+
+      expect(result.structureDiagram).toContain('**commands/**');
+      expect(result.structureDiagram).toContain('`vibereport-extension/src/extension.ts`');
     });
 
     it('should handle empty workspace', async () => {
@@ -207,11 +248,11 @@ describe('WorkspaceScanner', () => {
       expect(keysAfterSecond).toHaveLength(2);
     });
 
-    it('collects TODO/FIXME findings from scanned files', async () => {
-      const mockFiles = [
-        { fsPath: '/mock/project/src/todo.ts' },
-        { fsPath: '/mock/project/package.json' },
-      ];
+	    it('collects TODO/FIXME findings from scanned files', async () => {
+	      const mockFiles = [
+	        { fsPath: '/mock/project/src/todo.ts' },
+	        { fsPath: '/mock/project/package.json' },
+	      ];
 
       (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
 
@@ -223,7 +264,161 @@ describe('WorkspaceScanner', () => {
         file: 'src/todo.ts',
       });
       expect(result.todoFixmeFindings?.some((f) => f.tag === 'TODO')).toBe(true);
-      expect(result.todoFixmeFindings?.some((f) => f.tag === 'FIXME')).toBe(true);
+	      expect(result.todoFixmeFindings?.some((f) => f.tag === 'FIXME')).toBe(true);
+	    });
+
+	    it('caches Git info within TTL to avoid repeated status/log calls', async () => {
+	      const mockFiles = [
+	        { fsPath: '/mock/project/src/index.ts' },
+	        { fsPath: '/mock/project/package.json' },
+	      ];
+
+	      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+	      gitMock.checkIsRepo.mockResolvedValue(true);
+	      gitMock.branch.mockResolvedValue({ current: 'main' });
+	      gitMock.status.mockResolvedValue({ isClean: () => true, files: [] });
+	      gitMock.log.mockResolvedValue({
+	        latest: {
+	          hash: 'abc',
+	          message: 'test commit',
+	          date: '2025-01-01T00:00:00.000Z',
+	        },
+	      });
+
+	      const configWithGit = { ...mockConfig, enableGitDiff: true };
+
+	      await scanner.scan('/mock/project', configWithGit);
+	      await scanner.scan('/mock/project', configWithGit);
+
+	      expect(gitMock.status).toHaveBeenCalledTimes(1);
+	      expect(gitMock.log).toHaveBeenCalledTimes(1);
+	    });
+	  });
+
+  describe('collectFiles', () => {
+    it('filters gitignored files when respectGitignore=true', async () => {
+      gitignoreMock.content = 'ignored.txt\n';
+
+      const mockFiles = [
+        { fsPath: '/mock/project/ignored.txt' },
+        { fsPath: '/mock/project/kept.txt' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: true,
+      });
+
+      expect(result).toEqual(['kept.txt']);
+    });
+
+    it('retains gitignored files when respectGitignore=false', async () => {
+      gitignoreMock.content = 'ignored.txt\n';
+
+      const mockFiles = [
+        { fsPath: '/mock/project/ignored.txt' },
+        { fsPath: '/mock/project/kept.txt' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: false,
+      });
+
+      expect(result).toEqual(expect.arrayContaining(['ignored.txt', 'kept.txt']));
+    });
+
+    it('always excludes snapshotFile from scan results', async () => {
+      gitignoreMock.content = '';
+
+      const mockFiles = [
+        { fsPath: '/mock/project/.vscode/state.json' },
+        { fsPath: '/mock/project/kept.txt' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: false,
+      });
+
+      expect(result).toEqual(['kept.txt']);
+    });
+
+    it('excludes sensitive files by default', async () => {
+      gitignoreMock.content = '';
+
+      const mockFiles = [
+        { fsPath: '/mock/project/.env' },
+        { fsPath: '/mock/project/vsctoken.txt' },
+        { fsPath: '/mock/project/kept.ts' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: false,
+        includeSensitiveFiles: false,
+      });
+
+      expect(result).toEqual(['kept.ts']);
+    });
+
+    it('includes sensitive files when includeSensitiveFiles=true', async () => {
+      gitignoreMock.content = '';
+
+      const mockFiles = [
+        { fsPath: '/mock/project/.env' },
+        { fsPath: '/mock/project/vsctoken.txt' },
+        { fsPath: '/mock/project/kept.ts' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const result = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: false,
+        includeSensitiveFiles: true,
+      });
+
+      expect(result).toEqual(expect.arrayContaining(['.env', 'vsctoken.txt', 'kept.ts']));
+    });
+
+    it('reflects .gitignore changes without clearing caches', async () => {
+      gitignoreMock.content = 'ignored.txt\n';
+      gitignoreMock.mtimeMs = 1;
+
+      const mockFiles = [
+        { fsPath: '/mock/project/ignored.txt' },
+        { fsPath: '/mock/project/kept.txt' },
+      ];
+
+      (vscode.workspace.findFiles as any).mockResolvedValue(mockFiles);
+
+      const first = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: true,
+      });
+      expect(first).toEqual(['kept.txt']);
+
+      // Update .gitignore and bump mtime: the next call should invalidate cache and re-filter.
+      gitignoreMock.content = '';
+      gitignoreMock.mtimeMs = 2;
+
+      const second = await (scanner as any).collectFiles('/mock/project', {
+        ...mockConfig,
+        respectGitignore: true,
+      });
+
+      expect(second).toEqual(expect.arrayContaining(['ignored.txt', 'kept.txt']));
+      expect(vscode.workspace.findFiles).toHaveBeenCalledTimes(2);
     });
   });
 

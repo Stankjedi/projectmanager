@@ -317,6 +317,80 @@ Content
       expect(vscode.window.showInformationMessage).toHaveBeenCalled();
     });
 
+    it('should parse OPT items from Prompt.md and copy selected prompt + OPT', async () => {
+      // Arrange
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      const mockPromptMd = `
+# 🤖 AI Agent Improvement Prompts
+
+## 📋 Execution Checklist
+
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Prompt One | P2 | ⬜ Pending |
+| 2 | OPT-1 | Incremental cache | OPT | 🟡 In Progress |
+| 3 | OPT-2 | Done OPT | OPT | ✅ Done |
+
+## 🟡 Priority 2 (High)
+
+### [PROMPT-001] Prompt One
+
+**⏱️ Execute this prompt now.**
+
+## 🔧 Optimization Items (OPT)
+
+### [OPT-1] Incremental cache
+
+| Field | Value |
+|:---|:---|
+| **Category** | Performance |
+| **Target Files** | src/a.ts |
+
+Do the thing.
+
+### [OPT-2] Done OPT
+
+| Field | Value |
+|:---|:---|
+| **Category** | Performance |
+| **Target Files** | src/b.ts |
+
+Should not be selectable.
+
+## ✅ Final Completion
+`;
+
+      const fs = await import('fs/promises');
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValue(undefined);
+
+      vi.mocked(vscode.window.showQuickPick).mockImplementation(async (items: any) => {
+        const labels = items.map((item: any) => item.label);
+        expect(labels.some((label: string) => label.includes('[OPT-1]'))).toBe(true);
+        expect(labels.some((label: string) => label.includes('[OPT-2]'))).toBe(false);
+
+        return items.filter((item: any) => {
+          return item.label.includes('[PROMPT-001]') || item.label.includes('[OPT-1]');
+        });
+      });
+
+      const { GeneratePromptCommand } = await import('../generatePrompt.js');
+      const command = new GeneratePromptCommand(mockOutputChannel);
+
+      // Act
+      await command.execute();
+
+      // Assert
+      expect(vscode.env.clipboard.writeText).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(vscode.env.clipboard.writeText).mock.calls[0][0] as string;
+      expect(written).toContain('### [PROMPT-001]');
+      expect(written).toContain('### [OPT-1]');
+      expect(written).toContain('\n\n---\n\n');
+    });
+
     it('should open Copilot Chat when user clicks the button', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [

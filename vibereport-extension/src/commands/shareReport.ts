@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import { getPreviewStyle } from '../utils/previewStyle.js';
+import { redactForSharing } from '../utils/redactionUtils.js';
 import { buildPreviewHtml, extractScoreTable } from './shareReportPreview.js';
 
 export class ShareReportCommand {
@@ -119,8 +120,7 @@ export class ShareReportCommand {
     const totalScore = totalScoreMatch ? totalScoreMatch[1] : '-';
     const totalGrade = totalScoreMatch ? totalScoreMatch[2].trim() : '-';
 
-    // 프리뷰 보고서 생성
-    return `# 📊 ${projectName} 프로젝트 평가 보고서
+    const preview = `# 📊 ${projectName} 프로젝트 평가 보고서
 
 > 🗓️ 생성일: ${now}
 > 📦 버전: ${version}
@@ -146,6 +146,11 @@ ${scoreTable}
 
 전체 보고서는 프로젝트의 \`${reportRelativePath}\` 파일에서 확인 할 수 있습니다.
 `;
+
+    const settings = vscode.workspace.getConfiguration('vibereport');
+    const redactionEnabled = settings.get<boolean>('sharePreviewRedactionEnabled', true);
+
+    return redactionEnabled ? redactForSharing(preview) : preview;
   }
 
   /**

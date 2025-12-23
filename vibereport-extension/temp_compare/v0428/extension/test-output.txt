@@ -1,0 +1,39 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.14 [39m[90mC:/Users/송용준/Desktop/Dev/projectmanager/vibereport-extension[39m
+
+ [31m❯[39m src/commands/__tests__/setProjectVision.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 122[2mms[22m[39m
+       [32m✓[39m should show error when no workspace is open[32m 100[2mms[22m[39m
+       [32m✓[39m should show error when workspace folders is empty array[32m 2[2mms[22m[39m
+       [32m✓[39m should return early when user cancels project type selection[32m 2[2mms[22m[39m
+       [32m✓[39m should return early when user cancels core goals input[32m 1[2mms[22m[39m
+       [32m✓[39m should return early when user cancels target users input[32m 1[2mms[22m[39m
+       [32m✓[39m should return early when user cancels quality focus selection[32m 1[2mms[22m[39m
+       [32m✓[39m should save vision and show success message when all inputs are provided[32m 3[2mms[22m[39m
+       [32m✓[39m should update projectVisionMode to custom when different from current[32m 1[2mms[22m[39m
+       [32m✓[39m should show error message when an exception occurs[32m 1[2mms[22m[39m
+       [32m✓[39m should log error to output channel when save fails[32m 4[2mms[22m[39m
+[31m       [31m×[31m should handle workspace configuration update failure gracefully[39m[32m 4[2mms[22m[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/commands/__tests__/setProjectVision.test.ts > SetProjectVisionCommand > execute - error handling > should handle workspace configuration update failure gracefully
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'projectVisionMode', 'custom', 2 ]
+
+Number of calls: 0
+
+ ❯ src/commands/__tests__/setProjectVision.test.ts:368:26
+    366| 
+    367|       // Assert - even if config update fails, error handling should t…
+    368|       expect(mockUpdate).toHaveBeenCalledWith(
+       |                          ^
+    369|         'projectVisionMode',
+    370|         'custom',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m10 passed[39m[22m[90m (11)[39m
+[2m   Start at [22m 02:01:10
+[2m   Duration [22m 353ms[2m (transform 133ms, setup 0ms, import 69ms, tests 122ms, environment 0ms)[22m
+

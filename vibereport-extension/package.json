@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.4.28",
+  "version": "0.4.29",
   "publisher": "Stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -112,6 +112,12 @@
         "icon": "$(compass)"
       },
       {
+        "command": "vibereport.setAnalysisRootWizard",
+        "title": "Set Analysis Root (Wizard)",
+        "category": "VibeCoding",
+        "icon": "$(root-folder)"
+      },
+      {
         "command": "vibereport.openSessionHistory",
         "title": "Open Session History",
         "category": "VibeCoding",
@@ -128,6 +134,12 @@
         "title": "Share Report Preview",
         "category": "VibeCoding",
         "icon": "$(export)"
+      },
+      {
+        "command": "vibereport.exportReportBundle",
+        "title": "Export Report Bundle",
+        "category": "VibeCoding",
+        "icon": "$(package)"
       },
       {
         "command": "vibereport.openFunctionInFile",
@@ -171,6 +183,21 @@
           "default": true,
           "description": "Git diff 기반 변경 분석 활성화"
         },
+        "vibereport.respectGitignore": {
+          "type": "boolean",
+          "default": true,
+          "description": ".gitignore를 존중하여 무시된 파일을 스캔/스냅샷에서 제외"
+        },
+        "vibereport.includeSensitiveFiles": {
+          "type": "boolean",
+          "default": false,
+          "description": "민감 파일(예: .env*, *.pem, *.key, *token*)을 스캔/프롬프트에 포함합니다. 기본값은 제외(보안 권장)"
+        },
+        "vibereport.excludePatternsIncludeDefaults": {
+          "type": "boolean",
+          "default": true,
+          "description": "excludePatterns 설정 시에도 기본 제외 패턴을 유지(병합)합니다. false이면 사용자가 설정한 excludePatterns만 사용"
+        },
         "vibereport.excludePatterns": {
           "type": "array",
           "items": {
@@ -187,6 +214,7 @@
             "**/__pycache__/**",
             "**/.venv/**",
             "**/coverage/**",
+            "**/temp_compare/**",
             "**/*.log",
             "**/*.lock",
             "**/*.vsix"
@@ -282,6 +310,11 @@
           "type": "boolean",
           "default": true,
           "description": "보고서 스타일 마크다운 미리보기 활성화"
+        },
+        "vibereport.sharePreviewRedactionEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Share Report 프리뷰에서 절대 경로/명령 링크/세션 ID 등을 자동으로 마스킹합니다"
         },
         "vibereport.enableDirectAi": {
           "type": "boolean",
@@ -443,14 +476,15 @@
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.12",
     "eslint": "^9.0.0",
-    "mermaid": "^11.12.2",
     "memfs": "^4.9.2",
+    "mermaid": "^11.12.2",
     "mock-fs": "^5.2.0",
     "typedoc": "^0.28.15",
     "typescript": "^5.8.0",
     "vitest": "^4.0.14"
   },
   "dependencies": {
+    "ignore": "^7.0.5",
     "jsonc-parser": "^3.3.1",
     "simple-git": "^3.27.0"
   }

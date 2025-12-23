@@ -9,13 +9,13 @@
 
 - **프로젝트 목적**
   - VS Code에서 AI 페어 프로그래밍을 사용할 때, 프로젝트 구조와 변경 이력을 자동으로 분석하여
-    - 종합 평가 보고서(Project Evaluation Report)
-    - 개선 탐색 보고서(Project Improvement Exploration Report)
+    - 종합 평가 보고서(프로젝트 종합 평가 보고서)
+    - 개선 탐색 보고서(프로젝트 개선 탐색 보고서)
     - AI 실행용 Prompt.md
     를 한 번의 명령으로 생성·유지관리하는 도구입니다.
 - **핵심 목표**
   - 워크스페이스를 자동 스캔하여 언어/구조/설정 정보를 수집
-  - Git 변경 이력과 결합한 증분 분석(Incremental Update) 제공
+  - Git 변경 이력과 결합한 증분 분석 제공
   - AI 모델이 바로 사용할 수 있는 구조화된 프롬프트를 자동 생성
   - 이미 적용된 개선 항목을 추적하여 중복 제안을 줄이고, 세션 히스토리를 시각적으로 관리
 - **대상 사용자**
@@ -24,17 +24,17 @@
 
 ---
 
-## 📝 TL;DR (요약)
+## 📝 요약(한눈에)
 <!-- TLDR-START -->
 <!-- AUTO-TLDR-START -->
 | 항목 | 내용 |
 |:---|:---|
-| **현재 버전** | v0.4.27 (2025-12-20) |
-| **전체 등급** | 🔵 B+ (88점) |
-| **전체 점수** | 88/100 |
-| **가장 큰 리스크** | 상태 파일(`.vscode/vibereport-state.json`) 레포 추적로 인한 정보 노출/변경 노이즈 |
-| **권장 최우선 작업** | `security-statefile-tracking-001`: 상태 파일 추적 중단 및 ignore 처리 |
-| **다음 우선순위** | `ci-workflow-location-001`, `test-branch-coverage-001`, `refactor-reportservice-modularize-001` |
+| **현재 버전** | v0.4.28 (2025-12-22) |
+| **전체 등급** | 🟢 A- (91점) |
+| **전체 점수** | 91/100 |
+| **가장 큰 리스크** | 모노레포 구조에서 기능 기반 구조도/엔트리포인트 탐지가 부정확해 리포트 신뢰도가 저하될 수 있음 |
+| **권장 최우선 작업** | `scan-structure-001`: 기능 기반 구조도/엔트리포인트 탐지 로직을 모노레포 구조까지 정확히 지원 |
+| **다음 우선순위** | `security-sensitive-scan-001`, `config-exclude-001`, `feat-analysisroot-wizard-001`, `opt-gitinfo-cache-001` |
 <!-- AUTO-TLDR-END -->
 <!-- TLDR-END -->
 
@@ -43,10 +43,11 @@
 <!-- AUTO-RISK-SUMMARY-START -->
 | 리스크 레벨 | 항목 | 관련 개선 ID |
 |------------|------|-------------|
-| 🔴 High | 상태 파일(`.vscode/vibereport-state.json`) 레포 추적(경로/세션 정보 포함) | `security-statefile-tracking-001` |
-| 🟡 Medium | CI 워크플로우가 레포 루트가 아닌 경로에 있어 GitHub Actions 미동작 가능 | `ci-workflow-location-001` |
-| 🟡 Medium | 브랜치 커버리지 54%대로 분기/예외 경로 회귀 탐지 한계 | `test-branch-coverage-001` |
-| 🟢 Low | 보고서 업데이트 시 내용 변경 없음에도 파일 write로 변경 노이즈/I/O 발생 | `opt-report-write-skip-001` |
+| 🔴 High | 기능 기반 구조도/엔트리포인트 탐지 로직이 루트 `src/` 가정에 치우쳐 모노레포에서 구조도가 부정확해질 수 있음 | `scan-structure-001` |
+| 🟡 Medium | 스캔/분석 프롬프트 경로에 민감 파일(예: `.env`, `*token*`)이 포함될 수 있어 외부 공유/AI 전달 시 노출 위험 | `security-sensitive-scan-001` |
+| 🟡 Medium | excludePatterns가 사용자 설정으로 전체 교체될 때 기본 제외 패턴 누락(예: `**/*.vsix`)로 스캔 노이즈/성능 저하 가능 | `config-exclude-001` |
+| 🟢 Low | 모노레포에서 analysisRoot 설정이 수동(설정 편집)에 의존해 초기 설정 비용이 발생 | `feat-analysisroot-wizard-001` |
+| 🟢 Low | Git 정보(상태/로그) 수집이 대형 레포에서 비용이 커질 수 있어 TTL 캐시 최적화 여지 | `opt-gitinfo-cache-001` |
 <!-- AUTO-RISK-SUMMARY-END -->
 <!-- RISK-SUMMARY-END -->
 
@@ -55,55 +56,83 @@
 <!-- AUTO-OVERVIEW-START -->
 ## 📋 프로젝트 개요
 
-- **프로젝트 목적:** VS Code에서 프로젝트 상태를 자동 분석하고, **평가 → 개선 백로그 → 실행 프롬프트**로 이어지는 문서 파이프라인을 제공하여 AI 페어 프로그래밍의 생산성과 일관성을 높입니다.
-- **핵심 목표:** (1) 워크스페이스 스캔/스냅샷 기반의 근거 있는 진단, (2) 마커 기반 증분 업데이트로 히스토리 보존, (3) AI가 “바로 실행” 가능한 프롬프트 산출.
-- **대상 사용자:** Copilot Chat 등 AI 코딩 도구로 설계/리팩토링/문서화를 반복하는 개인·팀 개발자.
-- **주요 사용 시나리오:** 정기 점검(스코어/리스크), PR 전후 변경 영향 확인(diff), 개선 백로그를 Prompt로 변환해 순차 실행.
-- **전략적 포지션:** 린트/포맷 수준을 넘어, **프로젝트 운영(진단-계획-실행) 자동화**에 초점을 둔 VS Code 확장.
+- **프로젝트 목적:** VS Code에서 워크스페이스/분석 루트를 스캔하고 스냅샷·Git diff를 결합해, **평가(점수) → 개선 백로그 → 실행 프롬프트(Prompt.md)**를 자동으로 생성·운영합니다.
+- **핵심 목표:** (1) 근거 데이터 수집(언어/구조/설정/TODO·FIXME/변경 요약) (2) 마커 기반 섹션 단위 증분 갱신 (3) 미적용 항목만 유지하는 백로그 운영 (4) AI 에이전트가 순차 실행 가능한 프롬프트 생성 (5) Doctor/프리뷰/세션 히스토리로 운영 검증.
+- **대상 사용자:** AI 페어 프로그래밍(Copilot Chat 등)으로 설계·리팩토링·문서화를 반복하는 개발자/팀, “진단→계획→실행” 루프를 VS Code 안에서 표준화하려는 사용자.
+- **주요 사용 시나리오:** (A) 주기적 평가(점수/리스크/추이) (B) 변경 영향 확인(스냅샷 diff) (C) 개선 항목을 프롬프트로 변환해 순차 적용 (D) Mermaid 프리뷰/공유 프리뷰/번들 내보내기 (E) 코드 레퍼런스 링크로 즉시 점프.
+- **전략적 포지션:** 정적 분석 도구가 아니라, **프로젝트 운영 문서(평가·개선·프롬프트)를 자동화**하여 “AI 실행 가능한 운영 체계”를 제공합니다.
 
 ### 기능 기반 패키지 구조도
 
 ```mermaid
 flowchart LR
-    subgraph Extension["VS Code 확장 레이어"]
-        Entry["extension.ts<br/>활성화/등록"]
-        Commands["commands/*<br/>명령 핸들러"]
+    subgraph UI["사용자 인터페이스"]
+        Ext["extension.ts<br/>활성화/명령/뷰 등록"]
         Views["views/*<br/>Summary/History/Settings"]
-    end
-    subgraph Services["서비스/도메인"]
-        Scanner["WorkspaceScanner<br/>스캔/구조 추론"]
-        Snapshot["SnapshotService<br/>스냅샷/증분 diff"]
-        Report["ReportService<br/>보고서 생성/갱신"]
-        AI["AIService<br/>직접 AI 연동(옵션)"]
-    end
-    subgraph Utils["유틸리티"]
-        Markdown["markdownUtils<br/>점수/마커/파서"]
-        Doctor["reportDoctorUtils<br/>복구/검증"]
-        Marker["markerUtils<br/>마커 조작"]
+        Preview["openReportPreview<br/>Mermaid 프리뷰(Webview)"]
     end
 
-    Entry --> Commands
-    Entry --> Views
-    Commands --> Scanner
-    Commands --> Snapshot
-    Commands --> Report
-    Report --> Markdown
-    Report --> Doctor
+    subgraph Commands["명령/워크플로우"]
+        Update["updateReports*<br/>스캔→보고서 갱신→프롬프트 복사"]
+        DoctorCmd["reportDoctor<br/>마커/프롬프트 검증·복구"]
+        Share["shareReport*<br/>공유 프리뷰(레드액션)"]
+        Export["exportReportBundle<br/>보고서 번들 내보내기"]
+        GenPrompt["generatePrompt<br/>미완료 프롬프트/OPT 선택 복사"]
+    end
+
+    subgraph Services["핵심 서비스"]
+        Scanner["WorkspaceScanner<br/>파일 수집/언어 통계/구조 생성/TODO·FIXME"]
+        Snapshot["SnapshotService<br/>스냅샷/세션/증분 diff"]
+        Report["ReportService<br/>템플릿/마커 치환/링크화"]
+        AI["AIService<br/>직접 AI 연동(옵션)"]
+    end
+
+    subgraph Utils["유틸/보안"]
+        Marker["markerUtils<br/>마커 범위 추출/치환"]
+        Checklist["promptChecklistUtils<br/>체크리스트 파싱/검증"]
+        DoctorUtil["reportDoctorUtils<br/>마커/테이블/언어 규칙 검증"]
+        Guards["pathGuards<br/>코드 레퍼런스 경로 경계"]
+        Root["analysisRootUtils<br/>analysisRoot 해석/정규화"]
+        Redact["redactionUtils<br/>공유용 레드액션"]
+        Gitignore["gitignoreUtils<br/>.gitignore 캐시/변경 감지"]
+    end
+
+    Ext --> Update
+    Ext --> DoctorCmd
+    Ext --> Share
+    Ext --> Export
+    Ext --> GenPrompt
+    Ext --> Views
+    Ext --> Preview
+
+    Update --> Scanner
+    Update --> Snapshot
+    Update --> Report
+    Update -.-> AI
+
+    DoctorCmd --> DoctorUtil
+    GenPrompt --> Checklist
+    Guards --> Root
+
+    Scanner --> Gitignore
     Report --> Marker
-    Commands -.-> AI
+    Report --> Guards
+    Share --> Redact
+    Export --> Redact
 ```
 
 ### 프로젝트 메타 정보
 
 | 항목 | 값 |
 |---|---|
-| **레포지토리** | `Stankjedi/projectmanager` (`git:4c7949b@main`) |
-| **확장 버전** | v0.4.27 |
-| **분석 기준일** | 2025-12-20 |
-| **주요 기술** | TypeScript · VS Code API · Vitest · Mermaid · simple-git |
-| **구성(추적 파일 기준)** | 파일 122개 / 디렉토리 22개 |
-| **언어 구성(추적 파일 기준)** | TS 80 · MD 11 · JSON 9 · JS 4 · YAML 2 |
-| **로컬 검증 결과** | `compile`/`lint`/`test:run` 통과, 커버리지 Lines 73.68% / Branch 54.10% |
+| **레포지토리** | `Stankjedi/projectmanager` (`git:107ca76@main`) |
+| **확장 버전** | v0.4.28 |
+| **분석 기준일** | 2025-12-22 |
+| **주요 기술** | TypeScript · VS Code API · Vitest · Mermaid · simple-git · ignore |
+| **스냅샷 기준(루트 스캔)** | 파일 166개 / 디렉토리 32개 |
+| **언어 구성(스냅샷 기준)** | TS 110 · MD 13 · JSON 10 · JS 8 · CSS 2 · YAML 2 · PS1 2 · YML 1 · SH 1 |
+| **Git 상태** | main / 107ca765 *(미커밋 변경 있음: 135개)* |
+| **로컬 검증 결과** | `pnpm -C vibereport-extension run compile/lint/test:run/test:coverage` 통과, 테스트 371개, 커버리지 라인 87.89% / 브랜치 70.55% |
 <!-- AUTO-OVERVIEW-END -->
 
 ---
@@ -112,7 +141,7 @@ flowchart LR
 
 | 기능 | 상태 | 설명 | 평가 |
 |------|------|------|------|
-| 삼중 보고서 시스템 (Evaluation/Improvement/Prompt) | ✅ 완료 | devplan 디렉토리에 평가·개선·프롬프트 파일을 생성하고, 마커 기반으로 섹션별 갱신을 수행합니다. | 🟢 우수 |
+| 삼중 보고서 시스템(평가/개선/프롬프트) | ✅ 완료 | devplan 디렉토리에 평가·개선·프롬프트 파일을 생성하고, 마커 기반으로 섹션별 갱신을 수행합니다. | 🟢 우수 |
 | 워크스페이스 스캔 및 스냅샷 수집 | ✅ 완료 | WorkspaceScanner가 언어 통계, 주요 설정 파일, 디렉토리 구조, Git 정보(옵션)를 수집해 ProjectSnapshot을 구성합니다. | 🟢 우수 |
 | Git 기반 변경 분석 (diff) | ✅ 완료 | SnapshotService가 이전 스냅샷과 비교하여 새 파일/삭제 파일/설정 변경/Git 변경 목록을 요약합니다. | 🟢 우수 |
 | 보고서 업데이트(프롬프트 생성/복사) | ✅ 완료 | 스캔/보고서 갱신 후 분석 프롬프트를 생성하여 클립보드에 복사 | 🟢 우수 |
@@ -120,13 +149,14 @@ flowchart LR
 | 세션 히스토리 및 통계 관리 | ✅ 완료 | .vscode/vibereport-state.json과 Session_History.md에 세션 목록과 통계를 기록하고, 사이드바 뷰에서 시각화합니다. | 🟢 우수 |
 | VS Code 사이드바 Summary/History/Settings 뷰 | ✅ 완료 | Summary(요약) Webview, History TreeView, Settings Webview를 통해 보고서 상태와 설정을 한 곳에서 관리합니다. | 🟢 우수 |
 | 개선 항목 프롬프트 생성(Generate Prompt) | ✅ 완료 | 개선 보고서에서 미적용 항목을 QuickPick UI로 선택해 Prompt.md를 생성하고 클립보드에 복사합니다. | 🟢 우수 |
-| 프로젝트 비전(Project Vision) 설정 | ✅ 완료 | QuickPick/Input UI로 Project Vision을 설정하고, Settings 패널에서 직접 모드/유형/단계를 변경할 수 있습니다. | 🟢 우수 |
-| 테스트 및 CI 파이프라인 | 🔄 부분 | 로컬 기준 단위 테스트 231개/커버리지 실행이 통과합니다. 다만 CI 워크플로우가 레포 루트 경로가 아니라 GitHub Actions 자동 실행이 누락될 수 있습니다 (`ci-workflow-location-001`). | 🟡 보통 |
+| 프로젝트 비전 설정 | ✅ 완료 | QuickPick/Input UI로 프로젝트 비전을 설정하고, Settings 패널에서 직접 모드/유형/단계를 변경할 수 있습니다. | 🟢 우수 |
+| 테스트 및 CI 파이프라인 | ✅ 완료 | 로컬 기준 단위 테스트 371개 및 커버리지 실행이 통과하며, 레포 루트 `.github/workflows/ci.yml` 기반으로 GitHub Actions CI가 동작합니다. | 🟢 우수 |
 | 점수-등급 일관성 시스템 | ✅ 완료 | SCORE_GRADE_CRITERIA 상수와 scoreToGrade/gradeToColor 헬퍼 함수로 일관된 평가를 보장합니다. | 🟢 우수 |
 | 파트별 순차 작성 지침 | ✅ 완료 | AI 에이전트 출력 길이 제한 방지를 위한 파트별 분리 작성 가이드라인을 제공합니다. | 🟢 우수 |
-| 보고서 프리뷰 공유(클립보드 + Webview) | ✅ 완료 | 평가 보고서의 TL;DR/점수 요약을 추출해 외부 공유용 프리뷰를 생성 | 🔵 양호 |
+| 보고서 프리뷰 공유(클립보드 + Webview) | ✅ 완료 | 평가 보고서의 요약(한눈에)/점수 요약을 추출해 외부 공유용 프리뷰를 생성 | 🔵 양호 |
+| 보고서 번들 내보내기 | ✅ 완료 | 평가/개선/프롬프트 + 공유 프리뷰를 타임스탬프 폴더로 내보내 공유·아카이브를 지원 | 🔵 양호 |
 | 코드 레퍼런스 열기 | ✅ 완료 | 보고서/프롬프트 내 코드 참조 링크로 파일·심볼을 바로 열기 | 🔵 양호 |
-| AI 직접 연동 실행 (Language Model API) | ✅ 완료(옵션) | `enableDirectAi` 설정 시 분석 프롬프트를 VS Code Language Model API로 실행하고 결과를 클립보드/문서로 제공합니다(취소/폴백 포함). | 🔵 양호 |
+| AI 직접 연동 실행(언어 모델 API) | ✅ 완료(옵션) | `enableDirectAi` 설정 시 분석 프롬프트를 VS Code 언어 모델 API로 실행하고 결과를 클립보드/문서로 제공합니다(취소/폴백 포함). | 🔵 양호 |
 | Webview 보안/설정 UI 정합성 | ✅ 완료 | Webview CSP/nonce, escapeHtml 기반 이스케이프, 링크 허용 목록 등 기본 방어가 적용되어 있습니다. Settings 저장은 변경 감지(딥이퀄) 후 update로 불필요 I/O를 줄였습니다. | 🔵 양호 |
 
 ---
@@ -134,8 +164,8 @@ flowchart LR
 <!-- AUTO-SCORE-START -->
 ## 📊 종합 점수 요약
 
-> **평가 기준일:** 2025-12-20  
-> 아래 점수는 로컬 검증(`compile`/`lint`/`test:run`/`test:coverage`) 결과, 코드 구조(모듈 분리/응집도), Webview 보안(CSP/이스케이프), 문서/배포 준비도를 종합하여 산정했습니다.
+> **평가 기준일:** 2025-12-22  
+> 아래 점수는 로컬 검증(`pnpm -C vibereport-extension run compile/lint/test:run/test:coverage`) 결과, 커버리지(라인/브랜치), 코드 구조(응집도/모듈 분리), 보안(경로 경계/레드액션/Doctor), 배포·운영 준비도를 종합하여 산정했습니다.
 
 ### 점수 ↔ 등급 기준표
 
@@ -159,24 +189,24 @@ flowchart LR
 
 | 항목 | 점수 (100점 만점) | 등급 | 변화 |
 |------|------------------|------|------|
-| **코드 품질** | 90 | 🟢 A- | ➖ |
-| **아키텍처 설계** | 91 | 🟢 A- | ➖ |
-| **보안** | 86 | 🔵 B | ➖ |
-| **성능** | 88 | 🔵 B+ | ➖ |
-| **테스트 커버리지** | 85 | 🔵 B | ➖ |
-| **에러 처리** | 89 | 🔵 B+ | ➖ |
-| **문서화** | 86 | 🔵 B | ⬆️ +1 |
-| **확장성** | 90 | 🟢 A- | ➖ |
-| **유지보수성** | 90 | 🟢 A- | ➖ |
-| **프로덕션 준비도** | 85 | 🔵 B | ⬆️ +5 |
-| **총점 평균** | **88** | 🔵 B+ | ⬆️ +1 |
+| **코드 품질** | 93 | 🟢 A | ⬆️ +1 |
+| **아키텍처 설계** | 92 | 🟢 A- | ➖ |
+| **보안** | 92 | 🟢 A- | ⬆️ +4 |
+| **성능** | 90 | 🟢 A- | ⬆️ +1 |
+| **테스트 커버리지** | 93 | 🟢 A | ⬆️ +1 |
+| **에러 처리** | 91 | 🟢 A- | ⬆️ +1 |
+| **문서화** | 88 | 🔵 B+ | ⬆️ +1 |
+| **확장성** | 92 | 🟢 A- | ⬆️ +1 |
+| **유지보수성** | 91 | 🟢 A- | ⬆️ +1 |
+| **프로덕션 준비도** | 92 | 🟢 A- | ⬆️ +1 |
+| **총점 평균** | **91** | 🟢 A- | ⬆️ +1 |
 
 ### 점수 산출 메모 (요약)
 
-- **코드 품질/아키텍처(상):** `commands/`, `services/`, `views/`, `utils/`로 책임이 분리되어 있으며, TypeScript + ESLint 기반으로 기본 품질이 안정적입니다.
-- **테스트 커버리지(중상):** Lines **73.68%**, Branch **54.10%**로 회귀 방지 기반은 갖췄으나, 분기/에러 경로에 대한 보강 여지가 있습니다.
-- **프로덕션 준비도(중상):** 컴파일/번들/패키징 스크립트가 갖춰져 있으나, CI 워크플로우 파일이 레포 루트가 아닌 경로(`vibereport-extension/.github/workflows/ci.yml`)에 있어 자동 검증이 누락될 수 있습니다.
-- **보안(중상):** Webview CSP/nonce 및 HTML 이스케이프/허용 목록을 적용했으나, 운영 관점(상태 파일 추적, 공유 프리뷰)에서 정책 정비가 필요합니다.
+- **테스트/품질(상):** 로컬 기준 `compile`/`lint`/`test:run`/`test:coverage`가 모두 통과하며, **371개** 테스트가 안정적으로 유지됩니다. 커버리지는 라인 **87.89%** / 브랜치 **70.55%**로, 핵심 경로 회귀 탐지력이 확보되어 있습니다.
+- **프로덕션 준비도(상):** `.github/workflows/ci.yml`로 CI 검증이 정형화되어 있고, Report Doctor(검증/복구) + Mermaid 프리뷰 + 세션 히스토리까지 운영 기능이 갖춰져 있습니다.
+- **성능/운영(중상):** 파일 목록 캐시(설정/`.gitignore` mtime 포함)와 내용 동일 시 write 스킵 등 기본 최적화가 반영되어 있습니다. 다만 대형 레포에서는 TODO/FIXME 스캔 I/O를 더 줄일 여지가 있습니다(OPT 후보).
+- **보안(상):** 코드 레퍼런스 링크화 단계의 루트 경계 검증 + `openFunctionInFile`의 워크스페이스/analysisRoot 경계 차단 + 공유 프리뷰 레드액션 + Webview CSP/이스케이프가 적용되어 있습니다. 남은 과제는 보안 경계 로직의 회귀 테스트를 더 촘촘히 고정하는 것입니다.
 <!-- AUTO-SCORE-END -->
 
 ---
@@ -186,11 +216,11 @@ flowchart LR
 <!-- AUTO-SCORE-MAPPING-START -->
 | 카테고리 | 현재 점수 | 주요 리스크 | 관련 개선 항목 ID |
 |----------|----------|------------|------------------|
-| 보안 | 86 (🔵 B) | 상태 파일 레포 추적으로 인한 정보 노출/운영 리스크 | `security-statefile-tracking-001` |
-| 프로덕션 준비도 | 85 (🔵 B) | CI 워크플로우 위치 비표준으로 자동 검증 누락 가능 | `ci-workflow-location-001` |
-| 테스트 커버리지 | 85 (🔵 B) | Branch 54%대로 분기/예외 경로 회귀 탐지 한계 | `test-branch-coverage-001` |
-| 유지보수성 | 90 (🟢 A-) | `reportService.ts` 등 대형 파일로 변경 영향 범위 확대 | `refactor-reportservice-modularize-001` |
-| 성능 | 88 (🔵 B+) | 내용 변경 없음에도 보고서 파일 write로 I/O/노이즈 발생 | `opt-report-write-skip-001` |
+| 아키텍처 설계 | 92 (🟢 A-) | 기능 기반 구조도/엔트리포인트 탐지 로직이 모노레포 구조를 충분히 반영하지 못함 | `scan-structure-001` |
+| 보안 | 92 (🟢 A-) | 민감 파일이 스캔/프롬프트 경로에 포함될 가능성(외부 공유/AI 전달 시 노출) | `security-sensitive-scan-001` |
+| 성능 | 90 (🟢 A-) | excludePatterns 기본값 누락 시 대형 아티팩트 스캔/노이즈 증가 | `config-exclude-001` |
+| 프로덕션 준비도 | 92 (🟢 A-) | Git 정보 수집 비용(대형 레포) 및 캐시 전략 보강 여지 | `opt-gitinfo-cache-001` |
+| 사용성/확장성 | 92 (🟢 A-) | 모노레포에서 analysisRoot 설정 UX(가이드/QuickPick) 부재 | `feat-analysisroot-wizard-001` |
 <!-- AUTO-SCORE-MAPPING-END -->
 <!-- SCORE-MAPPING-END -->
 
@@ -198,47 +228,55 @@ flowchart LR
 
 ## 🔍 기능별 상세 평가
 
+> **관찰 근거:** `pnpm -C vibereport-extension run compile/lint/test:run/test:coverage` 통과(2025-12-22), 테스트 **371개**, 커버리지 라인 **87.89%** / 브랜치 **70.55%**.
+
 | 모듈/서비스 | 기능 완성도 | 코드 품질 | 에러 처리 | 성능 | 요약 평가 |
 |-------------|------------:|----------:|----------:|------:|-----------|
-| **확장 진입점/명령** | 90/100 | 87/100 | 88/100 | 87/100 | 기능 범위는 넓고 테스트가 존재하나, 대형 파일(진입점/워크플로우)로 유지보수 리스크가 남아있음. |
-| **스캔/스냅샷** | 92/100 | 88/100 | 88/100 | 86/100 | 언어/구조/설정/Git 정보를 근거로 보고서를 구성. 대형 레포에서는 성능 상한 관리가 중요. |
-| **보고서 생성/복구** | 91/100 | 85/100 | 90/100 | 84/100 | 마커 기반 갱신과 Doctor가 강점. `reportService.ts` 비대 및 무조건 write로 개선 여지. |
-| **프리뷰(mermaid) 렌더러** | 89/100 | 86/100 | 86/100 | 86/100 | CSP/escape/sanitize 적용. 커스텀 파서 유지보수 비용 및 엣지 케이스 리스크. |
-| **UI(Views)/설정** | 88/100 | 84/100 | 87/100 | 86/100 | 3종 뷰 제공. Settings 검증/딥이퀄로 안정적이나 파일 규모가 큼. |
-| **AI 연동(옵션)** | 85/100 | 87/100 | 86/100 | 86/100 | 직접 실행/폴백/테스트가 있음. 모델/권한 의존성이 운영 리스크. |
+| **확장 진입점/명령** | 93/100 | 91/100 | 90/100 | 89/100 | 운영 워크플로우가 폭넓게 구현됨. 분석 프롬프트/스캔의 민감정보 보호 기본값 강화 여지. |
+| **스캔/스냅샷** | 94/100 | 90/100 | 89/100 | 89/100 | 파일 수집/언어 통계/캐시가 견고함. 모노레포에서 기능 기반 구조도가 `src/` 루트 가정으로 부정확할 수 있음 → `scan-structure-001`. |
+| **보고서 생성/검증(Doctor)** | 94/100 | 89/100 | 91/100 | 90/100 | 마커 기반 갱신+Doctor 복구로 운영 안정성이 높음. |
+| **프리뷰/공유(mermaid)** | 92/100 | 88/100 | 89/100 | 88/100 | Mermaid 프리뷰 + 공유 프리뷰(레드액션) + 번들 내보내기 제공. 모노레포 UX(analysisRoot 안내/설정) 개선 여지. |
+| **UI(Views)/설정** | 91/100 | 89/100 | 89/100 | 88/100 | Summary/History/Settings UI로 실행·기록 경험이 좋음. HTML 생성 경로의 공통화/표준화 후보. |
+| **AI 연동(옵션)** | 86/100 | 87/100 | 86/100 | 86/100 | VS Code 언어 모델 API 기반 직접 실행/폴백 제공. 모델/권한/정책 변화에 대한 운영 리스크 존재. |
 
 ### 1) 확장 진입점/명령 레이어 (`vibereport-extension/src/extension.ts`, `vibereport-extension/src/commands/*`)
-- **기능 완성도:** 보고서 업데이트/전체 워크스페이스 업데이트/프롬프트 생성/프리뷰/Doctor 등 핵심 명령 구성이 폭넓게 구현되어 있습니다.
-- **코드 품질:** 단위 테스트(231개)와 명령 등록 스모크 테스트가 존재하나, `extension.ts`의 라인 커버리지가 **42%대**로 낮습니다.
-- **에러 처리:** 사용자 메시지 + OutputChannel 로그는 일관적이나, 예외 경로/경계 케이스 테스트 보강 여지가 있습니다(`test-branch-coverage-001`).
-- **성능:** 자동 업데이트(디바운스) 지원으로 과도한 실행을 억제합니다.
-- **약점/리스크:** `updateReportsWorkflow.ts`(851L)에 책임이 집중되어 변경 범위가 커질 수 있습니다(단계적 분리 권장).
+- **기능 완성도:** 업데이트/전체 워크스페이스 업데이트/프롬프트 생성/프리뷰/Doctor 등 “운영 루프”에 필요한 명령이 폭넓게 구현되어 있습니다.
+- **코드 품질:** 테스트 **371개**가 통과하며, 주요 명령의 실패/취소 경로가 테스트로 고정되어 있습니다.
+- **에러 처리:** 사용자 메시지 + OutputChannel 로그가 일관적이며, 직접 AI 실행(enableDirectAi)도 취소/폴백 경로가 마련되어 있습니다.
+- **강점:** Report Doctor/공유 프리뷰/번들 내보내기까지 “운영 기능”이 명령 레이어에 잘 통합되어 있습니다.
+- **약점 / 리스크:** 스캔 결과/분석 프롬프트가 클립보드·AI로 전달되는 경로가 있으므로, **민감 파일을 기본적으로 제외/마스킹**하는 안전장치가 필요합니다 → `security-sensitive-scan-001`.
 
-### 2) 워크스페이스 스캔/스냅샷 (`vibereport-extension/src/services/workspaceScanner.ts`, `vibereport-extension/src/services/snapshotService.ts`)
-- **기능 완성도:** 언어 통계, 주요 설정파일 탐지, Git 정보/변경 요약을 생성해 보고서의 근거 데이터를 제공합니다.
-- **코드 품질:** 타입 정의(`vibereport-extension/src/models/types.ts`) 기반으로 구조가 명확합니다.
-- **에러 처리:** 설정/JSON 파싱 방어 로직이 존재하나, I/O 실패/권한 오류 등 실제 런타임 예외 케이스 테스트는 추가 여지가 있습니다(`test-branch-coverage-001`).
-- **성능:** exclude/maxFiles로 상한을 두었지만 대형 모노레포에서는 스캔 비용이 커질 수 있어 장기적으로 캐시/증분 전략 강화가 유효합니다.
+### 2) 워크스페이스 스캔/스냅샷 (`vibereport-extension/src/services/workspaceScanner.ts`, `vibereport-extension/src/services/workspaceScanner/*`, `vibereport-extension/src/services/snapshotService.ts`)
+- **기능 완성도:** 언어 통계, 주요 설정 파일 탐지, 구조 다이어그램, Git 정보/변경 요약, TODO/FIXME 스캔까지 보고서 근거 데이터를 제공합니다.
+- **코드 품질:** `fileCollector.ts`/`languageStats.ts`/`todoFixmeScanner.ts`로 주요 기능이 분리되어 확장성이 좋아졌습니다.
+- **성능:** 파일 목록 캐시가 `.gitignore` mtime까지 포함해 무효화되며, TODO/FIXME 스캔은 mtime/size 기반 증분 캐시로 반복 I/O를 줄입니다.
+- **약점 / 리스크:** 기능 기반 구조도/엔트리포인트 탐지가 **루트 `src/` 가정**에 치우쳐, 모노레포(예: `vibereport-extension/src/*`)에서는 구조도가 부정확해질 수 있습니다 → `scan-structure-001`.
+- **약점 / 리스크:** excludePatterns가 사용자 설정으로 “전체 교체”될 때 기본 제외(예: `**/*.vsix`)가 누락될 수 있어 스캔 노이즈/성능 저하가 발생할 수 있습니다 → `config-exclude-001`.
 
 ### 3) 보고서 생성/마커 갱신/복구 (`vibereport-extension/src/services/reportService.ts`, `vibereport-extension/src/utils/*`)
-- **기능 완성도:** 마커 기반 섹션 갱신과 Doctor 기반 복구로 운영 친화적입니다.
-- **코드 품질:** `reportService.ts`가 **1641L**로 비대하여 응집도 저하/변경 리스크가 큽니다(`refactor-reportservice-modularize-001`).
-- **에러 처리:** 마커 누락/손상 시 복구 경로가 존재합니다.
-- **성능:** 내용 변경 여부와 무관하게 파일 write가 발생해 불필요 I/O 및 Git 노이즈를 유발할 수 있습니다(`opt-report-write-skip-001`).
+- **기능 완성도:** 마커 기반 섹션 갱신, 적용 완료 항목 클린업, Doctor 검증/복구, 코드 레퍼런스 링크화까지 운영 기능이 풍부합니다.
+- **코드 품질/테스트:** reportService 하위 모듈(`sessionHistoryUtils`, `improvementFormatting` 등)로 분리되어 단일 파일 책임이 완화되었습니다. 다만 분기 커버리지(브랜치 50%대)는 지속적으로 보강 여지가 있습니다.
+- **에러 처리:** 마커 손상/누락 시 복구 로직(Doctor)과 방어 코드가 있으며, 사용자에게 경고/오류 메시지를 제공합니다.
+- **성능:** 내용 동일 시 write를 스킵하여 변경 노이즈를 줄였습니다(특히 자동 업데이트와 궁합이 좋음).
+- **강점:** “마커 기반 증분 업데이트”로 히스토리를 보존하면서도 자동 갱신이 가능해 운영 효율이 높습니다.
+- **리스크:** Prompt.md 포맷 변경에 대한 파서 견고성은 테스트로 고정되어야 하며, Doctor 검증 규칙과 함께 유지될 필요가 있습니다.
 
 ### 4) 프리뷰/마크다운 렌더링 (`vibereport-extension/src/commands/openReportPreview.ts`, `vibereport-extension/media/*`)
-- **기능 완성도:** Mermaid 렌더링, 테이블/코드블록 지원, 테마 감지 등 UX가 좋습니다.
-- **코드 품질:** 커스텀 파서가 길고 복잡해 향후 기능 추가 시 회귀 가능성이 있어, 회귀 테스트 유지가 중요합니다.
-- **보안/에러 처리:** CSP/nonce, escapeHtml, 링크 허용 목록으로 방어합니다. 다만 레포에 상태 파일이 추적되는 운영 리스크는 별도 정비가 필요합니다(`security-statefile-tracking-001`).
+- **기능 완성도:** Mermaid 지원 프리뷰(Webview)와 외부 공유용 프리뷰 생성(HTML)까지 제공해 UX가 좋습니다.
+- **코드 품질:** 커스텀 렌더러/파서 경로는 기능 확장 시 회귀 가능성이 있어 스냅샷/테이블 케이스 기반 테스트가 중요합니다.
+- **보안/에러 처리:** CSP/nonce, escapeHtml 등 기본 방어가 적용되어 있습니다.
+- **확장 아이디어:** 모노레포에서 분석 루트(analysisRoot)를 쉽게 안내/설정할 수 있는 UX를 추가하면 초기 설정 부담을 줄일 수 있습니다 → `feat-analysisroot-wizard-001`.
 
 ### 5) UI(Views)/설정 (`vibereport-extension/src/views/*`)
-- **기능 완성도:** Summary(Webview)·History(Tree)·Settings(Webview) 3축 UI를 제공합니다.
-- **코드 품질:** Settings는 키 검증/디폴트/딥이퀄로 안정적이나, `SettingsViewProvider.ts`가 **946L**로 커져 분리 여지가 큽니다.
-- **성능:** 변경 없는 설정 update 스킵 등 최적화가 반영되어 있으며(추가 최적화는 선택), Webview 메시지 처리의 예외 경로 테스트는 확장 가능합니다.
+- **기능 완성도:** Summary(Webview)·History(Tree)·Settings(Webview) 3축 UI로 “상태 확인 → 실행 → 기록” 흐름을 UI에서 관리할 수 있습니다.
+- **코드 품질:** Settings는 키 검증/디폴트/딥이퀄 기반으로 안정적이며, HTML 생성이 `settingsViewHtml.ts`로 분리되어 유지보수성이 개선되었습니다(499L).
+- **에러 처리:** 설정 값 검증 실패 시 사용자에게 메시지로 안내하며, 잘못된 값은 기본값으로 회귀할 수 있습니다.
+- **성능:** 변경 없는 설정 update 스킵 등 불필요 I/O를 줄이는 패턴이 반영되어 있습니다.
+- **약점 / 리스크:** 일부 Webview/패널 HTML 문자열 조립 경로는 값 이스케이프 정책을 일관되게 적용할 필요가 있습니다(표준화/공통 유틸화 후보).
 
 ### 6) 배포/운영 준비도(Repo 레벨)
-- **현 상태:** 번들(esbuild)·패키징(vsce)·테스트/커버리지 스크립트는 갖춰져 있습니다.
-- **리스크:** GitHub Actions 워크플로우가 레포 루트가 아닌 경로에 있어 CI가 실행되지 않을 수 있습니다(`ci-workflow-location-001`).
+- **현 상태:** 번들(esbuild)·패키징(vsce)·테스트/커버리지 스크립트가 갖춰져 있으며, 레포 루트 `.github/workflows/ci.yml`로 CI가 활성화되어 있습니다.
+- **리스크:** 기능이 넓은 만큼 핵심 워크플로우/보고서 생성 경로의 “경계(보안/예외)” 테스트와 모듈 분리가 지속적으로 필요합니다(상단 개선 항목 참조).
 
 
 ---
@@ -246,19 +284,19 @@ flowchart LR
 <!-- AUTO-SUMMARY-START -->
 ## 📈 현재 상태 요약
 
-- **종합 준비도:** 🔵 **B+ (88/100)**
-  - 로컬 기준(`compile`/`lint`/`test:run`)은 안정적으로 통과하며, 3종 보고서 파이프라인(평가/개선/프롬프트)이 실제 사용 가능한 수준으로 정착했습니다.
-  - 다만 운영/배포 관점에서 **CI 자동 검증 활성화**와 **상태 파일 추적 정비**가 남아있습니다.
+- **종합 준비도:** 🟢 **A- (91/100)**
+  - 로컬 기준 `pnpm -C vibereport-extension run compile/lint/test:run/test:coverage` 통과, 테스트 **371개**, 커버리지 라인 **87.89%** / 브랜치 **70.55%**로 품질 게이트가 안정화되었습니다.
+  - 레포 루트 `.github/workflows/ci.yml` 기반으로 CI 자동 검증을 운영할 수 있는 상태입니다.
 
 - **강점 (Top 3):**
-  1. **마커 기반 증분 업데이트:** devplan 문서의 특정 섹션만 갱신하여 히스토리를 보존합니다.
-  2. **명확한 레이어링:** `commands/` → `services/` → `utils/` 중심으로 책임이 분리되어 확장성이 좋습니다.
-  3. **테스트 기반:** 231개 테스트 + 커버리지 리포트(라인 73.68%)로 회귀 방지 기반을 확보했습니다.
+  1. **마커 기반 증분 업데이트 + Doctor:** 섹션별 갱신과 검증/복구로 문서 운영이 견고합니다.
+  2. **운영 UX:** 공유 프리뷰(레드액션) + 번들 내보내기 등 “외부 공유/아카이브” 동선이 마련되어 있습니다.
+  3. **테스트 기반:** **371개** 테스트 + 높은 커버리지로 회귀 탐지력이 높습니다.
 
 - **즉시 권장 조치 (Top 3):**
-  1. **보안/운영 (P1):** 상태 파일 추적 중단 및 ignore 처리 (`security-statefile-tracking-001`).
-  2. **프로덕션 준비도 (P2):** CI 워크플로우를 레포 루트로 정리해 자동 검증 활성화 (`ci-workflow-location-001`).
-  3. **품질/유지보수 (P2):** 브랜치 커버리지 보강 + 대형 파일 단계적 분리 (`test-branch-coverage-001`, `refactor-reportservice-modularize-001`).
+  1. **아키텍처/리포트 신뢰성 (P1):** 기능 기반 구조도/엔트리포인트 탐지의 모노레포 지원 강화 (`scan-structure-001`).
+  2. **보안 (P2):** 스캔/프롬프트에서 민감 파일 기본 제외(및 필요 시 레드액션) 적용 (`security-sensitive-scan-001`).
+  3. **성능/운영 (P2):** excludePatterns 기본값 보존(병합 옵션)으로 아티팩트 스캔 노이즈 차단 (`config-exclude-001`).
 <!-- AUTO-SUMMARY-END -->
 
 ---
@@ -268,27 +306,23 @@ flowchart LR
 <!-- AUTO-TREND-START -->
 | 버전 | 날짜 | 총점 | 비고 |
 |:---:|:---:|:---:|:---|
-| **unknown** | 2025-12-19 | **86 (B)** | - |
-| **git:0b74866@main** | 2025-12-19 | **87 (B+)** | - |
-| **git:7cbf7bd@main** | 2025-12-19 | **87 (B+)** | - |
-| **git:4c7949b@main** | 2025-12-20 | **87 (B+)** | - |
 | **git:4c7949b@main** | 2025-12-20 | **88 (B+)** | - |
+| **git:107ca76@main** | 2025-12-20 | **89 (B+)** | - |
+| **git:107ca76@main** | 2025-12-22 | **88 (B+)** | - |
+| **git:107ca76@main** | 2025-12-22 | **90 (A-)** | - |
+| **git:107ca76@main** | 2025-12-22 | **91 (A-)** | - |
 
 | 카테고리 | 점수 | 등급 | 변화 |
 |:---|:---:|:---:|:---:|
-| 코드 품질 | 90 | 🟢 A- | - |
-| 아키텍처 설계 | 91 | 🟢 A- | - |
-| 보안 | 86 | 🔵 B | - |
-| 성능 | 88 | 🔵 B+ | - |
-| 테스트 커버리지 | 85 | 🔵 B | - |
-| 에러 처리 | 89 | 🔵 B+ | - |
-| 문서화 | 86 | 🔵 B | ⬆️ +1 |
-| 확장성 | 90 | 🟢 A- | - |
-| 유지보수성 | 90 | 🟢 A- | - |
-| 프로덕션 준비도 | 85 | 🔵 B | ⬆️ +5 |
-
-### 추세 해석(최근 5회)
-- 총점은 86 → 88로 **완만한 개선** 흐름입니다.
-- 문서화/프로덕션 준비도가 개선(+1, +5)되었고, 나머지 카테고리는 **대체로 안정**(변화 없음)합니다.
+| 코드 품질 | 93 | 🟢 A | ⬆️ +1 |
+| 아키텍처 설계 | 92 | 🟢 A- | - |
+| 보안 | 92 | 🟢 A- | ⬆️ +4 |
+| 성능 | 90 | 🟢 A- | ⬆️ +1 |
+| 테스트 커버리지 | 93 | 🟢 A | ⬆️ +1 |
+| 에러 처리 | 91 | 🟢 A- | ⬆️ +1 |
+| 문서화 | 88 | 🔵 B+ | ⬆️ +1 |
+| 확장성 | 92 | 🟢 A- | ⬆️ +1 |
+| 유지보수성 | 91 | 🟢 A- | ⬆️ +1 |
+| 프로덕션 준비도 | 92 | 🟢 A- | ⬆️ +1 |
 <!-- AUTO-TREND-END -->
 <!-- TREND-END -->

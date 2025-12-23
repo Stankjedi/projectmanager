@@ -8,9 +8,17 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { VibeReportConfig, ProjectType, QualityFocus } from '../models/types.js';
+import { resolveAnalysisRootPortable } from './analysisRootUtils.js';
 
 // Cache last selected workspace root for multi-root UX.
 let lastSelectedWorkspaceRoot: string | null = null;
+
+function normalizeExcludePatterns(patterns: string[]): string[] {
+  const trimmed = patterns.map((pattern) => pattern.trim()).filter((pattern) => pattern.length > 0);
+  const unique = Array.from(new Set(trimmed));
+  unique.sort();
+  return unique;
+}
 
 /**
  * Get last selected workspace root (in-memory for current session)
@@ -27,6 +35,9 @@ export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
   analysisRoot: '',
   snapshotFile: '.vscode/vibereport-state.json',
   enableGitDiff: true,
+  respectGitignore: true,
+  includeSensitiveFiles: false,
+  excludePatternsIncludeDefaults: true,
   excludePatterns: [
     '**/node_modules/**',
     '**/dist/**',
@@ -38,6 +49,7 @@ export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
     '**/__pycache__/**',
     '**/.venv/**',
     '**/coverage/**',
+    '**/temp_compare/**',
     '**/*.log',
     '**/*.lock',
     '**/*.vsix',
@@ -63,13 +75,25 @@ export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
  */
 export function loadConfig(): VibeReportConfig {
   const config = vscode.workspace.getConfiguration('vibereport');
+
+  const excludePatternsIncludeDefaults = config.get<boolean>(
+    'excludePatternsIncludeDefaults',
+    DEFAULT_CONFIG.excludePatternsIncludeDefaults
+  );
+  const userExcludePatterns = config.get<string[]>('excludePatterns', [...DEFAULT_CONFIG.excludePatterns]);
+  const excludePatterns = excludePatternsIncludeDefaults
+    ? normalizeExcludePatterns([...DEFAULT_CONFIG.excludePatterns, ...userExcludePatterns])
+    : normalizeExcludePatterns(userExcludePatterns);
   
   return {
     reportDirectory: config.get<string>('reportDirectory', DEFAULT_CONFIG.reportDirectory),
     analysisRoot: config.get<string>('analysisRoot', DEFAULT_CONFIG.analysisRoot),
     snapshotFile: config.get<string>('snapshotFile', DEFAULT_CONFIG.snapshotFile),
     enableGitDiff: config.get<boolean>('enableGitDiff', DEFAULT_CONFIG.enableGitDiff),
-    excludePatterns: config.get<string[]>('excludePatterns', [...DEFAULT_CONFIG.excludePatterns]),
+    respectGitignore: config.get<boolean>('respectGitignore', DEFAULT_CONFIG.respectGitignore),
+    includeSensitiveFiles: config.get<boolean>('includeSensitiveFiles', DEFAULT_CONFIG.includeSensitiveFiles),
+    excludePatternsIncludeDefaults,
+    excludePatterns,
     maxFilesToScan: config.get<number>('maxFilesToScan', DEFAULT_CONFIG.maxFilesToScan),
     autoOpenReports: config.get<boolean>('autoOpenReports', DEFAULT_CONFIG.autoOpenReports),
     enableDirectAi: config.get<boolean>('enableDirectAi', DEFAULT_CONFIG.enableDirectAi),
@@ -81,22 +105,10 @@ export function loadConfig(): VibeReportConfig {
 }
 
 export function resolveAnalysisRoot(workspaceRoot: string, analysisRoot: string): string {
-  const normalizedWorkspaceRoot = path.resolve(workspaceRoot);
-  const trimmed = analysisRoot.trim();
-
-  if (!trimmed) {
-    return normalizedWorkspaceRoot;
-  }
-
-  const resolved = path.resolve(normalizedWorkspaceRoot, trimmed);
-  const relative = path.relative(normalizedWorkspaceRoot, resolved);
-
-  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-    return resolved;
-  }
-
-  throw new Error('analysisRoot must be a subpath of the workspace root');
+  return resolveAnalysisRootPortable(workspaceRoot, analysisRoot, path);
 }
+
+export { resolveAnalysisRootPortable };
 
 /**
  * Get the root path of the current workspace

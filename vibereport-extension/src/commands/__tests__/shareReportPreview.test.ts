@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+const mockConfigGet = vi.fn();
+vi.mock('vscode', () => ({
+  workspace: {
+    getConfiguration: () => ({
+      get: (...args: any[]) => mockConfigGet(...args),
+    }),
+  },
+}));
 
 import {
   extractScoreTable,
@@ -82,6 +91,104 @@ describe('shareReportPreview', () => {
       expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
       expect(html).not.toContain('<script>');
     });
+
+    it('renders headings as block elements outside of any table', () => {
+      const markdown = [
+        '# Title',
+        '',
+        '| Category | Score |',
+        '| --- | --- |',
+        '| A | 1 |',
+      ].join('\n');
+
+      const html = buildPreviewHtml(markdown, {
+        bg: '#fff',
+        fg: '#000',
+        border: '#ccc',
+        link: '#00f',
+      });
+
+      expect(html).toContain('<h1>Title</h1>');
+
+      const tableStart = html.indexOf('<table>');
+      const tableEnd = html.indexOf('</table>');
+      const tableBlock =
+        tableStart >= 0 && tableEnd >= 0
+          ? html.slice(tableStart, tableEnd + '</table>'.length)
+          : '';
+      expect(tableBlock).toContain('<tr>');
+      expect(tableBlock).not.toContain('<h1>');
+
+      expect(html.indexOf('<h1>')).toBeLessThan(html.indexOf('<table>'));
+    });
+  });
+
+  describe('ShareReportCommand redaction', () => {
+    it('redacts sensitive content when enabled', async () => {
+      mockConfigGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === 'sharePreviewRedactionEnabled') return true;
+        return defaultValue;
+      });
+
+      const evalContent = [
+        '<!-- TLDR-START -->',
+        '| 항목 | 내용 |',
+        '|------|------|',
+        '| **Session** | session_abc123_def456 |',
+        '| **Path** | /Users/alice/secrets.txt |',
+        '| **Link** | [src/file.ts](command:vibereport.openFunctionInFile?%5B%22%2Fabs%2Fpath%2Fsrc%2Ffile.ts%22%5D) |',
+        '<!-- TLDR-END -->',
+        '',
+        '<!-- AUTO-SCORE-START -->',
+        '| 항목 | 점수 |',
+        '| --- | --- |',
+        '| 코드 품질 | 90 |',
+        '',
+        '### 점수-등급 기준표',
+      ].join('\n');
+
+      const { ShareReportCommand } = await import('../shareReport.js');
+      const command = new ShareReportCommand({ appendLine: vi.fn() } as any);
+
+      const preview = (command as any).generatePreviewReport(evalContent, '/workspace/demo', 'devplan/Project_Evaluation_Report.md');
+
+      expect(preview).toContain('[REDACTED_PATH]');
+      expect(preview).toContain('session_[REDACTED]');
+      expect(preview).not.toContain('command:');
+    });
+
+    it('does not change output when disabled', async () => {
+      mockConfigGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === 'sharePreviewRedactionEnabled') return false;
+        return defaultValue;
+      });
+
+      const evalContent = [
+        '<!-- TLDR-START -->',
+        '| 항목 | 내용 |',
+        '|------|------|',
+        '| **Session** | session_abc123_def456 |',
+        '| **Path** | /Users/alice/secrets.txt |',
+        '| **Link** | [src/file.ts](command:vibereport.openFunctionInFile?%5B%22%2Fabs%2Fpath%2Fsrc%2Ffile.ts%22%5D) |',
+        '<!-- TLDR-END -->',
+        '',
+        '<!-- AUTO-SCORE-START -->',
+        '| 항목 | 점수 |',
+        '| --- | --- |',
+        '| 코드 품질 | 90 |',
+        '',
+        '### 점수-등급 기준표',
+      ].join('\n');
+
+      const { ShareReportCommand } = await import('../shareReport.js');
+      const command = new ShareReportCommand({ appendLine: vi.fn() } as any);
+
+      const preview = (command as any).generatePreviewReport(evalContent, '/workspace/demo', 'devplan/Project_Evaluation_Report.md');
+
+      expect(preview).toContain('/Users/alice/secrets.txt');
+      expect(preview).toContain('command:vibereport.openFunctionInFile');
+      expect(preview).toContain('session_abc123_def456');
+      expect(preview).not.toContain('[REDACTED_PATH]');
+    });
   });
 });
-

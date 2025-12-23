@@ -420,52 +420,8 @@ ${opt.fullContent}
   }
 
   /**
-   * 개선 보고서에서 OPT 항목 파싱 (한글) - 레거시, 더 이상 사용하지 않음
+   * Prompt list item status icon
    */
-  private parseOptimizationItems(content: string): OptimizationItem[] {
-    const items: OptimizationItem[] = [];
-
-    // AUTO-OPTIMIZATION 마커 내의 콘텐츠 추출
-    const optSectionMatch = content.match(/<!-- AUTO-OPTIMIZATION-START -->([\s\S]*?)<!-- AUTO-OPTIMIZATION-END -->/);
-    if (!optSectionMatch) {
-      return items;
-    }
-
-    const optContent = optSectionMatch[1];
-
-    // OPT 항목 패턴: ### 🚀 코드 최적화 (OPT-1) 또는 ### ⚙️ 성능 튜닝 (OPT-2)
-    const optPattern = /###\s*[🚀⚙️]\s*([^\n(]+)\s*\((OPT-\d+)\)\s*\n([\s\S]*?)(?=\n###\s*[🚀⚙️]|$)/gi;
-
-    let match;
-    while ((match = optPattern.exec(optContent)) !== null) {
-      const title = match[1].trim();
-      const optId = match[2];
-      const sectionContent = match[3].trim();
-
-      // 카테고리 추출
-      const categoryMatch = sectionContent.match(/\|\s*\*\*카테고리\*\*\s*\|\s*([^|]+)\|/);
-      const category = categoryMatch ? categoryMatch[1].trim() : '최적화';
-
-      // 대상 파일 추출
-      const targetFilesMatch = sectionContent.match(/\|\s*\*\*대상 파일\*\*\s*\|\s*([^|]+)\|/);
-      const targetFiles = targetFilesMatch ? targetFilesMatch[1].trim() : '';
-
-      // 전체 내용 (테이블 이후의 설명 포함)
-      const fullContent = sectionContent;
-
-      items.push({
-        optId,
-        title,
-        category,
-        targetFiles,
-        status: 'pending',
-        fullContent,
-      });
-    }
-
-    return items;
-  }
-
   private getStatusIcon(status: 'pending' | 'in-progress' | 'done'): string {
     switch (status) {
       case 'pending': return '⬜';

@@ -613,6 +613,12 @@ export interface VibeReportConfig {
   analysisRoot: string;
   snapshotFile: string;
   enableGitDiff: boolean;
+  /** .gitignore를 존중하여 무시된 파일을 스캔에서 제외 */
+  respectGitignore: boolean;
+  /** 민감 파일(예: .env, *.pem, *token*)을 스캔 결과에 포함 */
+  includeSensitiveFiles: boolean;
+  /** excludePatterns에 기본 제외 패턴을 포함(병합)할지 여부 */
+  excludePatternsIncludeDefaults: boolean;
   excludePatterns: string[];
   maxFilesToScan: number;
   autoOpenReports: boolean;

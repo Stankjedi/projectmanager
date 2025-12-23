@@ -9,6 +9,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRequire } from 'module';
 import * as vscode from 'vscode';
 
+const commandHandlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>());
+const updateReportsCommandMock = vi.hoisted(() => ({
+  execute: vi.fn(),
+  executeForWorkspace: vi.fn(),
+}));
+const reportServiceMock = vi.hoisted(() => ({
+  openReport: vi.fn(),
+  reportsExist: vi.fn(),
+}));
+
 // Ensure require() exists for extension.ts (it uses require('path') in a few places)
 (globalThis as unknown as { require?: NodeRequire }).require ??= createRequire(
   __filename
@@ -16,9 +26,12 @@ import * as vscode from 'vscode';
 
 // Mock vscode module
 vi.mock('vscode', () => {
-  const registerCommand = vi.fn((_id: string, _handler: unknown) => ({
-    dispose: vi.fn(),
-  }));
+  const registerCommand = vi.fn((id: string, handler: unknown) => {
+    commandHandlers.set(id, handler as (...args: unknown[]) => unknown);
+    return {
+      dispose: vi.fn(() => commandHandlers.delete(id)),
+    };
+  });
 
   const createFileSystemWatcher = vi.fn(() => ({
     onDidChange: vi.fn(),
@@ -30,13 +43,17 @@ vi.mock('vscode', () => {
   return {
     workspace: {
       workspaceFolders: [
-        { uri: { fsPath: 'C:\\test\\workspace' }, name: 'test', index: 0 },     
+        { uri: { fsPath: 'C:\\test\\workspace' }, name: 'test', index: 0 },
       ],
       getConfiguration: vi.fn(() => ({
-        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),       
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
       })),
       onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
       createFileSystemWatcher,
+      openTextDocument: vi.fn(),
+    },
+    Uri: {
+      file: vi.fn((fsPath: string) => ({ fsPath })),
     },
     window: {
       createOutputChannel: vi.fn(() => ({
@@ -53,6 +70,9 @@ vi.mock('vscode', () => {
       registerTreeDataProvider: vi.fn(() => ({ dispose: vi.fn() })),
       registerWebviewViewProvider: vi.fn(() => ({ dispose: vi.fn() })),
       createWebviewPanel: vi.fn(() => ({ webview: { html: '' } })),
+      showErrorMessage: vi.fn(),
+      showWarningMessage: vi.fn(),
+      showTextDocument: vi.fn(),
     },
     EventEmitter: class EventEmitter<T> {
       private listeners: Array<(e: T) => void> = [];
@@ -77,6 +97,15 @@ vi.mock('vscode', () => {
     StatusBarAlignment: {
       Right: 2,
     },
+    TextEditorRevealType: {
+      InCenter: 2,
+    },
+    Selection: class Selection {
+      constructor(
+        public anchor: unknown,
+        public active: unknown
+      ) {}
+    },
   };
 });
 
@@ -84,7 +113,8 @@ vi.mock('vscode', () => {
 vi.mock('./commands/index.js', () => ({
   UpdateReportsCommand: class MockUpdateReportsCommand {
     constructor(_outputChannel: unknown) {}
-    execute = vi.fn();
+    execute = updateReportsCommandMock.execute;
+    executeForWorkspace = updateReportsCommandMock.executeForWorkspace;
   },
   MarkImprovementAppliedCommand: class MockMarkImprovementAppliedCommand {
     constructor(_outputChannel: unknown) {}
@@ -94,11 +124,19 @@ vi.mock('./commands/index.js', () => ({
     constructor(_outputChannel: unknown) {}
     execute = vi.fn();
   },
+  SetAnalysisRootWizardCommand: class MockSetAnalysisRootWizardCommand {
+    constructor(_outputChannel: unknown) {}
+    execute = vi.fn();
+  },
   GeneratePromptCommand: class MockGeneratePromptCommand {
     constructor(_outputChannel: unknown) {}
     execute = vi.fn();
   },
   ShareReportCommand: class MockShareReportCommand {
+    constructor(_outputChannel: unknown) {}
+    execute = vi.fn();
+  },
+  ExportReportBundleCommand: class MockExportReportBundleCommand {
     constructor(_outputChannel: unknown) {}
     execute = vi.fn();
   },
@@ -137,8 +175,9 @@ vi.mock('./commands/cleanHistory.js', () => ({
 vi.mock('./services/index.js', () => ({
   ReportService: class MockReportService {
     constructor(_outputChannel: unknown) {}
-    openReport = vi.fn();
+    openReport = reportServiceMock.openReport;
     initializeReports = vi.fn();
+    reportsExist = reportServiceMock.reportsExist;
   },
 }));
 
@@ -175,15 +214,28 @@ vi.mock('./views/SettingsViewProvider.js', () => ({
 vi.mock('./utils/index.js', () => ({
   loadConfig: vi.fn(() => ({
     reportDirectory: 'devplan',
+    analysisRoot: '',
     snapshotFile: '.vscode/vibereport-state.json',
     excludePatterns: [],
+    enableGitDiff: true,
+    respectGitignore: true,
+    maxFilesToScan: 5000,
+    autoOpenReports: true,
+    enableDirectAi: false,
+    language: 'ko',
+    projectVisionMode: 'auto',
+    defaultProjectType: 'auto-detect',
+    defaultQualityFocus: 'development',
   })),
-  selectWorkspaceRoot: vi.fn(),
+  selectWorkspaceRoot: vi.fn(async () => 'C:\\test\\workspace'),
+  resolveAnalysisRoot: vi.fn((workspaceRoot: string) => workspaceRoot),
+  formatTimestampForUi: vi.fn((timestamp: string) => timestamp),
 }));
 
 describe('extension', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    commandHandlers.clear();
   });
 
   afterEach(() => {
@@ -225,7 +277,7 @@ describe('extension', () => {
     expect(statusBar.text).toContain('$(sync)');
     expect(statusBar.tooltip).toContain('자동 업데이트');
 
-    const calls = vi.mocked(vscode.commands.registerCommand).mock.calls;        
+    const calls = vi.mocked(vscode.commands.registerCommand).mock.calls;
     const registered = calls.map(args => args[0]);
 
     const expected = [
@@ -239,11 +291,13 @@ describe('extension', () => {
       'vibereport.openSessionHistory',
       'vibereport.openFunctionInFile',
       'vibereport.initializeReports',
-      'vibereport.markApplied',
-      'vibereport.setProjectVision',
-      'vibereport.generatePrompt',
-      'vibereport.shareReport',
-      'vibereport.openReportPreview',
+	      'vibereport.markApplied',
+	      'vibereport.setProjectVision',
+	      'vibereport.setAnalysisRootWizard',
+	      'vibereport.generatePrompt',
+	      'vibereport.shareReport',
+	      'vibereport.exportReportBundle',
+	      'vibereport.openReportPreview',
       'vibereport.clearHistory',
       'vibereport.reportDoctor',
       'vibereport.refreshViews',
@@ -252,6 +306,736 @@ describe('extension', () => {
 
     const uniqueRegistered = [...new Set(registered)].sort();
     expect(uniqueRegistered).toEqual(expected);
+  });
+
+  describe('vibereport.openFunctionInFile', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    const baseConfig = {
+      reportDirectory: 'devplan',
+      analysisRoot: '',
+      snapshotFile: '.vscode/vibereport-state.json',
+      excludePatterns: [],
+      enableGitDiff: true,
+      respectGitignore: true,
+      maxFilesToScan: 5000,
+      autoOpenReports: true,
+      enableDirectAi: false,
+      language: 'ko',
+      projectVisionMode: 'auto',
+      defaultProjectType: 'auto-detect',
+      defaultQualityFocus: 'development',
+    } as const;
+
+    beforeEach(async () => {
+      vi.mocked(vscode.workspace.openTextDocument).mockClear();
+      vi.mocked(vscode.window.showWarningMessage).mockClear();
+
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.loadConfig).mockReturnValue(baseConfig as any);
+    });
+
+    it('blocks non-absolute paths', async () => {
+      const { activate } = await import('./extension.js');
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('src/file.ts');
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        '보안 정책: 절대 경로가 아닌 파일은 열 수 없습니다.'
+      );
+      expect(vscode.workspace.openTextDocument).not.toHaveBeenCalled();
+    });
+
+    it('blocks paths outside analysisRoot', async () => {
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.loadConfig).mockReturnValue({ ...baseConfig, analysisRoot: 'src' } as any);
+
+      const { activate } = await import('./extension.js');
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('C:\\test\\workspace\\other\\file.ts');
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        '보안 정책: analysisRoot 밖 파일은 열 수 없습니다.'
+      );
+      expect(vscode.workspace.openTextDocument).not.toHaveBeenCalled();
+    });
+
+    it('allows paths within analysisRoot', async () => {
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.loadConfig).mockReturnValue({ ...baseConfig, analysisRoot: 'src' } as any);
+
+      const { activate } = await import('./extension.js');
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('C:\\test\\workspace\\src\\file.ts');
+
+      expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+    });
+  });
+
+  describe('vibereport.openEvaluationReport', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    beforeEach(async () => {
+      reportServiceMock.openReport.mockClear();
+      vi.mocked(vscode.commands.executeCommand).mockClear();
+      vi.mocked(vscode.window.showErrorMessage).mockClear();
+
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.selectWorkspaceRoot).mockResolvedValue('C:\\test\\workspace');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation((workspaceRoot: string) => workspaceRoot);
+    });
+
+    it('opens the report in editorOnly mode without opening preview', async () => {
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => {
+          if (key === 'reportOpenMode') return 'editorOnly';
+          return defaultValue;
+        }),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openEvaluationReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.openReport).toHaveBeenCalledWith(
+        'C:\\test\\workspace',
+        expect.any(Object),
+        'evaluation'
+      );
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+    });
+
+    it('opens the report and then opens preview in both mode', async () => {
+      vi.useFakeTimers();
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => {
+          if (key === 'reportOpenMode') return 'both';
+          return defaultValue;
+        }),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openEvaluationReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.openReport).toHaveBeenCalledWith(
+        'C:\\test\\workspace',
+        expect.any(Object),
+        'evaluation'
+      );
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('opens the report and then opens preview in previewOnly mode', async () => {
+      vi.useFakeTimers();
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => {
+          if (key === 'reportOpenMode') return 'previewOnly';
+          return defaultValue;
+        }),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openEvaluationReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.openReport).toHaveBeenCalledWith(
+        'C:\\test\\workspace',
+        expect.any(Object),
+        'evaluation'
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('shows an error message when analysisRoot is invalid and does not open report', async () => {
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation(() => {
+        throw new Error('bad analysisRoot');
+      });
+
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openEvaluationReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.window.showErrorMessage).toHaveBeenCalled();
+      expect(reportServiceMock.openReport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('vibereport.openImprovementReport', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    beforeEach(async () => {
+      reportServiceMock.openReport.mockClear();
+      vi.mocked(vscode.commands.executeCommand).mockClear();
+      vi.mocked(vscode.window.showErrorMessage).mockClear();
+
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.selectWorkspaceRoot).mockResolvedValue('C:\\test\\workspace');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation((workspaceRoot: string) => workspaceRoot);
+    });
+
+    it('opens the report in editorOnly mode without opening preview', async () => {
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => {
+          if (key === 'reportOpenMode') return 'editorOnly';
+          return defaultValue;
+        }),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openImprovementReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.openReport).toHaveBeenCalledWith(
+        'C:\\test\\workspace',
+        expect.any(Object),
+        'improvement'
+      );
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+    });
+
+    it('opens the report and then opens preview in both mode', async () => {
+      vi.useFakeTimers();
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => {
+          if (key === 'reportOpenMode') return 'both';
+          return defaultValue;
+        }),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openImprovementReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.openReport).toHaveBeenCalledWith(
+        'C:\\test\\workspace',
+        expect.any(Object),
+        'improvement'
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('opens the report and then opens preview in previewOnly mode', async () => {
+      vi.useFakeTimers();
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => {
+          if (key === 'reportOpenMode') return 'previewOnly';
+          return defaultValue;
+        }),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openImprovementReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.openReport).toHaveBeenCalledWith(
+        'C:\\test\\workspace',
+        expect.any(Object),
+        'improvement'
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        'vibereport.openReportPreview'
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('shows an error message when analysisRoot is invalid and does not open report', async () => {
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation(() => {
+        throw new Error('bad analysisRoot');
+      });
+
+      const { activate } = await import('./extension.js');
+
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openImprovementReport') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.window.showErrorMessage).toHaveBeenCalled();
+      expect(reportServiceMock.openReport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('vibereport.openPrompt', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    beforeEach(async () => {
+      vi.mocked(vscode.window.showWarningMessage).mockClear();
+      vi.mocked(vscode.workspace.openTextDocument).mockClear();
+      vi.mocked(vscode.window.showTextDocument).mockClear();
+
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.selectWorkspaceRoot).mockResolvedValue('C:\\test\\workspace');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation((workspaceRoot: string) => workspaceRoot);
+    });
+
+    it('opens Prompt.md when the file exists', async () => {
+      const doc = { uri: { fsPath: 'C:\\test\\workspace\\devplan\\Prompt.md' } } as any;
+      vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(doc);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openPrompt') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalledWith(doc);
+      expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it('shows a warning when Prompt.md is missing', async () => {
+      vi.mocked(vscode.workspace.openTextDocument).mockRejectedValue(new Error('ENOENT'));
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openPrompt') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        'Prompt.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
+      );
+    });
+  });
+
+  describe('vibereport.openSessionHistory', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    beforeEach(async () => {
+      vi.mocked(vscode.window.showWarningMessage).mockClear();
+      vi.mocked(vscode.workspace.openTextDocument).mockClear();
+      vi.mocked(vscode.window.showTextDocument).mockClear();
+
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.selectWorkspaceRoot).mockResolvedValue('C:\\test\\workspace');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation((workspaceRoot: string) => workspaceRoot);
+    });
+
+    it('opens Session_History.md when the file exists', async () => {
+      const doc = { uri: { fsPath: 'C:\\test\\workspace\\devplan\\Session_History.md' } } as any;
+      vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(doc);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openSessionHistory') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalledWith(doc);
+      expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it('shows a warning when Session_History.md is missing', async () => {
+      vi.mocked(vscode.workspace.openTextDocument).mockRejectedValue(new Error('ENOENT'));
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openSessionHistory') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        'Session_History.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
+      );
+    });
+  });
+
+  describe('vibereport.initializeReports', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    beforeEach(async () => {
+      updateReportsCommandMock.execute.mockClear();
+      reportServiceMock.reportsExist.mockClear();
+      vi.mocked(vscode.window.showWarningMessage).mockClear();
+
+      const utils = await import('./utils/index.js');
+      vi.mocked(utils.selectWorkspaceRoot).mockResolvedValue('C:\\test\\workspace');
+      vi.mocked(utils.resolveAnalysisRoot).mockImplementation((workspaceRoot: string) => workspaceRoot);
+    });
+
+    it('runs updateReports when reports do not exist', async () => {
+      reportServiceMock.reportsExist.mockResolvedValue(false);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.initializeReports') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(reportServiceMock.reportsExist).toHaveBeenCalled();
+      expect(updateReportsCommandMock.execute).toHaveBeenCalled();
+      expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it('does not run updateReports when user cancels overwrite', async () => {
+      reportServiceMock.reportsExist.mockResolvedValue(true);
+      vi.mocked(vscode.window.showWarningMessage).mockResolvedValue('취소' as any);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.initializeReports') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalled();
+      expect(updateReportsCommandMock.execute).not.toHaveBeenCalled();
+    });
+
+    it('runs updateReports when user confirms overwrite', async () => {
+      reportServiceMock.reportsExist.mockResolvedValue(true);
+      vi.mocked(vscode.window.showWarningMessage).mockResolvedValue('초기화' as any);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.initializeReports') as
+        | (() => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.();
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalled();
+      expect(updateReportsCommandMock.execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('vibereport.openFunctionInFile', () => {
+    const createContext = (): vscode.ExtensionContext =>
+      ({
+        subscriptions: [],
+        extensionUri: { fsPath: 'C:\\test\\ext' },
+        extensionPath: 'C:\\test\\ext',
+      }) as unknown as vscode.ExtensionContext;
+
+    beforeEach(() => {
+      vi.mocked(vscode.workspace.openTextDocument).mockReset();
+      vi.mocked(vscode.window.showTextDocument).mockReset();
+      vi.mocked(vscode.window.showWarningMessage).mockReset();
+      vi.mocked(vscode.window.showErrorMessage).mockReset();
+      vi.mocked(vscode.commands.executeCommand).mockReset();
+    });
+
+    it('opens a file without resolving symbols when symbolName is omitted', async () => {
+      const doc = { uri: { fsPath: 'C:\\test\\workspace\\src\\a.ts' } } as any;
+      const editor = { revealRange: vi.fn(), selection: undefined } as any;
+
+      vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(doc);
+      vi.mocked(vscode.window.showTextDocument).mockResolvedValue(editor);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('C:\\test\\workspace\\src\\a.ts');
+
+      expect(vscode.workspace.openTextDocument).toHaveBeenCalled();
+      expect(vscode.window.showTextDocument).toHaveBeenCalledWith(doc, { preview: false });
+      expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+        'vscode.executeDocumentSymbolProvider',
+        expect.anything()
+      );
+    });
+
+    it('reveals a symbol when symbolName matches a nested DocumentSymbol', async () => {
+      const doc = { uri: { fsPath: 'C:\\test\\workspace\\src\\a.ts' } } as any;
+      const editor = { revealRange: vi.fn(), selection: undefined } as any;
+
+      vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(doc);
+      vi.mocked(vscode.window.showTextDocument).mockResolvedValue(editor);
+      vi.mocked(vscode.commands.executeCommand).mockResolvedValue([
+        {
+          name: 'outer',
+          selectionRange: { start: { line: 1, character: 0 } },
+          children: [
+            {
+              name: 'inner',
+              selectionRange: { start: { line: 2, character: 1 } },
+              children: [],
+            },
+          ],
+        },
+      ] as any);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('C:\\test\\workspace\\src\\a.ts', 'inner');
+
+      expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+        'vscode.executeDocumentSymbolProvider',
+        expect.anything()
+      );
+      expect(editor.revealRange).toHaveBeenCalledWith(
+        { start: { line: 2, character: 1 } },
+        (vscode as any).TextEditorRevealType.InCenter
+      );
+      expect(editor.selection).toBeDefined();
+      expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+    });
+
+    it('warns when a requested symbol cannot be found', async () => {
+      const doc = { uri: { fsPath: 'C:\\test\\workspace\\src\\a.ts' } } as any;
+      const editor = { revealRange: vi.fn(), selection: undefined } as any;
+
+      vi.mocked(vscode.workspace.openTextDocument).mockResolvedValue(doc);
+      vi.mocked(vscode.window.showTextDocument).mockResolvedValue(editor);
+      vi.mocked(vscode.commands.executeCommand).mockResolvedValue([
+        { name: 'other', selectionRange: { start: { line: 1, character: 0 } }, children: [] },
+      ] as any);
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('C:\\test\\workspace\\src\\a.ts', 'missing');
+
+      expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+        '함수/심볼을 찾을 수 없습니다: missing'
+      );
+      expect(editor.revealRange).not.toHaveBeenCalled();
+    });
+
+    it('shows an error message when opening the file fails', async () => {
+      vi.mocked(vscode.workspace.openTextDocument).mockRejectedValue(new Error('boom'));
+
+      const { activate } = await import('./extension.js');
+      vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+        get: vi.fn((key: string, defaultValue: unknown) => defaultValue),
+      } as any);
+
+      await activate(createContext());
+
+      const handler = commandHandlers.get('vibereport.openFunctionInFile') as
+        | ((filePath: string, symbolName?: string) => Promise<void>)
+        | undefined;
+      expect(handler).toBeTypeOf('function');
+
+      await handler?.('C:\\test\\workspace\\src\\a.ts', 'inner');
+
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+        '파일을 열 수 없습니다: C:\\test\\workspace\\src\\a.ts'
+      );
+    });
   });
 
   it('activate() keeps status bar plain when auto-update is disabled', async () => {

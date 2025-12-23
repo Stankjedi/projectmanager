@@ -19,7 +19,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { DEFAULT_CONFIG } from '../configUtils.js';
+import { DEFAULT_CONFIG, loadConfig } from '../configUtils.js';
 
 type ExtensionPackageJson = {
   contributes?: {
@@ -39,6 +39,9 @@ describe('config defaults', () => {
       ['vibereport.analysisRoot', DEFAULT_CONFIG.analysisRoot],
       ['vibereport.snapshotFile', DEFAULT_CONFIG.snapshotFile],
       ['vibereport.enableGitDiff', DEFAULT_CONFIG.enableGitDiff],
+      ['vibereport.respectGitignore', DEFAULT_CONFIG.respectGitignore],
+      ['vibereport.includeSensitiveFiles', DEFAULT_CONFIG.includeSensitiveFiles],
+      ['vibereport.excludePatternsIncludeDefaults', DEFAULT_CONFIG.excludePatternsIncludeDefaults],
       ['vibereport.maxFilesToScan', DEFAULT_CONFIG.maxFilesToScan],
       ['vibereport.autoOpenReports', DEFAULT_CONFIG.autoOpenReports],
       ['vibereport.enableDirectAi', DEFAULT_CONFIG.enableDirectAi],
@@ -58,5 +61,35 @@ describe('config defaults', () => {
     expect(Array.isArray(excludeContributed)).toBe(true);
     expect(excludeContributed).toEqual(DEFAULT_CONFIG.excludePatterns);
     expect(excludeContributed).toContain('**/*.vsix');
+    expect(excludeContributed).toContain('**/temp_compare/**');
+  });
+
+  it('merges excludePatterns with defaults when includeDefaults enabled', () => {
+    vscodeMock.get.mockImplementation((key: string, defaultValue: unknown) => {
+      if (key === 'excludePatternsIncludeDefaults') return true;
+      if (key === 'excludePatterns') return [' **/*.vsix ', '**/custom/**', ''];
+      return defaultValue;
+    });
+
+    const config = loadConfig();
+    expect(config.excludePatternsIncludeDefaults).toBe(true);
+    expect(config.excludePatterns).toEqual(expect.arrayContaining(DEFAULT_CONFIG.excludePatterns));
+    expect(config.excludePatterns).toContain('**/custom/**');
+
+    const vsixCount = config.excludePatterns.filter((pattern) => pattern === '**/*.vsix').length;
+    expect(vsixCount).toBe(1);
+  });
+
+  it('uses user excludePatterns only when includeDefaults disabled', () => {
+    vscodeMock.get.mockImplementation((key: string, defaultValue: unknown) => {
+      if (key === 'excludePatternsIncludeDefaults') return false;
+      if (key === 'excludePatterns') return ['**/only/**', ' **/*.vsix ', ''];
+      return defaultValue;
+    });
+
+    const config = loadConfig();
+    expect(config.excludePatternsIncludeDefaults).toBe(false);
+    expect(config.excludePatterns).toEqual(expect.arrayContaining(['**/only/**', '**/*.vsix']));
+    expect(config.excludePatterns).not.toContain('**/node_modules/**');
   });
 });

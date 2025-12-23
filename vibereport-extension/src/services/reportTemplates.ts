@@ -236,6 +236,14 @@ ${MARKERS.SUMMARY_END}
 
 ---
 
+<!-- AUTO-TODO-FIXME-START -->
+## 🧾 TODO/FIXME 발견 요약
+
+*TODO/FIXME 항목이 없습니다.*
+<!-- AUTO-TODO-FIXME-END -->
+
+---
+
 ${MARKERS.IMPROVEMENT_LIST_START}
 ## 📝 개선 항목 목록
 
@@ -321,6 +329,14 @@ ${MARKERS.SUMMARY_START}
 | 🟢 Nice to have (P3) | 0 |
 | 🚀 Optimization | 0 |
 ${MARKERS.SUMMARY_END}
+
+---
+
+<!-- AUTO-TODO-FIXME-START -->
+## 🧾 TODO/FIXME Findings Summary
+
+*No TODO/FIXME findings.*
+<!-- AUTO-TODO-FIXME-END -->
 
 ---
 

@@ -13,9 +13,9 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (Vibe Coding Report VS Code 확장) |
-| **버전** | v0.4.27 |
-| **분석 기준일** | 2025-12-20 |
-| **테스트/커버리지** | Vitest, Lines 73%+ (`pnpm -C vibereport-extension run test:coverage` 기준) |
+| **버전** | v0.4.28 |
+| **분석 기준일** | 2025-12-22 |
+| **테스트/커버리지** | Vitest, 테스트 371개, 라인 87.89% / 브랜치 70.55% (`pnpm -C vibereport-extension run test:coverage` 기준) |
 | **발행자** | Stankjedi |
 <!-- AUTO-OVERVIEW-END -->
 
@@ -45,29 +45,28 @@
 <!-- AUTO-SUMMARY-START -->
 ## 📊 개선 현황 요약
 
-> **기준일:** 2025-12-20  
-> 아래 데이터는 코드 분석 및 로컬 테스트 결과에 기반하여 도출된 **미적용(Pending)** 항목입니다.
+> **기준일:** 2025-12-22  
+> 아래 데이터는 현재 코드/설정 분석 및 로컬 검증 결과에 기반하여 도출된 **미적용(Pending)** 항목입니다(완료 히스토리는 `Session_History.md`에서 관리).
 
 ### 1. 우선순위별 대기 항목 수
 
 | 우선순위 | 대기(Pending) | 주요 내용 |
 |:---:|:---:|:---|
-| 🔴 **긴급 (P1)** | 1 | 상태 파일 추적 정비(정보 노출/노이즈 방지). |
-| 🟡 **중요 (P2)** | 3 | CI 자동 검증 활성화, 브랜치 커버리지 보강, 대형 서비스 모듈 분리. |
-| 🟢 **개선 (P3)** | 1 | TODO/FIXME 스캔 기반 개선 후보 자동 생성(가시성/근거 강화). |
-| ⚙️ **최적화 (OPT)** | 1 | 내용 동일 시 보고서 파일 write 스킵(I/O/변경 노이즈 감소). |
-| **총계** | **6** | **모든 항목이 현재 대기 중입니다.** |
+| 🔴 **긴급 (P1)** | 1 | 모노레포 구조에서 기능 기반 구조도/엔트리포인트 탐지 정확도 개선. |
+| 🟡 **중요 (P2)** | 2 | 민감 파일 기본 제외(보안), excludePatterns 기본값 보존(설정 병합 옵션). |
+| 🟢 **개선 (P3)** | 1 | analysisRoot 설정 마법사(QuickPick) 명령 추가로 모노레포 UX 개선. |
+| ⚙️ **최적화 (OPT)** | 1 | Git 정보(상태/로그) TTL 캐시로 대형 레포 스캔 비용 절감. |
+| **총계** | **5** | **모든 항목은 현재 대기 중입니다(미적용 항목만 유지).** |
 
 ### 2. 전체 개선 항목 리스트
 
 | # | 항목명 | 우선순위 | 카테고리 | ID |
 |:---:|:---|:---:|:---|:---|
-| 1 | 상태 파일 레포 추적 정비 (민감 정보/노이즈 제거) | P1 | 🔒 보안 | `security-statefile-tracking-001` |
-| 2 | CI 워크플로우를 레포 루트로 정리하여 자동 검증 활성화 | P2 | 📦 배포/CI | `ci-workflow-location-001` |
-| 3 | 브랜치 커버리지 보강 (예외/분기 경로 회귀 방지) | P2 | 🧪 테스트 | `test-branch-coverage-001` |
-| 4 | reportService 모듈 분리 리팩토링 (대형 파일 축소) | P2 | 🧹 코드 품질 | `refactor-reportservice-modularize-001` |
-| 5 | TODO/FIXME 스캔 기반 개선 후보 자동 생성 | P3 | ✨ 기능 추가 | `feat-todo-fixme-scan-001` |
-| 6 | 내용 동일 시 보고서 파일 write 스킵 | OPT | 🚀 최적화 | `opt-report-write-skip-001` |
+| 1 | 기능 기반 구조도/엔트리포인트 탐지의 모노레포 지원 강화 | P1 | 🧹 코드 품질 | `scan-structure-001` |
+| 2 | 스캔 단계에서 민감 파일 기본 제외(예: `.env`, `*token*`) | P2 | 🔒 보안 | `security-sensitive-scan-001` |
+| 3 | excludePatterns 기본값 보존(설정 병합 옵션)으로 아티팩트 스캔 노이즈 차단 | P2 | ⚙️ 성능 | `config-exclude-001` |
+| 4 | analysisRoot 설정 마법사(QuickPick) 명령 추가 | P3 | ✨ 기능 추가 | `feat-analysisroot-wizard-001` |
+| 5 | Git 정보(상태/로그) TTL 캐시 최적화 | OPT | 🚀 최적화 | `opt-gitinfo-cache-001` |
 <!-- AUTO-SUMMARY-END -->
 
 ---
@@ -79,113 +78,86 @@
 <!-- AUTO-IMPROVEMENT-LIST-START -->
 ### 🔴 중요 (P1)
 
-#### [P1-1] 상태 파일 레포 추적 정비 (민감 정보/노이즈 제거)
+#### [P1-1] 기능 기반 구조도/엔트리포인트 탐지의 모노레포 지원 강화
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `security-statefile-tracking-001` |
-| **카테고리** | 🔒 보안 |
-| **복잡도** | Low |
-| **대상 파일** | `.vscode/vibereport-state.json`, `.gitignore` |
+| **ID** | `scan-structure-001` |
+| **카테고리** | 🧹 코드 품질 |
+| **복잡도** | Medium |
+| **대상 파일** | `vibereport-extension/src/services/workspaceScanner.ts`, `vibereport-extension/src/services/__tests__/workspaceScanner.test.ts` |
 | **Origin** | static-analysis |
-| **리스크 레벨** | critical |
-| **관련 평가 카테고리** | security, productionReadiness |
+| **리스크 레벨** | high |
+| **관련 평가 카테고리** | architecture, documentation, maintainability |
 
-- **현재 상태:** `.vscode/vibereport-state.json`가 Git 추적 상태이며 로컬 경로/세션 요약/평가 히스토리가 포함됩니다.
-- **문제점 (Problem):** 민감 정보 노출 + PR/커밋 노이즈 증가 + 협업 시 충돌 유발.
-- **영향 (Impact):** 보안/컴플라이언스 리스크 및 개발 생산성 저하.
-- **원인 (Cause):** 루트 `.gitignore`가 상태 파일/임시 파일을 제외하지 않습니다.
-- **개선 내용 (Proposed Solution):** `git rm --cached`로 추적 해제 후 `.gitignore`에 상태 파일 패턴 추가(필요 시 샘플/스키마 파일 제공).
-- **기대 효과:** 정보 노출 위험 감소, PR 노이즈/충돌 감소.
+- **현재 상태:** 기능 기반 구조도 생성이 루트 `src/` 전제에 치우쳐, 현재 스냅샷에서 `devplan/`만 집계되고 `vibereport-extension/src/*`가 구조도로 반영되지 않는 문제가 확인됩니다.
+- **문제점 (Problem):** 구조도/엔트리포인트가 부정확하면 평가·개선 보고서의 신뢰도가 떨어지고, 모노레포 사용자 경험이 악화됩니다.
+- **영향 (Impact):** 구조/진입점 오해 → 잘못된 개선 제안·리스크 판단, 초기 온보딩 비용 증가.
+- **원인 (Cause):** 경로 분해가 `firstDir === 'src'` 중심으로 설계되어 `packages/foo/src/...` 형태를 분류하지 못합니다.
+- **개선 내용 (Proposed Solution):** 경로에서 `src` 세그먼트를 탐지해 그 다음 디렉토리로 기능 분류(예: `*/src/commands/*`)하고, 엔트리포인트 탐지를 `*/src/extension.ts` 등 패턴까지 확장합니다. 모노레포 케이스 테스트를 추가해 계약을 고정합니다.
+- **기대 효과:** 구조도 품질 향상, 리포트 신뢰도/가독성 개선, 모노레포 지원 강화.
 
 **✅ Definition of Done:**
-- [ ] `.vscode/vibereport-state.json` 추적 해제 및 `.gitignore` 반영
-- [ ] 로컬 실행 시 상태 파일은 유지되되 커밋에는 포함되지 않음
-- [ ] 관련 문서에 “상태 파일은 추적하지 않음” 안내 추가(필요시)
+- [ ] 모노레포 경로(예: `vibereport-extension/src/*`)가 구조도 테이블에 반영됨
+- [ ] 엔트리포인트 탐지에 `*/src/extension.ts` 등 대표 케이스 포함
+- [ ] 관련 테스트 추가/수정 및 통과
 - [ ] `pnpm -C vibereport-extension run compile && pnpm -C vibereport-extension run test:run` 통과
 
 ---
 
 ### 🟡 중요 (P2)
 
-#### [P2-1] CI 워크플로우를 레포 루트로 정리하여 자동 검증 활성화
+#### [P2-1] 스캔 단계에서 민감 파일 기본 제외(예: `.env`, `*token*`)
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `ci-workflow-location-001` |
-| **카테고리** | 📦 배포/CI |
-| **복잡도** | Low |
-| **대상 파일** | `vibereport-extension/.github/workflows/ci.yml`, `.github/workflows/ci.yml` |
-| **Origin** | static-analysis |
-| **리스크 레벨** | high |
-| **관련 평가 카테고리** | productionReadiness, testCoverage |
-
-- **현재 상태:** CI 워크플로우 파일이 레포 루트가 아닌 하위 경로에 있어 GitHub Actions가 실행되지 않을 가능성이 큽니다.
-- **문제점 (Problem):** 자동 검증이 누락되면 회귀가 릴리즈/배포 단계에서 늦게 발견될 수 있습니다.
-- **영향 (Impact):** 배포 신뢰도 저하, 유지보수 비용 증가.
-- **원인 (Cause):** GitHub Actions의 워크플로우 경로 규칙(레포 루트 `.github/workflows`) 미준수.
-- **개선 내용 (Proposed Solution):** 워크플로우를 레포 루트로 이동/복제하고, `working-directory: vibereport-extension` 설정을 유지합니다.
-- **기대 효과:** PR/푸시 시 자동 compile/lint/test/coverage로 품질 게이트 확보.
-
-**✅ Definition of Done:**
-- [ ] `.github/workflows/ci.yml`가 레포 루트에 존재하고 트리거가 동작
-- [ ] `pnpm install --frozen-lockfile` + `compile/lint/test:run/test:coverage` 단계 수행
-- [ ] 워크플로우 캐시 설정(`pnpm`/lockfile path) 정상
-- [ ] 로컬에서도 동일 스크립트로 재현 가능
-
----
-
-#### [P2-2] 브랜치 커버리지 보강 (예외/분기 경로 회귀 방지)
-
-| 항목 | 내용 |
-|------|------|
-| **ID** | `test-branch-coverage-001` |
-| **카테고리** | 🧪 테스트 |
+| **ID** | `security-sensitive-scan-001` |
+| **카테고리** | 🔒 보안 |
 | **복잡도** | Medium |
-| **대상 파일** | `vibereport-extension/src/extension.ts`, `vibereport-extension/src/utils/htmlEscape.ts`, `vibereport-extension/src/utils/timeUtils.ts` |
+| **대상 파일** | `vibereport-extension/src/services/workspaceScanner/fileCollector.ts`, `vibereport-extension/src/services/__tests__/workspaceScanner.test.ts`(보강) |
 | **Origin** | static-analysis |
 | **리스크 레벨** | medium |
-| **관련 평가 카테고리** | testCoverage, codeQuality |
+| **관련 평가 카테고리** | security, productionReadiness |
 
-- **현재 상태:** 커버리지 Lines 73.68% / Branch 54.10%로 분기/예외 경로 검증이 상대적으로 약합니다.
-- **문제점 (Problem):** 오류 처리/분기 로직 회귀가 테스트에서 누락될 수 있습니다.
-- **영향 (Impact):** 런타임 예외/엣지 케이스 버그의 발견 지연.
-- **원인 (Cause):** VS Code API 경로, 유틸 분기 로직에 대한 케이스 설계 부족.
-- **개선 내용 (Proposed Solution):** 저커버 영역(`extension.ts`, `htmlEscape`, `timeUtils` 등)에 분기 중심 테스트를 추가해 Branch ≥ 60%를 목표로 합니다.
-- **기대 효과:** 회귀 탐지력 향상, 릴리즈 안정성 강화.
+- **현재 상태:** `.gitignore` 및 excludePatterns 기반으로 파일을 수집하지만, “민감 파일”에 대한 상시 차단은 스냅샷 파일 제외 수준에 그칩니다.
+- **문제점 (Problem):** `.env`/키/토큰 등 파일이 파일 목록·구조도·프롬프트 경로에 포함될 수 있어 외부 공유/AI 전달 시 노출 위험이 있습니다.
+- **영향 (Impact):** 보안 사고 가능성 및 사용자 신뢰 저하.
+- **원인 (Cause):** fileCollector의 `applyGitignoreAndSensitiveFilters`가 민감 패턴을 실제로 필터링하지 않습니다.
+- **개선 내용 (Proposed Solution):** 기본 민감 패턴 세트를 도입해 항상 제외(설정으로 확장 가능)하고, 제외된 파일이 언어 통계/구조도/TODO 스캔에서도 일관되게 제외되도록 합니다. 테스트로 계약을 고정합니다.
+- **기대 효과:** 기본 보안 수준 상향, 공유/AI 전달 시 리스크 감소.
 
 **✅ Definition of Done:**
-- [ ] Branch 커버리지 60% 이상(또는 +5%p 이상) 달성
-- [ ] 신규 테스트가 분기/예외 경로를 명확히 검증
-- [ ] `pnpm -C vibereport-extension run test:run` 및 `test:coverage` 통과
-- [ ] flaky/환경 의존 테스트 없이 재현 가능
+- [ ] 기본 민감 패턴(예: `.env*`, `*.pem`, `*.key`, `*token*`)이 수집 결과에서 제외됨
+- [ ] excludePatterns/`.gitignore`와 함께 동작(우선순위/중복) 명확
+- [ ] 관련 테스트 추가/수정 및 통과
+- [ ] `pnpm -C vibereport-extension run test:run` 통과
 
 ---
 
-#### [P2-3] reportService 모듈 분리 리팩토링 (대형 파일 축소)
+#### [P2-2] excludePatterns 기본값 보존(설정 병합 옵션)으로 아티팩트 스캔 노이즈 차단
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `refactor-reportservice-modularize-001` |
-| **카테고리** | 🧹 코드 품질 |
-| **복잡도** | High |
-| **대상 파일** | `vibereport-extension/src/services/reportService.ts` |
+| **ID** | `config-exclude-001` |
+| **카테고리** | ⚙️ 성능 |
+| **복잡도** | Low |
+| **대상 파일** | `vibereport-extension/src/utils/configUtils.ts`, `vibereport-extension/package.json`, `vibereport-extension/src/utils/__tests__/configDefaults.test.ts` |
 | **Origin** | static-analysis |
 | **리스크 레벨** | medium |
-| **관련 평가 카테고리** | maintainability, codeQuality |
+| **관련 평가 카테고리** | performance, productionReadiness |
 
-- **현재 상태:** `reportService.ts`가 1600+ 라인으로 템플릿/업데이트/IO 책임이 과도하게 결합되어 있습니다.
-- **문제점 (Problem):** 작은 변경도 영향 범위가 커지고, 리그레션 위험이 증가합니다.
-- **영향 (Impact):** 유지보수 비용 증가, 리뷰 난이도 상승, 버그 수정 속도 저하.
-- **원인 (Cause):** 템플릿 생성/마커 갱신/세션 기록 갱신 로직이 단일 클래스에 누적.
-- **개선 내용 (Proposed Solution):** 템플릿/업데이트/IO 유틸을 단계적으로 분리(파일 단위 분할)하고, 외부 API는 유지합니다.
-- **기대 효과:** 변경 영향 축소, 테스트 작성 용이, 장기 확장성 개선.
+- **현재 상태:** 워크스페이스 설정의 excludePatterns는 기본값을 “대체”하며, 사용자가 목록을 커스터마이즈할 때 기본 제외(예: `**/*.vsix`)가 누락될 수 있습니다.
+- **문제점 (Problem):** 큰 바이너리/아티팩트가 스캔에 포함되면 성능 저하 및 리포트 노이즈가 증가합니다.
+- **영향 (Impact):** 스캔 시간 증가, 결과 신뢰도 저하, 자동 업데이트 모드에서 I/O 누적.
+- **원인 (Cause):** 설정 로딩 시 기본값과 사용자 값을 병합하지 않음(옵션 부재).
+- **개선 내용 (Proposed Solution):** `excludePatternsIncludeDefaults`(기본 true) 옵션을 추가해 기본 패턴 + 사용자 패턴을 합집합으로 구성하고 중복 제거합니다. 테스트/문서를 함께 갱신합니다.
+- **기대 효과:** 안전한 기본 동작 유지, 사용자 커스터마이징 시에도 품질/성능 안정화.
 
 **✅ Definition of Done:**
-- [ ] `reportService.ts`에서 핵심 책임을 분리한 모듈(신규 파일) 도입
-- [ ] 기존 동작/출력 포맷이 유지(스냅샷/마커 기반 테스트 통과)
+- [ ] 설정 옵션 추가 및 기본값 동작 정의(기본 패턴 유지)
+- [ ] 패턴 병합/중복 제거 로직 구현
+- [ ] 관련 테스트 통과
 - [ ] `pnpm -C vibereport-extension run compile && pnpm -C vibereport-extension run test:run` 통과
-- [ ] 리팩토링 범위/의존성 변화가 문서화됨(간단 메모 수준)
 <!-- AUTO-IMPROVEMENT-LIST-END -->
 
 ---
@@ -195,37 +167,38 @@
 <!-- AUTO-OPTIMIZATION-START -->
 ### 🔎 OPT 일반 분석
 
-- **중복 코드:** 보고서 생성/마커 갱신 흐름에서 유사한 문자열 처리·I/O 패턴이 반복됩니다.
-- **타입 안정성 강화:** `unknown`/문자열 변환 중심 로직은 테스트 기반으로 분기 케이스를 보강할 여지가 있습니다.
-- **복잡도:** 대형 파일(`reportService.ts` 1600+L, `updateReportsWorkflow.ts` 800+L 등)로 인해 변경 영향이 커질 수 있습니다.
-- **에러 처리 일관성:** `try/catch` 후 로깅/사용자 메시지 처리의 표준화 여지가 있습니다.
-- **I/O/비동기 효율:** 내용이 동일해도 보고서 파일 write가 발생하면 파일 워처/디스크 I/O를 불필요하게 유발합니다.
+- **중복 코드:** 스캔/리포트/프리뷰 영역에서 “문자열 기반 추출(정규식)”이 여러 곳에 존재하므로 공통 유틸로 정리할 여지가 있습니다.
+- **타입 안정성:** 설정/경로/파싱 경계 로직은 정책이 명확한 만큼, 타입과 테스트로 계약을 더 촘촘히 고정하는 것이 효과적입니다.
+- **복잡도:** `workspaceScanner.ts`는 기능 범위가 넓어(수집/구조/깃/요약) “작은 단위 테스트 가능한 헬퍼”로 더 분리할 여지가 있습니다.
+- **에러 처리 일관성:** Git/파일 I/O 실패 시 사용자 메시지 vs 로그(outputChannel) 기준을 명확히 분리하면 운영 디버깅이 쉬워집니다.
+- **불필요한 연산/캐싱 부재:** 연속 실행 시 Git 상태/로그 수집이 반복될 수 있으므로 TTL 캐시로 비용을 줄일 여지가 있습니다.
 
 ### 🚀 코드 최적화 (OPT-1)
 
-#### [OPT-1] 내용 동일 시 보고서 파일 write 스킵 (I/O/노이즈 감소)
+#### [OPT-1] Git 정보(상태/로그) TTL 캐시 최적화
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `opt-report-write-skip-001` |
+| **ID** | `opt-gitinfo-cache-001` |
 | **카테고리** | 🚀 코드 최적화 |
 | **영향 범위** | 성능 · 품질 |
-| **대상 파일** | `vibereport-extension/src/services/reportService.ts` |
+| **대상 파일** | `vibereport-extension/src/services/workspaceScanner.ts`, `vibereport-extension/src/services/snapshotCache.ts`, `vibereport-extension/src/services/__tests__/workspaceScanner.test.ts` |
 
 **현재 상태:**
-- `updateEvaluationReport` / `updateImprovementReport`가 마커 갱신 후 **항상** `writeFile`을 수행합니다(내용 동일이어도 write).
+- `WorkspaceScanner.getGitInfo()`가 스캔 시점마다 Git 상태/로그를 조회하며, 대형 레포에서는 `status()` 호출이 상대적으로 고비용일 수 있습니다.
+- 연속 실행(자동 업데이트/반복 실행)에서는 “Git 상태 변화가 없음”에도 동일 작업이 반복될 수 있습니다.
 
 **최적화 내용:**
-- 기존 파일 내용을 읽어 변경 여부를 비교하고, 변경이 없으면 write를 생략합니다.
-- write 생략 시 OutputChannel에 “skip write (no diff)” 로그를 남겨 디버깅 가능하게 합니다.
+- `snapshotCache`(TTL 30초) 기반으로 Git 정보를 캐싱하고, 동일 `rootPath`의 연속 스캔에서는 캐시를 재사용합니다.
+- enableGitDiff=false 또는 레포 아님(non-repo) 케이스는 기존처럼 빠르게 종료하도록 유지합니다.
+- 캐시 미스/오류 시에는 기존 로직으로 폴백하여 안전하게 동작합니다.
 
 **예상 효과:**
-- 디스크 I/O 및 파일 워처 이벤트 감소 → 자동 업데이트/확장 동작 안정화.
-- Git 작업 시 불필요한 diff 노이즈 감소.
+- 대형 레포에서 보고서 업데이트 체감 시간을 단축하고, 자동 업데이트 모드의 CPU/I/O 사용량을 안정화합니다.
 
 **측정 지표:**
-- 변경 없는 상태에서 보고서 업데이트 후 `git diff`가 깨끗하게 유지되는지 확인.
-- 동일 스냅샷 입력에서 write 횟수(또는 로그)가 0회인지 확인.
+- 동일 워크스페이스에서 연속 실행 시 Git status 호출 횟수 감소(테스트에서 호출 수 검증).
+- Git 상태가 실제로 변경되었을 때(커밋/스테이지/수정) 정보가 갱신되는지 확인(수동 또는 추가 테스트).
 <!-- AUTO-OPTIMIZATION-END -->
 
 ---
@@ -235,35 +208,37 @@
 <!-- AUTO-FEATURE-LIST-START -->
 ### 🟢 개선 (P3)
 
-#### [P3-1] TODO/FIXME 스캔 기반 개선 후보 자동 생성
+#### [P3-1] analysisRoot 설정 마법사(QuickPick) 명령 추가
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `feat-todo-fixme-scan-001` |
+| **ID** | `feat-analysisroot-wizard-001` |
 | **카테고리** | ✨ 기능 추가 |
 | **복잡도** | Medium |
-| **대상 파일** | `vibereport-extension/src/services/workspaceScanner.ts`, `vibereport-extension/src/services/reportService.ts`, `vibereport-extension/src/models/types.ts` |
+| **대상 파일** | `vibereport-extension/package.json`, `vibereport-extension/src/commands/setAnalysisRootWizard.ts`(신규), `vibereport-extension/src/commands/index.ts`, `vibereport-extension/src/extension.ts`, `vibereport-extension/src/commands/__tests__/setAnalysisRootWizard.test.ts`(신규) |
 | **Origin** | manual-idea |
 | **리스크 레벨** | low |
-| **관련 평가 카테고리** | maintainability, codeQuality |
+| **관련 평가 카테고리** | usability, scalability, productionReadiness |
 
 **기능 목적:**
-- 코드에 남아있는 TODO/FIXME를 근거로 “미적용 개선 후보”를 자동 수집하여 개선 보고서의 신뢰도와 실행성을 높입니다.
+- 모노레포/서브폴더 프로젝트에서 “분석 대상 루트(analysisRoot)”를 빠르게 선택·저장하여, 구조도/스캔 품질과 초기 온보딩을 개선합니다.
 
 **현재 상태:**
-- 개선 탐색 절차에는 TODO/FIXME 스캔이 언급되지만, 실제 자동 추출 결과가 보고서에 포함되지 않습니다.
+- `vibereport.analysisRoot` 설정은 존재하지만 사용자가 직접 설정 파일을 편집해야 하며, 올바른 후보 경로를 찾기 위한 가이드/도구가 부족합니다.
 
 **제안 구현 전략:**
-- 스캔 대상 확장자(ts/js/md 등)와 최대 파일/라인 제한을 두고, `TODO`/`FIXME` 패턴을 수집(파일/라인/요약)합니다.
-- 결과를 개선 보고서에 요약 섹션(또는 P3 후보)으로 반영하고, Origin을 `static-analysis`로 기록합니다.
+- 워크스페이스 하위에서 `package.json`/`tsconfig.json`/`src/extension.ts` 등 신호를 기반으로 후보 폴더를 탐색하고 QuickPick으로 선택합니다.
+- 선택 결과를 Workspace settings(`vibereport.analysisRoot`)에 저장하고, `resolveAnalysisRoot`로 유효성 검증 후 사용자에게 결과를 안내합니다.
+- 선택 후 즉시 “보고서 업데이트”를 실행하도록 선택 옵션을 제공(선택 사항).
 
 **기대 효과:**
-- 개선 항목의 근거 강화(“어디에서 발견됐는지”가 명확), AI 프롬프트 생성 품질 향상.
+- 모노레포에서도 구조도/언어 통계/스캔 결과의 품질이 개선되고, 설정 실수로 인한 진단 품질 저하를 줄입니다.
 
 **✅ Definition of Done:**
-- [ ] 파일/라인 포함 TODO/FIXME 요약이 보고서에 생성됨(상한/필터 포함)
-- [ ] exclude 패턴 및 성능 상한(최대 파일/라인) 준수
-- [ ] 관련 테스트 추가 후 `pnpm -C vibereport-extension run test:run` 통과
+- [ ] 명령/설정 기여(package.json) 추가 및 동작 확인
+- [ ] 후보 탐색/유효성 검증/설정 저장이 정상 동작
+- [ ] 단위 테스트 추가 및 통과
+- [ ] `pnpm -C vibereport-extension run compile && pnpm -C vibereport-extension run test:run` 통과
 <!-- AUTO-FEATURE-LIST-END -->
 
 ---

@@ -4,7 +4,17 @@
  */
 
 import * as vscode from 'vscode';
-import { UpdateReportsCommand, MarkImprovementAppliedCommand, SetProjectVisionCommand, GeneratePromptCommand, ShareReportCommand, ReportDoctorCommand } from './commands/index.js';
+import * as path from 'path';
+	import {
+	  UpdateReportsCommand,
+	  MarkImprovementAppliedCommand,
+	  SetProjectVisionCommand,
+	  SetAnalysisRootWizardCommand,
+	  GeneratePromptCommand,
+	  ShareReportCommand,
+	  ExportReportBundleCommand,
+	  ReportDoctorCommand,
+	} from './commands/index.js';
 import { UpdateReportsAllCommand } from './commands/updateReportsAll.js';
 import { exportSettings, importSettings } from './commands/settingsSync.js';
 import { CleanHistoryCommand } from './commands/cleanHistory.js';
@@ -16,6 +26,7 @@ import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
 import { formatTimestampForUi, loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from './utils/index.js';
+import { validateOpenCodeReferencePath } from './utils/pathGuards.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -40,12 +51,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     outputChannel,
     updateReportsCommand
   );
-  const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);  
-  const setVisionCommand = new SetProjectVisionCommand(outputChannel);
-  const generatePromptCommand = new GeneratePromptCommand(outputChannel);
-  const shareReportCommand = new ShareReportCommand(outputChannel);
-  const reportDoctorCommand = new ReportDoctorCommand(outputChannel);
-  const cleanHistoryCommand = new CleanHistoryCommand(outputChannel);
+	  const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);  
+	  const setVisionCommand = new SetProjectVisionCommand(outputChannel);
+	  const setAnalysisRootWizardCommand = new SetAnalysisRootWizardCommand(outputChannel);
+	  const generatePromptCommand = new GeneratePromptCommand(outputChannel);
+	  const shareReportCommand = new ShareReportCommand(outputChannel);
+	  const exportReportBundleCommand = new ExportReportBundleCommand(outputChannel);
+	  const reportDoctorCommand = new ReportDoctorCommand(outputChannel);
+	  const cleanHistoryCommand = new CleanHistoryCommand(outputChannel);
   const openReportPreviewCommand = new OpenReportPreviewCommand(outputChannel, context.extensionUri);
 
   // Auto-update Reports (opt-in)
@@ -363,16 +376,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   // 명령 등록: Set Project Vision
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.setProjectVision', async () => {
-      await setVisionCommand.execute();
-    })
-  );
+	  context.subscriptions.push(
+	    vscode.commands.registerCommand('vibereport.setProjectVision', async () => {
+	      await setVisionCommand.execute();
+	    })
+	  );
+	
+	  // 명령 등록: Set Analysis Root Wizard
+	  context.subscriptions.push(
+	    vscode.commands.registerCommand('vibereport.setAnalysisRootWizard', async () => {
+	      await setAnalysisRootWizardCommand.execute();
+	    })
+	  );
 
-  // 명령 등록: Generate Prompt (개선 항목 선택하여 프롬프트 생성)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.generatePrompt', async () => {
-      await generatePromptCommand.execute();
+	  // 명령 등록: Generate Prompt (개선 항목 선택하여 프롬프트 생성)
+	  context.subscriptions.push(
+	    vscode.commands.registerCommand('vibereport.generatePrompt', async () => {
+	      await generatePromptCommand.execute();
     })
   );
 
@@ -380,6 +400,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand('vibereport.shareReport', async () => {
       await shareReportCommand.execute();
+    })
+  );
+
+  // 명령 등록: Export Report Bundle (보고서 + 공유 프리뷰 번들 내보내기)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.exportReportBundle', async () => {
+      await exportReportBundleCommand.execute();
     })
   );
 
@@ -590,7 +617,49 @@ export function deactivate(): void {
 // ===== Helper Functions =====
 
 async function openFunctionInFile(filePath: string, symbolName?: string): Promise<void> {
-  const uri = vscode.Uri.file(filePath);
+  const config = loadConfig();
+  const normalizedInput = typeof filePath === 'string' ? filePath.trim() : '';
+  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+  const workspaceFolderPaths = workspaceFolders.map(folder => folder.uri.fsPath);
+
+  const validation = validateOpenCodeReferencePath({
+    filePath: normalizedInput,
+    workspaceFolders: workspaceFolderPaths,
+    analysisRoot: config.analysisRoot,
+  });
+
+  if (!validation.ok) {
+    if (validation.reason === 'empty') {
+      vscode.window.showWarningMessage('파일 경로가 비어있어 열 수 없습니다.');
+      return;
+    }
+
+    if (validation.reason === 'nonAbsolute') {
+      vscode.window.showWarningMessage('보안 정책: 절대 경로가 아닌 파일은 열 수 없습니다.');
+      outputChannel?.appendLine(`[openFunctionInFile] blocked non-absolute path: ${normalizedInput}`);
+      return;
+    }
+
+    if (validation.reason === 'outsideWorkspace') {
+      vscode.window.showWarningMessage('보안 정책: 워크스페이스 밖 파일은 열 수 없습니다.');
+      outputChannel?.appendLine(`[openFunctionInFile] blocked outside workspace: ${normalizedInput}`);
+      return;
+    }
+
+    vscode.window.showWarningMessage('보안 정책: analysisRoot 밖 파일은 열 수 없습니다.');
+    outputChannel?.appendLine(
+      `[openFunctionInFile] blocked outside analysisRoot: ${normalizedInput} (analysisRoot=${validation.analysisRootPath})`
+    );
+    return;
+  }
+
+  if (validation.analysisRootSource === 'workspaceRoot' && config.analysisRoot.trim()) {
+    outputChannel?.appendLine(
+      `[openFunctionInFile] invalid analysisRoot, falling back to workspace root: ${config.analysisRoot}`
+    );
+  }
+
+  const uri = vscode.Uri.file(validation.targetResolved);
 
   try {
     const doc = await vscode.workspace.openTextDocument(uri);
@@ -612,7 +681,7 @@ async function openFunctionInFile(filePath: string, symbolName?: string): Promis
     }
   } catch (error) {
     outputChannel?.appendLine(`[openFunctionInFile] ${error}`);
-    vscode.window.showErrorMessage(`파일을 열 수 없습니다: ${filePath}`);
+    vscode.window.showErrorMessage(`파일을 열 수 없습니다: ${normalizedInput}`);
   }
 }
 

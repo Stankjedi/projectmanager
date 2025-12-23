@@ -22,30 +22,14 @@ import type {
   TauriConfigSummary,
   CargoTomlSummary,
   GitInfo,
-  TodoFixmeFinding,
-  TodoFixmeTag,
   ProgressCallback,
   VibeReportConfig,
 } from '../models/types.js';
 import { LANGUAGE_EXTENSIONS, IMPORTANT_CONFIG_FILES } from '../models/types.js';
-import { getCachedValue, setCachedValue, createCacheKey } from './snapshotCache.js';
-
-function normalizeExcludePatterns(patterns: string[]): string[] {
-  const trimmed = patterns
-    .map((pattern) => pattern.trim())
-    .filter((pattern) => pattern.length > 0)
-    .sort();
-
-  const unique: string[] = [];
-  const seen = new Set<string>();
-  for (const pattern of trimmed) {
-    if (seen.has(pattern)) continue;
-    seen.add(pattern);
-    unique.push(pattern);
-  }
-
-  return unique;
-}
+import { collectFiles as collectFilesImpl } from './workspaceScanner/fileCollector.js';
+import { calculateLanguageStats } from './workspaceScanner/languageStats.js';
+import { scanTodoFixmeFindings } from './workspaceScanner/todoFixmeScanner.js';
+import { createCacheKey, getCachedValue, setCachedValue } from './snapshotCache.js';
 
 export class WorkspaceScanner {
   private outputChannel: vscode.OutputChannel;
@@ -77,7 +61,7 @@ export class WorkspaceScanner {
     onProgress?.('언어 통계 분석 중...', 30);
 
     // 언어 통계 계산
-    const languageStats = this.calculateLanguageStats(files);
+    const languageStats = calculateLanguageStats(files);
 
     // 디렉토리 수 계산
     const directories = new Set<string>();
@@ -103,7 +87,7 @@ export class WorkspaceScanner {
     const structureDiagram = this.generateFunctionBasedStructure(files, rootPath, mainConfigFiles);
 
     onProgress?.('TODO/FIXME 스캔 중...', 80);
-    const todoFixmeFindings = await this.scanTodoFixmeFindings(rootPath, files);
+    const todoFixmeFindings = await scanTodoFixmeFindings(rootPath, files);
 
     onProgress?.('Git 정보 수집 중...', 85);
 
@@ -144,121 +128,11 @@ export class WorkspaceScanner {
     rootPath: string,
     config: VibeReportConfig
   ): Promise<string[]> {
-    const normalizedExcludePatterns = normalizeExcludePatterns(config.excludePatterns);
-    const cacheKey = createCacheKey(
-      'file-list',
+    return collectFilesImpl({
       rootPath,
-      config.maxFilesToScan,
-      `exclude=${normalizedExcludePatterns.join(',')}`
-    );
-    const cached = getCachedValue<string[]>(cacheKey);
-
-    if (cached) {
-      this.log(`[WorkspaceScanner] Using cached file list for ${rootPath}`);
-      return cached;
-    }
-
-    const excludePattern =
-      normalizedExcludePatterns.length > 0
-        ? `{${normalizedExcludePatterns.join(',')}}`
-        : undefined;
-
-    const uris = await vscode.workspace.findFiles(
-      '**/*',
-      excludePattern,
-      config.maxFilesToScan
-    );
-
-    const files = uris
-      .filter(uri => uri.fsPath.startsWith(rootPath))
-      .map(uri => path.relative(rootPath, uri.fsPath).replace(/\\/g, '/'));
-
-    setCachedValue(cacheKey, files);
-    return files;
-  }
-
-  /**
-   * 언어별 파일 수 통계
-   */
-  private calculateLanguageStats(files: string[]): Record<string, number> {
-    const stats: Record<string, number> = {};
-
-    for (const file of files) {
-      const ext = path.extname(file).slice(1).toLowerCase();
-      if (ext && LANGUAGE_EXTENSIONS[ext]) {
-        stats[ext] = (stats[ext] || 0) + 1;
-      }
-    }
-
-    // 내림차순 정렬
-    const sorted = Object.entries(stats)
-      .sort((a, b) => b[1] - a[1])
-      .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {} as Record<string, number>);
-
-    return sorted;
-  }
-
-  private async scanTodoFixmeFindings(
-    rootPath: string,
-    files: string[]
-  ): Promise<TodoFixmeFinding[]> {
-    const maxFilesToInspect = 300;
-    const maxFileBytes = 200_000;
-    const maxFindings = 200;
-    const findings: TodoFixmeFinding[] = [];
-    const tagRegex = /\b(TODO|FIXME)\b/;
-
-    const isTextFile = (relativePath: string): boolean => {
-      const ext = path.extname(relativePath).slice(1).toLowerCase();
-      const baseName = path.basename(relativePath).toLowerCase();
-      if (ext && LANGUAGE_EXTENSIONS[ext]) return true;
-      return baseName === 'dockerfile' || baseName === 'makefile';
-    };
-
-    let inspected = 0;
-    for (const relativePath of files) {
-      if (inspected >= maxFilesToInspect || findings.length >= maxFindings) break;
-      if (!isTextFile(relativePath)) continue;
-
-      inspected += 1;
-      const fullPath = path.join(rootPath, relativePath);
-
-      try {
-        const stat = await fs.stat(fullPath);
-        if (stat.size > maxFileBytes) continue;
-
-        const content = await fs.readFile(fullPath, 'utf-8');
-        if (content.includes('\u0000')) continue;
-
-        const lines = content.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          const match = line.match(tagRegex);
-          if (!match) continue;
-
-          const tag = match[1] as TodoFixmeTag;
-          const matchIndex = match.index ?? 0;
-          let text = line.slice(matchIndex + match[0].length);
-          text = text.replace(/^[:\s-]+/, '').trim();
-          if (!text) text = line.trim();
-          text = text.replace(/\s+/g, ' ').trim();
-          if (text.length > 200) text = `${text.slice(0, 200)}...`;
-
-          findings.push({
-            file: relativePath,
-            line: i + 1,
-            tag,
-            text,
-          });
-
-          if (findings.length >= maxFindings) break;
-        }
-      } catch {
-        // Ignore read errors and continue scanning other files.
-      }
-    }
-
-    return findings;
+      config,
+      log: (message) => this.log(message),
+    });
   }
 
   /**
@@ -571,6 +445,12 @@ export class WorkspaceScanner {
    * Git 정보 수집
    */
   private async getGitInfo(rootPath: string): Promise<GitInfo | undefined> {
+    const cacheKey = createCacheKey('git-info', rootPath);
+    const cached = getCachedValue<GitInfo>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const { simpleGit } = await import('simple-git');
       const git = simpleGit(rootPath);
@@ -598,7 +478,7 @@ export class WorkspaceScanner {
         // 커밋 히스토리 없음
       }
 
-      return {
+      const gitInfo: GitInfo = {
         branch: branch.current,
         currentCommit: lastCommit.hash,
         lastCommitHash: lastCommit.hash,
@@ -607,6 +487,9 @@ export class WorkspaceScanner {
         hasUncommittedChanges: !status.isClean(),
         uncommittedFilesCount: status.files.length,
       };
+
+      setCachedValue(cacheKey, gitInfo);
+      return gitInfo;
     } catch (error) {
       this.log(`Git 정보 수집 실패: ${error}`);
       return undefined;
@@ -672,13 +555,18 @@ export class WorkspaceScanner {
     for (const file of files) {
       const parts = file.split('/');
       const firstDir = parts[0];
-      const secondDir = parts.length > 1 ? parts[1] : null;
 
-      // src 하위 디렉토리 우선 확인
-      if (firstDir === 'src' && secondDir && functionalCategories[secondDir]) {
-        functionalCategories[secondDir].files.push(file);
-      } else if (functionalCategories[firstDir]) {
+      // 워크스페이스 최상위 기능 디렉토리 우선
+      if (functionalCategories[firstDir]) {
         functionalCategories[firstDir].files.push(file);
+        continue;
+      }
+
+      // 모노레포/서브프로젝트 지원: */src/<category>/... 형태 처리
+      const srcIndex = parts.indexOf('src');
+      const category = srcIndex >= 0 ? parts[srcIndex + 1] : null;
+      if (category && functionalCategories[category]) {
+        functionalCategories[category].files.push(file);
       }
     }
 
@@ -709,9 +597,9 @@ export class WorkspaceScanner {
 
     // 주요 엔트리포인트
     lines.push('#### 주요 진입점');
-    const entryPoints = files.filter(f =>
-      /^(src\/)?(main|index|app|extension|server)\.(ts|tsx|js|jsx)$/.test(f)
-    ).slice(0, 5);
+    const entryPointRegex =
+      /^(?:(?:[^/]+\/)*src\/)?(main|index|app|extension|server)\.(ts|tsx|js|jsx)$/;
+    const entryPoints = files.filter((f) => entryPointRegex.test(f)).slice(0, 5);
 
     if (entryPoints.length > 0) {
       for (const entry of entryPoints) {
