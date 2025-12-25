@@ -11,6 +11,8 @@ import { getPreviewStyle } from '../utils/previewStyle.js';
 export class OpenReportPreviewCommand {
   private outputChannel: vscode.OutputChannel;
   private extensionUri: vscode.Uri | undefined;
+  private static currentPanel: vscode.WebviewPanel | undefined;
+  private static currentUri: vscode.Uri | undefined;
 
   constructor(outputChannel: vscode.OutputChannel, extensionUri?: vscode.Uri) {
     this.outputChannel = outputChannel;
@@ -39,6 +41,7 @@ export class OpenReportPreviewCommand {
     try {
       const content = document.getText();
       const fileName = document.fileName.split(/[\\/]/).pop() || 'Report Preview';
+      const fileUri = document.uri;
 
       // 설정에 따른 ViewColumn 결정
       const config = vscode.workspace.getConfiguration('vibereport');
@@ -48,7 +51,20 @@ export class OpenReportPreviewCommand {
         ? vscode.ViewColumn.Beside
         : vscode.ViewColumn.Active;
 
-      this.showPreviewPanel(content, fileName, viewColumn);
+      // 기존 패널이 있고 같은 파일을 보여주고 있다면 포커스만 함
+      if (OpenReportPreviewCommand.currentPanel && OpenReportPreviewCommand.currentUri?.toString() === fileUri.toString()) {
+        OpenReportPreviewCommand.currentPanel.reveal(viewColumn);
+        // 내용이 바뀌었을 수도 있으므로 업데이트
+        let mermaidScriptUri = '';
+        if (this.extensionUri && OpenReportPreviewCommand.currentPanel.webview.asWebviewUri) {
+          const mermaidPath = vscode.Uri.joinPath(this.extensionUri, 'media', 'mermaid.min.js');
+          mermaidScriptUri = OpenReportPreviewCommand.currentPanel.webview.asWebviewUri(mermaidPath).toString();
+        }
+        OpenReportPreviewCommand.currentPanel.webview.html = this.buildFullPreviewHtml(content, mermaidScriptUri, OpenReportPreviewCommand.currentPanel.webview);
+        return;
+      }
+
+      this.showPreviewPanel(content, fileName, viewColumn, fileUri);
       this.log(`보고서 미리보기 열림: ${fileName} (Mode: ${reportOpenMode})`);
     } catch (error) {
       vscode.window.showErrorMessage(`보고서를 열 수 없습니다: ${error}`);
@@ -59,7 +75,12 @@ export class OpenReportPreviewCommand {
   /**
    * Webview 패널 생성 및 표시
    */
-  private showPreviewPanel(markdown: string, title: string, viewColumn: vscode.ViewColumn): void {
+  private showPreviewPanel(markdown: string, title: string, viewColumn: vscode.ViewColumn, uri: vscode.Uri): void {
+    // 기존 패널이 있다면 닫음 (다른 파일인 경우)
+    if (OpenReportPreviewCommand.currentPanel) {
+      OpenReportPreviewCommand.currentPanel.dispose();
+    }
+
     const panel = vscode.window.createWebviewPanel(
       'vibeReportFullPreview',
       `📊 ${title}`,
@@ -72,6 +93,16 @@ export class OpenReportPreviewCommand {
         ] : []
       }
     );
+
+    OpenReportPreviewCommand.currentPanel = panel;
+    OpenReportPreviewCommand.currentUri = uri;
+
+    panel.onDidDispose(() => {
+      if (OpenReportPreviewCommand.currentPanel === panel) {
+        OpenReportPreviewCommand.currentPanel = undefined;
+        OpenReportPreviewCommand.currentUri = undefined;
+      }
+    }, null);
 
     // Get URI for local mermaid.min.js
     let mermaidScriptUri = '';

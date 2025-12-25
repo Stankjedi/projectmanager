@@ -29,12 +29,12 @@
 <!-- AUTO-TLDR-START -->
 | 항목 | 내용 |
 |:---|:---|
-| **현재 버전** | v0.4.32 (2025-12-23) |
+| **현재 버전** | v0.4.33 (2025-12-24 기준) |
 | **전체 등급** | 🔵 B+ (89점) |
 | **전체 점수** | 89/100 |
-| **가장 큰 리스크** | Report Doctor가 평가/개선 보고서의 일부 자동 섹션(TL;DR/리스크/매핑/요약/기능 목록 등)을 검증·복구하지 못해, 문서 손상/규칙 위반이 누락될 수 있음(운영 신뢰도 리스크) |
-| **권장 최우선 작업** | `doctor-sections-001`: Report Doctor의 관리 섹션 범위 확장(검증/복구 커버리지 보강) |
-| **다음 우선순위** | `dev-eol-standardize-001`, `dev-preflight-wsl-mount-001`, `feat-open-troubleshooting-001`, `opt-applied-cleanup-perf-001` |
+| **가장 큰 리스크** | 릴리즈 버전 상승 후 `CHANGELOG.md`/`README.md` 버전 정합성이 깨져 `test:run`이 실패할 수 있음(배포/병합 차단 리스크) |
+| **권장 최우선 작업** | `docs-version-sync-001`: CHANGELOG/README 버전 정합성 복구로 테스트/CI 통과 상태 회복 |
+| **다음 우선순위** | `docs-extension-readme-version-001`, `feat-doctor-docs-autofix-001`, `opt-coverage-thresholds-001` |
 <!-- AUTO-TLDR-END -->
 <!-- TLDR-END -->
 
@@ -43,11 +43,10 @@
 <!-- AUTO-RISK-SUMMARY-START -->
 | 리스크 레벨 | 항목 | 관련 개선 ID |
 |------------|------|-------------|
-| 🔴 High | Report Doctor의 검증/복구 커버리지가 일부 자동 섹션에 한정되어, 문서 손상/규칙 위반이 누락될 수 있음 | `doctor-sections-001` |
-| 🟡 Medium | CRLF/LF 혼재 시 diff/스냅샷 노이즈 및 크로스플랫폼 이슈 가능 | `dev-eol-standardize-001` |
-| 🟡 Medium | WSL 마운트 경로(`/mnt/*`)에서 테스트 실행이 preflight로 중단될 수 있으며, 현재 진단 로직은 특정 경로에 치우칠 수 있음 | `dev-preflight-wsl-mount-001` |
-| 🟢 Low | Prompt/백로그가 커질수록 적용 완료 항목 클린업 비용 증가 가능 | `opt-applied-cleanup-perf-001` |
-| 🟢 Low | 트러블슈팅 문서가 존재해도 접근 동선이 길면 지원/온보딩 비용이 증가할 수 있음(명령으로 즉시 열기) | `feat-open-troubleshooting-001` |
+| 🔴 High | 릴리즈 버전(0.4.33) 대비 `CHANGELOG.md`/`README.md` 버전 불일치로 `test:run` 실패(배포/병합 차단) | `docs-version-sync-001` |
+| 🟡 Medium | 확장 README의 설치/릴리즈 안내가 패키지 버전과 불일치할 수 있어 사용자 혼선 발생 | `docs-extension-readme-version-001` |
+| 🟡 Medium | Doctor가 DOCS_VERSION_MISMATCH를 자동 수정하지 못해 반복 실수/운영 비용 증가 가능 | `feat-doctor-docs-autofix-001` |
+| 🟢 Low | 커버리지 thresholds가 현재 수준 대비 낮아 회귀 탐지력이 약해질 수 있음 | `opt-coverage-thresholds-001` |
 <!-- AUTO-RISK-SUMMARY-END -->
 <!-- RISK-SUMMARY-END -->
 
@@ -67,14 +66,14 @@
 | 항목 | 값 |
 |---|---|
 | **리포지토리** | `Stankjedi/projectmanager` (git: `0bff686`) |
-| **확장 버전** | v0.4.32 |
+| **확장 버전** | v0.4.33 |
 | **분석 기준일** | 2025-12-24 |
-| **프로젝트 규모** | 161 files / 28 dirs (주요: ts 117, md 12, json 8, js 6) |
+| **프로젝트 규모** | 159 files / 28 dirs (주요: ts 116, md 12, json 8, js 5, ps1 2) |
 | **주요 구성** | `vibereport-extension/`(VS Code 확장) · `devplan/`(평가/개선/프롬프트) |
 | **주요 기술** | TypeScript · VS Code API · Vitest · Mermaid · ESLint · simple-git · ignore |
 | **CI 파이프라인** | GitHub Actions(ubuntu-latest)에서 compile/lint/test/coverage 실행 |
-| **테스트/커버리지(최근 산출물)** | statements 86.75% / branches 71.11% / functions 85.44% / lines 88.41% |
-| **로컬 검증(본 환경)** | `pnpm -C vibereport-extension run compile`/`lint` 통과. `test:run`은 WSL(`/mnt/c`)에서 preflight가 Rollup native 모듈 누락을 감지해 중단됨(환경 이슈) |
+| **테스트/커버리지(최근 산출물)** | statements 86.76% / branches 71.12% / functions 85.45% / lines 88.42% |
+| **로컬 검증(본 환경)** | `pnpm -C vibereport-extension run compile`/`lint` 통과. `test:run`은 문서 버전 정합성 테스트에서 `CHANGELOG.md`/`README.md` 버전 불일치(0.4.32 ↔ 0.4.33)로 실패 |
 <!-- AUTO-OVERVIEW-END -->
 
 ---
@@ -86,69 +85,48 @@
 flowchart LR
     subgraph UI["사용자 인터페이스"]
         Ext["extension.ts<br/>활성화/명령·뷰 등록"]
-        Summary["SummaryViewProvider<br/>요약 Webview"]
-        History["HistoryViewProvider<br/>세션 히스토리 트리"]
-        Settings["SettingsViewProvider<br/>설정 Webview"]
-        Preview["OpenReportPreviewCommand<br/>Mermaid 프리뷰"]
+        Views["사이드바/웹뷰<br/>요약·히스토리·설정"]
+        Preview["보고서 프리뷰/공유"]
     end
 
-    subgraph Commands["명령/워크플로우"]
-        Update["UpdateReportsCommand<br/>스캔→프롬프트 생성"]
-        UpdateAll["UpdateReportsAllCommand<br/>멀티 워크스페이스"]
-        GenPrompt["GeneratePromptCommand<br/>개선 프롬프트 생성"]
-        Doctor["ReportDoctorCommand<br/>보고서 검증/복구"]
-        Share["ShareReportCommand<br/>공유 프리뷰(레드액션)"]
-        Export["ExportReportBundleCommand<br/>번들 내보내기"]
-        RootWizard["SetAnalysisRootWizard<br/>analysisRoot 설정"]
+    subgraph Workflow["보고서 워크플로우"]
+        Update["보고서 업데이트<br/>스캔 → 스냅샷 → 갱신"]
+        Prompt["개선 프롬프트 생성"]
+        Doctor["Report Doctor<br/>검증/복구"]
     end
 
-    subgraph Services["핵심 서비스"]
-        Scanner["WorkspaceScanner<br/>파일/구조/TODO 스캔"]
-        Snapshot["SnapshotService<br/>스냅샷/세션/DIFF"]
+    subgraph Core["핵심 서비스"]
+        Scanner["WorkspaceScanner<br/>구조/메타 수집"]
+        Snapshot["SnapshotService<br/>세션/DIFF"]
         ReportSvc["ReportService<br/>템플릿/마커 갱신"]
-        Watcher["AutoUpdateReportsManager<br/>자동 업데이트(옵션)"]
         AI["AiService<br/>Direct AI(옵션)"]
     end
 
-    subgraph Utils["유틸/정책"]
-        Markers["markerUtils/markdownUtils<br/>마커·파싱·등급/변화"]
-        Guards["pathGuards/redactionUtils<br/>경로 경계·레드액션"]
-        Gitignore["gitignoreUtils<br/>.gitignore 매칭"]
-        Config["configUtils<br/>설정 로딩/정규화"]
+    subgraph Policy["유틸/정책"]
+        Rules["Config/Gitignore/Path Guards"]
+        Markdown["Markdown/Marker Utils"]
     end
 
-    subgraph Tooling["개발/유지보수 도구"]
-        DocsSync["syncDocsVersion.js<br/>문서 버전 동기화"]
-        Preflight["preflightTestEnv.js<br/>WSL 테스트 사전 진단"]
+    subgraph Tooling["개발/유지보수"]
+        Preflight["preflightTestEnv.js<br/>WSL 사전 진단"]
+        DocsCheck["docsConsistency.test.ts<br/>문서 버전 정합성 테스트"]
     end
 
-    Ext --> Update
-    Ext --> UpdateAll
-    Ext --> GenPrompt
-    Ext --> Doctor
-    Ext --> Share
-    Ext --> Export
-    Ext --> RootWizard
-    Ext --> Summary
-    Ext --> History
-    Ext --> Settings
+    Ext --> Views
     Ext --> Preview
+    Ext --> Workflow
 
-    Update --> Scanner
-    Update --> Snapshot
-    Update --> ReportSvc
-    Update -.-> AI
-    Update --> Watcher
+    Workflow --> Scanner
+    Workflow --> Snapshot
+    Workflow --> ReportSvc
+    Workflow -.-> AI
 
-    Scanner --> Gitignore
-    Scanner --> Config
-    ReportSvc --> Markers
-    ReportSvc --> Guards
-    Share --> Guards
-    Export --> Guards
-    Doctor --> Markers
-    Preflight -.-> Update
-    DocsSync -.-> ReportSvc
+    Scanner --> Rules
+    ReportSvc --> Markdown
+    ReportSvc --> Rules
+
+    Preflight -.-> Workflow
+    DocsCheck -.-> Workflow
 ```
 <!-- AUTO-STRUCTURE-END -->
 
@@ -183,7 +161,7 @@ flowchart LR
 
 > **평가 기준일:** 2025-12-24  
 > 점수는 (1) 코드 구조/타입 안정성 (2) 운영 기능(마커/Doctor/프리뷰/공유/번들) (3) 보안(경로 경계/레드액션/Webview) (4) 테스트 자산/실행 가능성 (5) 문서/개발자 경험을 종합해 산정했습니다.  
-> **로컬 검증(본 환경):** `pnpm -C vibereport-extension run compile`/`lint` 통과. `test:run`은 WSL(`/mnt/c`)에서 preflight가 Rollup native 모듈 누락을 감지해 중단됩니다(WSL 네이티브 경로에서 재설치 필요).
+> **로컬 검증(본 환경):** `pnpm -C vibereport-extension run compile`/`lint` 통과. `test:run`은 `docsConsistency` 테스트에서 `CHANGELOG.md`/`README.md` 버전 불일치(0.4.32 ↔ 0.4.33)로 실패합니다 → `docs-version-sync-001`.
 
 ### 점수 ↔ 등급 기준표
 
@@ -213,19 +191,18 @@ flowchart LR
 | **성능** | 88 | 🔵 B+ | — |
 | **테스트 커버리지** | 88 | 🔵 B+ | — |
 | **에러 처리** | 89 | 🔵 B+ | — |
-| **문서화** | 86 | 🔵 B | ⬆️ +6 |
+| **문서화** | 84 | 🔵 B | — |
 | **확장성** | 90 | 🟢 A- | — |
-| **유지보수성** | 88 | 🔵 B+ | ⬇️ -2 |
-| **프로덕션 준비도** | 87 | 🔵 B+ | ⬆️ +1 |
+| **유지보수성** | 89 | 🔵 B+ | — |
+| **프로덕션 준비도** | 84 | 🔵 B | — |
 | **총점 평균** | **89** | 🔵 B+ | — |
 
 ### 점수 산출 메모 (요약)
 
 - **운영 기능(상):** 마커 기반 증분 갱신(히스토리 보존) + Report Doctor + Mermaid 프리뷰/공유(레드액션) + 번들 내보내기까지 “운영 루프”가 완성되어 있습니다.
-- **품질/안전망(개선 필요):** Doctor가 모든 자동 섹션(TL;DR/리스크/매핑/요약/기능 목록 등)을 일관되게 검증·복구하도록 범위를 확장하면 운영 회귀 리스크를 더 낮출 수 있습니다 → `doctor-sections-001`.
-- **테스트/개발자 경험(중상):** CI에서 test/coverage가 구성되어 있으나, WSL 마운트 경로(`/mnt/*`)에서 의존성 설치 이력에 따라 테스트가 막힐 수 있습니다(현재 `/mnt/c`에서 preflight로 중단 관찰) → `dev-preflight-wsl-mount-001`.
-- **협업 노이즈(개선):** CRLF/LF 혼재 가능성이 있어 diff/스냅샷 노이즈를 줄이기 위한 eol 정책 확정 및 renormalize를 권장합니다 → `dev-eol-standardize-001`.
-- **성능(개선 여지):** Prompt/개선 항목이 누적될수록 적용 완료 항목 클린업 비용이 증가할 수 있어 최적화 여지가 있습니다 → `opt-applied-cleanup-perf-001`.
+- **품질 게이트(개선 필요):** 현재 `docsConsistency` 테스트가 문서 버전 불일치로 실패하여, CI/로컬에서 “테스트 통과” 상태를 보장하지 못합니다 → `docs-version-sync-001`.
+- **문서 신뢰도(개선):** 사용자를 위한 설치/릴리즈 안내(README)가 패키지 버전과 어긋나면, 실제 배포/설치 동선에서 혼선을 유발할 수 있습니다 → `docs-extension-readme-version-001`.
+- **품질 최적화(권장):** 현재 커버리지 수준 대비 `vitest.config.ts` thresholds가 낮아 회귀 탐지력이 떨어질 수 있어, 기준선을 상향해 품질 게이트를 강화하는 것이 유리합니다 → `opt-coverage-thresholds-001`.
 <!-- AUTO-SCORE-END -->
 
 ---
@@ -235,10 +212,10 @@ flowchart LR
 <!-- AUTO-SCORE-MAPPING-START -->
 | 카테고리 | 현재 점수 | 주요 리스크 | 관련 개선 항목 ID |
 |----------|----------|------------|------------------|
-| 프로덕션 준비도 | 87 (🔵 B+) | Report Doctor의 검증/복구 커버리지 제한으로 운영 신뢰도 저하 가능 | `doctor-sections-001` |
-| 유지보수성 | 88 (🔵 B+) | 문서 규모 증가 시 적용 완료 항목 클린업 비용 증가 및 Doctor 관리 범위 누락 | `opt-applied-cleanup-perf-001`, `doctor-sections-001` |
-| 문서화 | 86 (🔵 B) | 라인 엔딩 정책/renormalize 미적용 시 협업 노이즈 증가, 트러블슈팅 접근성 개선 여지 | `dev-eol-standardize-001`, `feat-open-troubleshooting-001` |
-| 테스트 커버리지 | 88 (🔵 B+) | WSL 마운트 경로에서 테스트 실행이 막히는 환경 이슈의 조기 진단 범위 보강 필요 | `dev-preflight-wsl-mount-001` |
+| 프로덕션 준비도 | 84 (🔵 B) | 릴리즈 문서 버전 불일치로 테스트/CI가 실패하여 배포·병합이 지연될 수 있음 | `docs-version-sync-001`, `feat-doctor-docs-autofix-001` |
+| 문서화 | 84 (🔵 B) | 패키지/README/CHANGELOG/확장 README 간 버전 불일치 시 사용자 혼선 및 운영 신뢰도 저하 | `docs-version-sync-001`, `docs-extension-readme-version-001` |
+| 유지보수성 | 89 (🔵 B+) | 커버리지 기준선(thresholds)이 낮으면 회귀를 늦게 탐지해 유지보수 비용이 증가할 수 있음 | `opt-coverage-thresholds-001` |
+| 테스트 커버리지 | 88 (🔵 B+) | 커버리지 자체는 양호하나 thresholds가 낮으면 품질 게이트로서의 효력이 약해질 수 있음 | `opt-coverage-thresholds-001` |
 <!-- AUTO-SCORE-MAPPING-END -->
 <!-- SCORE-MAPPING-END -->
 
@@ -248,63 +225,48 @@ flowchart LR
 ## 🔍 기능별 상세 평가
 
 > **관찰 근거:** `pnpm -C vibereport-extension run compile`/`lint` 통과(2025-12-24).  
-> CI(`.github/workflows/ci.yml`)에서 `test:run`/`test:coverage` 실행이 구성되어 있습니다.  
-> 본 작업 환경(WSL의 `/mnt/c`)에서는 테스트 실행 시 preflight가 Rollup native 모듈 누락을 감지해 중단됩니다(환경 이슈).
+> 로컬 `pnpm -C vibereport-extension run test:run`은 `docsConsistency`에서 `CHANGELOG.md`/`README.md` 버전 불일치(0.4.32 ↔ 0.4.33)로 실패합니다.  
+> 커버리지(최근 산출물): statements 86.76% / branches 71.12% / functions 85.45% / lines 88.42%.
 
 | 모듈/서비스 | 기능 완성도 | 코드 품질 | 에러 처리 | 성능 | 요약 평가 |
 |-------------|------------:|----------:|----------:|------:|-----------|
-| **확장 진입점/명령** | 92/100 | 89/100 | 89/100 | 88/100 | 명령·뷰·운영 동선이 풍부(업데이트/프롬프트/프리뷰/Doctor/번들). 다만 Doctor가 일부 자동 섹션만 검증·복구하여 운영 안전망 보강 여지 → `doctor-sections-001`. |
-| **스캔/스냅샷** | 93/100 | 90/100 | 88/100 | 89/100 | 파일 수집/민감 파일 필터/캐시/TODO 스캔이 견고. 대형 워크스페이스에서의 비용은 설정/캐시로 완화되나 지속 관찰 필요. |
-| **보고서 생성/백로그 정리** | 92/100 | 89/100 | 90/100 | 88/100 | 마커 기반 갱신/링크화/적용 완료 항목 정리까지 탄탄. Prompt/백로그가 커질수록 클린업 비용 증가 가능 → `opt-applied-cleanup-perf-001`. |
-| **Doctor/검증 도구** | 91/100 | 89/100 | 90/100 | 89/100 | 마커/테이블/Prompt 규칙(영문 전용, 체크리스트/완료 섹션) 검증이 강점. 다만 평가/개선 보고서의 “관리 대상 섹션” 범위 확장이 필요 → `doctor-sections-001`. |
-| **프리뷰/공유(mermaid)** | 90/100 | 88/100 | 88/100 | 88/100 | Mermaid 프리뷰 + 공유 프리뷰(레드액션) 제공. 민감 정보 기본 차단 및 경로 가드가 강점. |
-| **UI(Views)/설정** | 91/100 | 89/100 | 88/100 | 87/100 | Summary/History/Settings 3축 UI로 “상태 확인 → 실행 → 기록” 흐름이 좋음. |
-| **개발/릴리즈 도구** | 88/100 | 86/100 | 87/100 | 88/100 | WSL(`/mnt/*`) 환경에서 테스트 실행이 막힐 수 있어 사전 진단/가이드를 더 촘촘히 하는 것이 DX에 유리 → `dev-preflight-wsl-mount-001`. 라인 엔딩 정책 확정/renormalize로 협업 노이즈를 줄일 수 있음 → `dev-eol-standardize-001`. |
+| **확장 진입점/명령** | 93/100 | 90/100 | 89/100 | 88/100 | Update/Prompt/Preview/Doctor/Bundle 등 운영 루프가 견고. 다만 릴리즈 문서 버전 불일치로 테스트가 실패하여 배포 신뢰도 리스크 존재 → `docs-version-sync-001`. |
+| **스캔/스냅샷** | 93/100 | 90/100 | 88/100 | 89/100 | 파일 수집/민감 파일 필터/캐시/TODO 스캔이 견고. 대형 워크스페이스에서는 스캔 비용 모니터링 필요. |
+| **보고서 생성/백로그 정리** | 92/100 | 89/100 | 90/100 | 88/100 | 마커 기반 갱신/링크화/정리 로직이 안정적. 문서가 장기적으로 커질 때 성능 측정 기반 운영 권장. |
+| **Doctor/검증 도구** | 92/100 | 90/100 | 90/100 | 89/100 | 보고서 마커/테이블/Prompt 규칙 + 문서 버전 정합성 검사까지 제공. 버전 불일치 자동 수정 액션 추가 시 운영 효율 개선 → `feat-doctor-docs-autofix-001`. |
+| **프리뷰/공유(mermaid)** | 90/100 | 88/100 | 88/100 | 88/100 | Mermaid 프리뷰 + 공유 프리뷰(레드액션) 제공, 민감 정보 마스킹 기본값이 강점. |
+| **UI(Views)/설정** | 91/100 | 89/100 | 88/100 | 87/100 | Summary/History/Settings 3축 UI로 “상태 확인 → 실행 → 기록” 동선이 좋음. |
+| **개발/릴리즈 도구** | 87/100 | 86/100 | 87/100 | 88/100 | docsConsistency 실패로 릴리즈 체크리스트 누락이 즉시 드러남. 문서 버전 동기화 및 가이드 정비 필요 → `docs-version-sync-001`, `docs-extension-readme-version-001`. |
 
 ### 1) 확장 진입점/명령 레이어 (`vibereport-extension/src/extension.ts`, `vibereport-extension/src/commands/*`)
 - **기능 완성도:** 보고서 업데이트/프롬프트 생성/프리뷰/Doctor/번들 내보내기 등 운영 루프가 폭넓게 구현되어 있습니다.
-- **코드 품질:** 명령/서비스/뷰 레이어 분리가 명확하고, 테스트 자산도 충분한 편입니다.
+- **코드 품질:** 명령/서비스/뷰 레이어 분리가 명확하고 테스트 자산도 풍부합니다.
 - **에러 처리:** 사용자 메시지 + OutputChannel 로그가 비교적 일관적이며, 취소/폴백 경로(Direct AI 옵션 포함)도 준비되어 있습니다.
 - **성능:** 스캔/캐시 설계로 반복 실행 비용을 낮추는 구조입니다.
-- **강점:** “진단→계획→실행→기록”을 VS Code 안에서 닫힌 루프로 제공(명령/뷰/보고서 연결성이 좋음).
-- **약점 / 리스크:** 보고서 품질 게이트(Doctor)가 모든 자동 섹션을 다루지 못하면, 문서 손상/규칙 위반이 누락될 수 있습니다 → `doctor-sections-001`.
+- **강점:** VS Code 안에서 “진단→계획→실행→기록” 흐름이 닫힌 루프로 연결됩니다.
+- **약점 / 리스크:** 릴리즈 버전 상승 후 문서(README/CHANGELOG) 정합성이 깨지면 테스트가 실패하고 배포/병합이 지연될 수 있습니다 → `docs-version-sync-001`.
 
-### 2) 워크스페이스 스캔/스냅샷 (`vibereport-extension/src/services/workspaceScanner.ts`, `.../workspaceScanner/*`, `.../snapshotService.ts`)
+### 2) 워크스페이스 스캔/스냅샷 (`vibereport-extension/src/services/workspaceScanner.ts`, `.../snapshotService.ts`)
 - **기능 완성도:** 언어 통계/구조 요약/설정 파일 탐지/Git 변경 요약/TODO·FIXME 스캔 등 근거 데이터를 폭넓게 제공합니다.
-- **코드 품질:** 파일 수집/언어 통계/TODO 스캔 등 책임 분리가 명확합니다.
+- **코드 품질:** fileCollector/통계/캐시/스캐너가 모듈로 분리되어 책임이 비교적 명확합니다.
 - **에러 처리:** `.gitignore`/파일 I/O 실패에 대한 방어 로직과 민감 파일 제외 정책이 명시적입니다.
-- **성능:** 파일 목록 캐시와 `.gitignore` mtime 기반 무효화로 반복 실행 비용을 절감합니다.
-- **강점:** 기본 제외 패턴 + 민감 파일 필터로 “의도치 않은 스캔/노출”을 억제합니다.
-- **약점 / 리스크:** 대형 워크스페이스에서 스캔/정규식 기반 후처리(링크화/클린업)의 비용이 커질 수 있어, 단계별 성능 관찰과 안전장치가 중요합니다.
+- **성능:** 목록 캐시와 mtime 기반 무효화로 반복 실행 비용을 절감합니다.
+- **약점 / 리스크:** 대형 워크스페이스에서 스캔/후처리 비용이 체감될 수 있어, 설정·캐시·샘플링 기반 관찰이 중요합니다.
 
 ### 3) 보고서 생성/마커 갱신/백로그 정리 (`vibereport-extension/src/services/reportService.ts`, `vibereport-extension/src/utils/*`)
-- **기능 완성도:** 마커 기반 섹션 갱신, 적용 완료 항목 클린업, 파일 경로 링크화 등 운영 기능이 풍부합니다.
-- **코드 품질:** 템플릿/포맷팅/쓰기(write-if-changed) 로직이 분리되어 책임이 비교적 명확합니다.
+- **기능 완성도:** 마커 기반 섹션 갱신, 적용 완료 항목 정리, 파일 경로 링크화 등 운영 기능이 풍부합니다.
+- **코드 품질:** 템플릿/포맷팅/쓰기(write-if-changed) 로직이 분리되어 있습니다.
 - **에러 처리:** 마커 손상/누락을 Doctor로 검증/복구할 수 있는 안전 장치가 있습니다.
-- **성능:** 내용 동일 시 쓰기를 스킵하여 변경 노이즈를 줄입니다. 다만 Prompt.md가 커질수록 “적용 완료 항목 정리” 비용이 증가할 수 있어 최적화 여지가 있습니다 → `opt-applied-cleanup-perf-001`.
+- **성능:** 문서가 커질수록 후처리 비용이 증가할 수 있어, 항목 규모 기반의 성능 측정과 한계치 정책이 유리합니다.
 - **강점:** “부분 갱신” 기반 운영으로 히스토리 보존과 자동화의 균형이 좋습니다.
-- **약점 / 리스크:** 백로그/프롬프트 규모가 커지는 경우(수십~수백 항목) 클린업 성능이 체감 이슈로 이어질 수 있습니다.
 
-### 4) 프리뷰/공유(mermaid) (`vibereport-extension/src/commands/openReportPreview.ts`, `vibereport-extension/media/*`)
-- **기능 완성도:** Mermaid 프리뷰와 공유 프리뷰(레드액션)까지 제공해 UX가 좋습니다.
-- **코드 품질:** 렌더링/스타일 경로가 명확하며, UI·명령과 자연스럽게 연결됩니다.
-- **에러 처리:** 프리뷰 열기 실패/문서 상태에 대한 방어 로직이 존재합니다.
-- **성능:** 필요 시점에만 생성되며, 과도한 연산을 피하는 편입니다.
-- **강점:** 외부 공유 시 커맨드 URI/절대 경로/세션 ID 등 민감 정보를 마스킹합니다.
-- **약점 / 리스크:** 렌더링 경로가 늘어날수록 회귀 가능성이 커지므로, 대표 케이스 기반 테스트를 지속 보강하는 것이 안전합니다.
+### 4) Doctor/검증 도구 (`vibereport-extension/src/commands/reportDoctor.ts`, `vibereport-extension/src/utils/reportDoctorUtils.ts`)
+- **기능 완성도:** 보고서 마커/테이블/Prompt 규칙 검증 및 복구가 체계화되어 있습니다.
+- **약점 / 리스크:** 문서 버전 불일치(DOCS_VERSION_MISMATCH)는 감지/열기까지는 지원하나, 자동 수정은 제공하지 않아 반복 실수 여지가 있습니다 → `feat-doctor-docs-autofix-001`.
 
-### 5) UI(Views)/설정 (`vibereport-extension/src/views/*`)
-- **기능 완성도:** Summary(Webview)·History(Tree)·Settings(Webview) 3축 UI로 상태 확인과 실행/기록을 한 화면에서 관리할 수 있습니다.
-- **코드 품질:** HTML 생성/상태 로딩/테스트가 분리되어 있습니다.
-- **에러 처리:** 상태 로딩 실패 시 폴백 경로와 사용자 메시지가 존재합니다.
-- **성능:** 설정 변경 감지로 불필요 업데이트를 줄이고, 자동 업데이트 상태도 UI에 반영합니다.
-- **강점:** 보고서 업데이트/프롬프트 생성/히스토리 확인의 접근성이 좋습니다.
-- **약점 / 리스크:** Direct AI(옵션)는 모델/권한/정책 변화에 민감하므로, 실패/폴백 로그의 일관성 유지가 중요합니다.
-
-### 6) 배포/운영 준비도(Repo 레벨)
-- **현 상태:** GitHub Actions 기반 CI(compile/lint/test/coverage), 릴리즈/트러블슈팅 문서, 유지보수 스크립트가 갖춰져 있습니다.
-- **리스크:** (1) 보고서 자동 섹션의 손상/규칙 위반을 Doctor가 놓치면 운영 안정성이 떨어질 수 있음 → `doctor-sections-001` (2) CRLF/LF 혼재 시 diff/스냅샷 노이즈 증가 → `dev-eol-standardize-001` (3) WSL 마운트 환경에서 테스트 실행 실패 시 로컬 회귀 검증이 어려움 → `dev-preflight-wsl-mount-001`.
-- **개선 제안:** Doctor의 검증/복구 범위를 “실제 자동 관리 섹션 전체”로 확장하고, 라인 엔딩 정책을 확정/적용하여 운영 회귀 가능성을 낮춥니다.
+### 5) 배포/운영 준비도(Repo 레벨)
+- **현 상태:** CI(compile/lint/test/coverage)와 릴리즈 문서가 존재하며, 품질 게이트가 테스트로 강제됩니다.
+- **리스크:** docsConsistency 실패(문서 버전 불일치)로 병합/배포가 지연될 수 있습니다 → `docs-version-sync-001`. 확장 README의 설치/릴리즈 안내가 패키지 버전과 어긋나면 사용자 혼선이 생길 수 있습니다 → `docs-extension-readme-version-001`.
 <!-- AUTO-DETAIL-END -->
 
 
@@ -316,17 +278,17 @@ flowchart LR
 - **종합 준비도:** 🔵 **B+ (89/100)**
   - 로컬 기준 `pnpm -C vibereport-extension run compile`/`lint` 통과로 기본 품질 게이트는 유지됩니다.
   - CI(`.github/workflows/ci.yml`)에서 compile/lint/test/coverage가 구성되어 있어, 배포/운영 관점의 기본 체계는 갖춰져 있습니다.
-  - 본 작업 환경(WSL의 `/mnt/c`)에서는 `test:run`이 preflight로 중단될 수 있어, 로컬 회귀 검증은 WSL 네이티브 경로에서 재설치를 권장합니다.
+  - 현재 `test:run`은 문서 버전 정합성(`docsConsistency`)에서 실패하여, “테스트 통과” 상태를 복구하는 것이 최우선입니다 → `docs-version-sync-001`.
 
 - **강점 (Top 3):**
   1. **운영 루프 완성도:** Update/Preview/Share/Bundle/Doctor까지 VS Code 안에서 닫힌 실행 흐름이 갖춰져 있습니다.
   2. **보안/프라이버시 기본값:** 민감 파일 기본 제외 + 레드액션 + 경로 경계 차단으로 외부 공유 리스크를 줄입니다.
-  3. **규칙화/검증:** 마커 기반 부분 갱신 + Doctor(검증/복구)로 문서 운영의 회귀 리스크를 낮춥니다(단, 관리 섹션 커버리지 확장 여지 존재).
+  3. **테스트/품질 게이트:** CI/로컬에서 compile/lint/test/coverage를 강제하고, Doctor가 보고서/프롬프트 규칙(마커/테이블/영문 전용)을 검증합니다.
 
 - **즉시 권장 조치 (Top 3):**
-  1. **P1 운영 안전망:** Report Doctor 관리 섹션 범위 확장(평가/개선 보고서의 자동 섹션 누락 방지) (`doctor-sections-001`).
-  2. **P2 협업 기준:** `.gitattributes` 기반 라인 엔딩 표준화 및 renormalize 적용 (`dev-eol-standardize-001`).
-  3. **P2 개발자 경험:** WSL 마운트 경로(`/mnt/*`) 테스트 환경 사전 진단 범위 보강 (`dev-preflight-wsl-mount-001`).
+  1. **P1 배포 차단 해소:** CHANGELOG/README 버전 정합성 복구로 `docsConsistency` 테스트 통과 상태 회복 (`docs-version-sync-001`).
+  2. **P2 사용자 문서 정비:** 확장 README의 설치/릴리즈 안내를 v0.4.33 기준으로 갱신 (`docs-extension-readme-version-001`).
+  3. **OPT 품질 게이트 강화:** 현재 커버리지 수준에 맞춰 thresholds를 상향하여 회귀 탐지력을 높임 (`opt-coverage-thresholds-001`).
 <!-- AUTO-SUMMARY-END -->
 
 ---
@@ -340,7 +302,7 @@ flowchart LR
 | **git:0bff686@main** | 2025-12-23 | **91 (A-)** | - |
 | **git:0bff686@main** | 2025-12-23 | **90 (A-)** | - |
 | **git:0bff686@main** | 2025-12-23 | **89 (B+)** | - |
-| **git:0bff686@main** | 2025-12-24 | **89 (B+)** | - |
+| **git:0bff686@main** | 2025-12-24 | **89 (B+)** | docsConsistency(문서 버전 불일치) 확인 |
 
 | 카테고리 | 점수 | 등급 | 변화 |
 |:---|:---:|:---:|:---:|
@@ -350,9 +312,9 @@ flowchart LR
 | 성능 | 88 | 🔵 B+ | - |
 | 테스트 커버리지 | 88 | 🔵 B+ | - |
 | 에러 처리 | 89 | 🔵 B+ | - |
-| 문서화 | 86 | 🔵 B | ⬆️ +6 |
+| 문서화 | 84 | 🔵 B | - |
 | 확장성 | 90 | 🟢 A- | - |
-| 유지보수성 | 88 | 🔵 B+ | ⬇️ -2 |
-| 프로덕션 준비도 | 87 | 🔵 B+ | ⬆️ +1 |
+| 유지보수성 | 89 | 🔵 B+ | - |
+| 프로덕션 준비도 | 84 | 🔵 B | - |
 <!-- AUTO-TREND-END -->
 <!-- TREND-END -->

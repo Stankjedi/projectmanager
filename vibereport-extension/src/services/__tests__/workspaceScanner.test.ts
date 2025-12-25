@@ -194,7 +194,8 @@ describe('WorkspaceScanner', () => {
 
       const result = await scanner.scan('/mock/project', mockConfig);
 
-      expect(result.structureDiagram).toContain('**commands/**');
+      expect(result.structureDiagram).toContain('기능 그룹 요약');
+      expect(result.structureDiagram).toContain('commands');
       expect(result.structureDiagram).toContain('`vibereport-extension/src/extension.ts`');
     });
 

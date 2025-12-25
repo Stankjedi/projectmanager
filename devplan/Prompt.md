@@ -2,7 +2,7 @@
 
 > **MANDATORY EXECUTION RULES**
 > 1. **Tool-first editing:** Always modify files via file-edit tools (`replace_string_in_file`, `multi_replace_string_in_file`, `create_file`, or an equivalent patch tool). Do not respond with text-only suggestions.
-> 2. **Sequential execution:** Execute prompts strictly in order (PROMPT-001 -> PROMPT-002 -> PROMPT-003 -> PROMPT-004 -> OPT-1). Do not skip or reorder.
+> 2. **Sequential execution:** Execute prompts strictly in order (PROMPT-001 -> PROMPT-002 -> PROMPT-003 -> OPT-1). Do not skip or reorder.
 > 3. **No placeholders:** Write complete, working code and tests. Do not leave TODO stubs or omitted logic.
 > 4. **Verify every prompt:** Run the verification commands before marking a prompt done.
 > 5. **Report completion:** After each prompt, report touched files, verification results, and the next prompt ID.
@@ -12,42 +12,42 @@
 
 | # | Prompt ID | Title | Priority | Status |
 |:---:|:---|:---|:---:|:---:|
-| 1 | PROMPT-001 | Expand Report Doctor managed sections (`doctor-sections-001`) | P1 | ⬜ Pending |
-| 2 | PROMPT-002 | Standardize line endings and renormalize (`dev-eol-standardize-001`) | P2 | ⬜ Pending |
-| 3 | PROMPT-003 | Generalize WSL mount detection in preflight (`dev-preflight-wsl-mount-001`) | P2 | ⬜ Pending |
-| 4 | PROMPT-004 | Add command to open Troubleshooting docs (`feat-open-troubleshooting-001`) | P3 | ⬜ Pending |
-| 5 | OPT-1 | Optimize applied-item cleanup performance (`opt-applied-cleanup-perf-001`) | OPT | ⬜ Pending |
+| 1 | PROMPT-001 | Fix docs version mismatch (CHANGELOG/README) (`docs-version-sync-001`) | P1 | ⬜ Pending |
+| 2 | PROMPT-002 | Update extension README version references (`docs-extension-readme-version-001`) | P2 | ⬜ Pending |
+| 3 | PROMPT-003 | Add Report Doctor action to auto-fix docs versions (`feat-doctor-docs-autofix-001`) | P3 | ⬜ Pending |
+| 4 | OPT-1 | Raise Vitest coverage thresholds (`opt-coverage-thresholds-001`) | OPT | ⬜ Pending |
 
-> **Total: 5 prompts | Completed: 0 | Remaining: 5**
+> **Total: 4 prompts | Completed: 0 | Remaining: 4**
 
 ---
 
 ## Priority 1 (Critical)
 
-### [PROMPT-001] Expand Report Doctor managed sections
+### [PROMPT-001] Fix docs version mismatch (CHANGELOG/README)
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-002].
 - Status: P1 (Pending)
-- Linked Improvement ID: `doctor-sections-001`
+- Linked Improvement ID: `docs-version-sync-001`
 
 **Task:**
-Expand Report Doctor validation and repair coverage so it matches all auto-managed sections in the Evaluation and Improvement reports.
+Bring documentation versions back in sync with `vibereport-extension/package.json` so `docsConsistency.test.ts` passes.
 
 **Target files:**
-- `vibereport-extension/src/utils/reportDoctorUtils.ts`
-- `vibereport-extension/src/utils/markdownUtils.ts`
-- `vibereport-extension/src/services/reportTemplates.ts`
-- Tests: `vibereport-extension/src/utils/__tests__/reportDoctorUtils.test.ts`
+- `vibereport-extension/package.json` (source of truth)
+- `vibereport-extension/CHANGELOG.md`
+- `README.md`
+- Test: `vibereport-extension/src/docsConsistency.test.ts`
 
 **Steps:**
-1. In `reportDoctorUtils.ts`, extend the managed section lists:
-   - Evaluation report: add managed sections for TL;DR (`MARKERS.TLDR_*`), Risk Summary (`MARKERS.RISK_SUMMARY_*`), Score Mapping (`MARKERS.SCORE_MAPPING_*`), and Current Summary (`MARKERS.SUMMARY_*`).
-   - Improvement report: add managed sections for Project Overview (`MARKERS.OVERVIEW_*`) and Feature List (`MARKERS.FEATURE_LIST_*`).
-2. Set `validateTables: true` for the table-driven sections (TL;DR, Risk Summary, Score Mapping, Overview). Keep it `false` for free-form sections (Summary, Feature List).
-3. Ensure `repairReportMarkdown()` can restore missing or duplicated blocks for the newly managed sections using the corresponding blocks from the report templates.
-4. Update `reportDoctorUtils.test.ts` fixtures so the template/content samples include all required managed markers for the report type being tested.
-5. Add at least one new unit test that verifies missing markers for a newly added section are detected (for example: missing `MARKERS.TLDR_END` or missing `MARKERS.FEATURE_LIST_START`).
+1. Read the version from `vibereport-extension/package.json` (expected: `0.4.33`) and treat it as the single source of truth.
+2. Update `vibereport-extension/CHANGELOG.md`:
+   - Change the first version header `## [x.y.z]` to match the package version.
+   - If there is a date in the heading, keep it accurate for the release (use today's date only if appropriate).
+3. Update `README.md`:
+   - Ensure the first version string in the file matches the package version.
+   - Update any related installation examples that reference the old VSIX filename/version (for example: `vibereport-0.4.32.vsix`) to the new version, so the README is internally consistent.
+4. Run verification and confirm `docsConsistency` tests no longer fail.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -61,59 +61,31 @@ Expand Report Doctor validation and repair coverage so it matches all auto-manag
 
 ## Priority 2 (High)
 
-### [PROMPT-002] Standardize line endings and renormalize
+### [PROMPT-002] Update extension README version references
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-003].
 - Status: P2 (Pending)
-- Linked Improvement ID: `dev-eol-standardize-001`
+- Linked Improvement ID: `docs-extension-readme-version-001`
 
 **Task:**
-Make line endings consistent across the repository to reduce cross-platform diffs and snapshot noise (LF for text files; keep binary files untouched).
+Update `vibereport-extension/README.md` so all installation and release references match the current package version.
 
 **Target files:**
-- `.gitattributes`
-- `vibereport-extension/.gitattributes`
+- `vibereport-extension/README.md`
+- (Optional) `README.md`
+- (Reference) `vibereport-extension/package.json`
 
 **Steps:**
-1. Define a single policy for text files (recommended: `* text=auto eol=lf`) and keep explicit `binary` patterns for assets (`.png`, `.vsix`, etc.).
-2. If you keep platform-specific exceptions, make them explicit (for example: `.bat`/`.cmd`/`.ps1` remain CRLF for Windows compatibility).
-3. Run `git add --renormalize .` and confirm the diff is line-ending-only (no semantic changes).
-4. Ensure Markdown files in the repo are normalized to LF so report snapshots do not churn on Windows/WSL.
-
-**Verification:**
-- `git diff --check`
-- `pnpm -C vibereport-extension run compile`
-- `pnpm -C vibereport-extension run lint`
-
-**After Completion:**
-- Proceed directly to [PROMPT-003].
-
-### [PROMPT-003] Generalize WSL mount detection in preflight
-
-**Directives:**
-- Execute this prompt now, then proceed to [PROMPT-004].
-- Status: P2 (Pending)
-- Linked Improvement ID: `dev-preflight-wsl-mount-001`
-
-**Task:**
-Generalize the WSL mounted-path detection in the test preflight script so it works for any `/mnt/<drive>` path (not just `/mnt/c`), and keep the guidance accurate.
-
-**Target files:**
-- `vibereport-extension/scripts/preflightTestEnv.js`
-- `vibereport-extension/src/scripts/__tests__/preflightTestEnv.test.ts`
-- `vibereport-extension/TROUBLESHOOTING.md`
-
-**Steps:**
-1. Update `isWslMountedPath()` to return `true` for `/mnt/<drive>` and its subdirectories (for example: `/mnt/c`, `/mnt/d/dev/repo`) and `false` otherwise.
-   - Keep the existing normalization behavior (`\\` to `/`, lowercase).
-   - Suggested regex after normalization: `^/mnt/[a-z](/|$)`.
-2. Update `printWslRollupFix()` messaging (if needed) so it refers to `/mnt/<drive>` or `/mnt/*` rather than a single drive letter.
-3. Update `preflightTestEnv.test.ts` to cover:
-   - `/mnt/c` and `/mnt/c/projects/x` => true
-   - `/mnt/d` and `/mnt/d/projects/x` => true
-   - `/home/user/repo` => false
-4. Update `TROUBLESHOOTING.md` so WSL examples are generalized (use `/mnt/<drive>` or `/mnt/*`).
+1. Read the current package version from `vibereport-extension/package.json` (expected: `0.4.33`).
+2. In `vibereport-extension/README.md`, update all versioned references to match the package version:
+   - version badge text
+   - release notes header (if present)
+   - VSIX filename examples (for example: `vibereport-0.4.33.vsix`)
+   - GitHub release URLs (if versioned)
+   - any `code --install-extension` examples
+3. Ensure the README remains internally consistent (no mixed `0.4.32` / `0.4.33` references).
+4. Run verification to confirm nothing else broke.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -121,43 +93,42 @@ Generalize the WSL mounted-path detection in the test preflight script so it wor
 - `pnpm -C vibereport-extension run test:run`
 
 **After Completion:**
-- Proceed directly to [PROMPT-004].
+- Proceed directly to [PROMPT-003].
 
 ## Priority 3 (Feature)
 
-### [PROMPT-004] Add command to open Troubleshooting docs
+### [PROMPT-003] Add Report Doctor action to auto-fix docs versions
 
 **Directives:**
 - Execute this prompt now, then proceed to [OPT-1].
 - Status: P3 (Pending)
-- Linked Improvement ID: `feat-open-troubleshooting-001`
+- Linked Improvement ID: `feat-doctor-docs-autofix-001`
 
 **Task:**
-Add a VS Code command that opens the extension's `TROUBLESHOOTING.md` so users can access troubleshooting guidance from the Command Palette in one step.
+Add a "Fix Docs Versions" action to Report Doctor that automatically updates docs to match the package version when docs sync issues are detected.
 
 **Target files:**
-- `vibereport-extension/package.json` (add a new command contribution)
-- `vibereport-extension/src/commands/openTroubleshooting.ts` (new)
-- `vibereport-extension/src/commands/index.ts`
-- `vibereport-extension/src/extension.ts`
-- `vibereport-extension/TROUBLESHOOTING.md`
-- Tests under `vibereport-extension/src/commands/__tests__/`
+- `vibereport-extension/src/commands/reportDoctor.ts`
+- `vibereport-extension/src/utils/reportDoctorUtils.ts` (optional helper)
+- `vibereport-extension/CHANGELOG.md`
+- `README.md`
+- Tests: `vibereport-extension/src/commands/__tests__/reportDoctor.test.ts`
 
 **Steps:**
-1. Add a new command contribution in `vibereport-extension/package.json`:
-   - command ID: `vibereport.openTroubleshooting`
-   - title: `Open Troubleshooting Guide`
-   - category: `VibeCoding`
-2. Implement `OpenTroubleshootingCommand` in `vibereport-extension/src/commands/openTroubleshooting.ts`:
-   - accept `outputChannel` and `extensionUri` (or `extensionPath`) in the constructor
-   - build the doc URI with `vscode.Uri.joinPath(extensionUri, 'TROUBLESHOOTING.md')`
-   - open it via `vscode.workspace.openTextDocument` and `vscode.window.showTextDocument`
-   - on failure, show a warning message and log details to the output channel
-3. Export and wire the command in `vibereport-extension/src/commands/index.ts` and register it in `vibereport-extension/src/extension.ts`.
-4. Add unit tests that mock VS Code APIs and verify:
-   - success path opens the correct URI
-   - missing-file path shows a warning and does not throw
-5. Ensure `TROUBLESHOOTING.md` is packaged with the extension (do not exclude it via `.vscodeignore` if present).
+1. In `reportDoctor.ts`, when `docsIssues.length > 0`, include an additional modal action: `Fix Docs Versions` (or `Sync Docs Versions`) alongside the existing actions.
+2. Implement a safe docs-fix routine:
+   - Use the already parsed `packageVersion` as the source of truth.
+   - Update `vibereport-extension/CHANGELOG.md` by replacing only the first version header matching `^##\\s*\\[(\\d+\\.\\d+\\.\\d+)\\]` with the package version.
+   - Update the root `README.md` by replacing only the first version occurrence matching `(\\d+\\.\\d+\\.\\d+)` with the package version.
+   - Preserve the original newline style of each file (LF/CRLF) and avoid touching unrelated content.
+3. After writing, re-run `validateDocsVersionSync()` and report the result:
+   - If still mismatched, show a warning with details.
+   - If fixed, show an information message and log the changed files.
+4. Update/add unit tests in `reportDoctor.test.ts`:
+   - Arrange a docs mismatch scenario.
+   - Mock the `Fix Docs Versions` action selection.
+   - Assert `writeFile` is called with updated contents for README and CHANGELOG.
+   - Assert the command reports success (message + output channel log).
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -171,39 +142,30 @@ Add a VS Code command that opens the extension's `TROUBLESHOOTING.md` so users c
 
 ## Optimization (OPT)
 
-### [OPT-1] Optimize applied-item cleanup performance
+### [OPT-1] Raise Vitest coverage thresholds
 
 **Directives:**
 - Execute this prompt now, then proceed to Final Completion.
 - Status: OPT (Pending)
-- Linked Improvement ID: `opt-applied-cleanup-perf-001`
+- Linked Improvement ID: `opt-coverage-thresholds-001`
 
 **Task:**
-Speed up applied-item cleanup for large Prompt.md and improvement reports by reducing repeated full-document regex scans while preserving behavior.
+Increase `vitest.config.ts` coverage thresholds to better reflect current coverage and prevent silent regressions.
 
 **Target files:**
-- `vibereport-extension/src/services/reportService.ts`
-- Tests in `vibereport-extension/src/services/__tests__/reportService.test.ts` (or a new focused test file)
+- `vibereport-extension/vitest.config.ts`
 
 **Steps:**
-1. Identify the hot path in `cleanupAppliedItems` / `removeAppliedItemsFromContent` where it loops over IDs/titles and applies multiple global regex passes.
-2. Refactor to reduce passes over the full content:
-   - prefer a single scan that removes sections by ID rows like `| **ID** | \`doctor-sections-001\` |` and updates the checklist in one pass
-   - avoid running expensive cleanup regexes repeatedly when there is no change
-3. Preserve the observable behavior:
-   - same removal rules (by ID first, then title fallback)
-   - same whitespace/section separator normalization
-   - same checklist summary update behavior
-4. Add tests that cover:
-   - multiple applied IDs, mixed prompt IDs and titles
-   - large synthetic Prompt.md content (many sections) still produces correct output
-   - no changes when there are no applied items
-5. Do not change public command behavior; only optimize internals.
+1. Update the coverage `thresholds` in `vitest.config.ts` to a safer baseline (based on current coverage ~86/71/85/88):  
+   - statements: 80  
+   - branches: 60  
+   - functions: 75  
+   - lines: 80
+2. Update the thresholds comment to reflect the new baseline date and rationale.
+3. Run coverage and confirm the thresholds are enforced (and still passing).
 
 **Verification:**
-- `pnpm -C vibereport-extension run compile`
-- `pnpm -C vibereport-extension run lint`
-- `pnpm -C vibereport-extension run test:run`
+- `pnpm -C vibereport-extension run test:coverage`
 
 **After Completion:**
 - Proceed directly to Final Completion.

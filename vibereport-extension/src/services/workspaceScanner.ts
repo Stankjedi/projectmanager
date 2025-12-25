@@ -535,60 +535,82 @@ export class WorkspaceScanner {
     const lines: string[] = [];
     const projectName = path.basename(rootPath);
 
-    // 기능별 디렉토리 분류 (일반적인 프로젝트 구조)
-    const functionalCategories: Record<string, { icon: string; description: string; files: string[] }> = {
-      // 핵심 소스 코드
-      'commands': { icon: '⚡', description: '명령 처리 및 액션', files: [] },
-      'services': { icon: '⚙️', description: '비즈니스 로직 및 서비스', files: [] },
-      'controllers': { icon: '🎮', description: '요청 처리 컨트롤러', files: [] },
-      'routes': { icon: '🛤️', description: 'API 라우트 정의', files: [] },
-      'api': { icon: '🌐', description: 'API 엔드포인트', files: [] },
-      'views': { icon: '👁️', description: 'UI 뷰 컴포넌트', files: [] },
-      'components': { icon: '🧩', description: 'UI 컴포넌트', files: [] },
-      'pages': { icon: '📄', description: '페이지 컴포넌트', files: [] },
-      'models': { icon: '📦', description: '데이터 모델 및 타입', files: [] },
-      'types': { icon: '📝', description: '타입 정의', files: [] },
-      'utils': { icon: '🔧', description: '유틸리티 함수', files: [] },
-      'helpers': { icon: '🤝', description: '헬퍼 함수', files: [] },
-      'lib': { icon: '📚', description: '라이브러리 및 공통 모듈', files: [] },
-      'hooks': { icon: '🪝', description: 'React 훅', files: [] },
-      'store': { icon: '🗄️', description: '상태 관리', files: [] },
-      'redux': { icon: '🗄️', description: 'Redux 상태 관리', files: [] },
-      'middleware': { icon: '🔌', description: '미들웨어', files: [] },
-      'config': { icon: '🔧', description: '설정 파일', files: [] },
-      'constants': { icon: '📋', description: '상수 정의', files: [] },
-      // 테스트
-      '__tests__': { icon: '🧪', description: '테스트 파일', files: [] },
-      'tests': { icon: '🧪', description: '테스트 파일', files: [] },
-      'test': { icon: '🧪', description: '테스트 파일', files: [] },
-      'spec': { icon: '🧪', description: '테스트 스펙', files: [] },
-      // 리소스
-      'assets': { icon: '🖼️', description: '정적 리소스', files: [] },
-      'public': { icon: '🌍', description: '공개 정적 파일', files: [] },
-      'static': { icon: '📁', description: '정적 파일', files: [] },
-      'styles': { icon: '🎨', description: '스타일 파일', files: [] },
-      'css': { icon: '🎨', description: 'CSS 스타일', files: [] },
-      // 문서
-      'docs': { icon: '📖', description: '문서', files: [] },
-      'devplan': { icon: '📊', description: '개발 계획 및 보고서', files: [] },
+    type GroupKey = 'ui' | 'workflow' | 'core' | 'policy' | 'tooling' | 'misc';
+
+    const groupMeta: Record<GroupKey, { icon: string; label: string; order: number; mermaidId: string }> = {
+      ui: { icon: '🧭', label: '사용자 인터페이스', order: 1, mermaidId: 'UI' },
+      workflow: { icon: '⚡', label: '명령·워크플로우', order: 2, mermaidId: 'Workflow' },
+      core: { icon: '⚙️', label: '핵심 서비스', order: 3, mermaidId: 'Core' },
+      policy: { icon: '🧰', label: '유틸·정책', order: 4, mermaidId: 'Policy' },
+      tooling: { icon: '🛠️', label: '개발·유지보수', order: 5, mermaidId: 'Tooling' },
+      misc: { icon: '📦', label: '기타/루트', order: 6, mermaidId: 'Misc' },
     };
 
+    const categoryToGroup: Record<string, GroupKey> = {
+      // 사용자 인터페이스
+      views: 'ui',
+      components: 'ui',
+      pages: 'ui',
+      hooks: 'ui',
+      styles: 'ui',
+      css: 'ui',
+      assets: 'ui',
+      public: 'ui',
+      static: 'ui',
+      // 명령/워크플로우
+      commands: 'workflow',
+      controllers: 'workflow',
+      routes: 'workflow',
+      api: 'workflow',
+      middleware: 'workflow',
+      // 핵심 서비스/도메인
+      services: 'core',
+      models: 'core',
+      types: 'core',
+      store: 'core',
+      redux: 'core',
+      lib: 'core',
+      helpers: 'core',
+      // 유틸/정책
+      utils: 'policy',
+      config: 'policy',
+      constants: 'policy',
+      // 개발/유지보수
+      '__tests__': 'tooling',
+      tests: 'tooling',
+      test: 'tooling',
+      spec: 'tooling',
+      docs: 'tooling',
+      devplan: 'tooling',
+    };
+
+    const categoryFiles: Record<string, string[]> = Object.keys(categoryToGroup).reduce(
+      (acc, key) => {
+        acc[key] = [];
+        return acc;
+      },
+      {} as Record<string, string[]>
+    );
+
     // 파일을 기능별로 분류
+    let categorizedCount = 0;
     for (const file of files) {
       const parts = file.split('/');
       const firstDir = parts[0];
 
       // 워크스페이스 최상위 기능 디렉토리 우선
-      if (functionalCategories[firstDir]) {
-        functionalCategories[firstDir].files.push(file);
+      if (categoryToGroup[firstDir]) {
+        categoryFiles[firstDir].push(file);
+        categorizedCount += 1;
         continue;
       }
 
       // 모노레포/서브프로젝트 지원: */src/<category>/... 형태 처리
       const srcIndex = parts.indexOf('src');
       const category = srcIndex >= 0 ? parts[srcIndex + 1] : null;
-      if (category && functionalCategories[category]) {
-        functionalCategories[category].files.push(file);
+      if (category && categoryToGroup[category]) {
+        categoryFiles[category].push(file);
+        categorizedCount += 1;
       }
     }
 
@@ -602,26 +624,45 @@ export class WorkspaceScanner {
     lines.push(`**타입**: ${projectType}`);
     lines.push('');
 
-    // 기능별 구조 테이블
-    lines.push('| 기능 영역 | 설명 | 파일 수 |');
+    lines.push('#### 기능 그룹 요약');
+    lines.push('');
+    lines.push('| 그룹 | 대표 영역 | 파일 수 |');
     lines.push('|:---|:---|:---:|');
 
-    // 파일이 있는 카테고리만 표시 (파일 수 내림차순)
-    const sortedCategories = Object.entries(functionalCategories)
-      .filter(([_, info]) => info.files.length > 0)
-      .sort((a, b) => b[1].files.length - a[1].files.length);
+    const groupRows = Object.entries(groupMeta)
+      .filter(([key]) => key !== 'misc')
+      .map(([key, meta]) => {
+        const categories = Object.entries(categoryToGroup)
+          .filter(([category, group]) => group === key && categoryFiles[category]?.length > 0)
+          .map(([category]) => category);
+        const fileCount = categories.reduce((sum, category) => sum + categoryFiles[category].length, 0);
+        return { key: key as GroupKey, meta, categories, fileCount };
+      })
+      .filter((row) => row.fileCount > 0)
+      .sort((a, b) => a.meta.order - b.meta.order);
 
-    for (const [category, info] of sortedCategories) {
-      lines.push(`| ${info.icon} **${category}/** | ${info.description} | ${info.files.length} |`);
+    for (const row of groupRows) {
+      const representative = row.categories.length > 0
+        ? [...row.categories.slice(0, 4), row.categories.length > 4 ? '…' : '']
+          .filter(Boolean)
+          .join(', ')
+        : '-';
+      lines.push(`| ${row.meta.icon} **${row.meta.label}** | ${representative} | ${row.fileCount} |`);
+    }
+
+    const uncategorizedCount = Math.max(0, files.length - categorizedCount);
+    if (uncategorizedCount > 0) {
+      const misc = groupMeta.misc;
+      lines.push(`| ${misc.icon} **${misc.label}** | 루트/기타 | ${uncategorizedCount} |`);
     }
 
     lines.push('');
 
     // 주요 엔트리포인트
-    lines.push('#### 주요 진입점');
+    lines.push('#### 대표 진입점');
     const entryPointRegex =
       /^(?:(?:[^/]+\/)*src\/)?(main|index|app|extension|server)\.(ts|tsx|js|jsx)$/;
-    const entryPoints = files.filter((f) => entryPointRegex.test(f)).slice(0, 5);
+    const entryPoints = files.filter((f) => entryPointRegex.test(f)).slice(0, 3);
 
     if (entryPoints.length > 0) {
       for (const entry of entryPoints) {
@@ -632,42 +673,40 @@ export class WorkspaceScanner {
     }
     lines.push('');
 
-    // 데이터 흐름 요약 (Mermaid flowchart)
-    if (sortedCategories.length >= 2) {
-      lines.push('#### 데이터 흐름');
-      lines.push('');
-      const hasCommands = functionalCategories['commands'].files.length > 0;
-      const hasServices = functionalCategories['services'].files.length > 0;
-      const hasViews = functionalCategories['views'].files.length > 0 ||
-        functionalCategories['components'].files.length > 0;
-      const hasModels = functionalCategories['models'].files.length > 0 ||
-        functionalCategories['types'].files.length > 0;
-      const hasControllers = functionalCategories['controllers'].files.length > 0;
-      const hasRoutes = functionalCategories['routes'].files.length > 0 ||
-        functionalCategories['api'].files.length > 0;
+    const mermaidGroups = [
+      ...groupRows.map((row) => row.key),
+      ...(uncategorizedCount > 0 ? ['misc' as GroupKey] : []),
+    ];
 
-      // Mermaid flowchart 생성
+    if (mermaidGroups.length >= 2) {
+      lines.push('#### 구조 흐름');
+      lines.push('');
       lines.push('```mermaid');
       lines.push('flowchart LR');
 
-      // 노드 정의 (존재하는 것만)
-      const nodes: { id: string; label: string }[] = [];
-      if (hasViews) nodes.push({ id: 'Views', label: '👁️ Views/Components' });
-      if (hasCommands) nodes.push({ id: 'Commands', label: '⚡ Commands' });
-      if (hasControllers) nodes.push({ id: 'Controllers', label: '🎮 Controllers' });
-      if (hasRoutes) nodes.push({ id: 'Routes', label: '🛤️ Routes/API' });
-      if (hasServices) nodes.push({ id: 'Services', label: '⚙️ Services' });
-      if (hasModels) nodes.push({ id: 'Models', label: '📦 Models/Types' });
+      const mermaidOrder: GroupKey[] = ['ui', 'workflow', 'core', 'policy', 'tooling', 'misc'];
+      const orderedGroups = mermaidOrder.filter((key) => mermaidGroups.includes(key));
 
-      if (nodes.length >= 2) {
-        // 노드 정의
-        for (const node of nodes) {
-          lines.push(`    ${node.id}["${node.label}"]`);
-        }
-        // 연결 (순서대로)
-        for (let i = 0; i < nodes.length - 1; i++) {
-          lines.push(`    ${nodes[i].id} --> ${nodes[i + 1].id}`);
-        }
+      for (const key of orderedGroups) {
+        const meta = groupMeta[key];
+        lines.push(`    ${meta.mermaidId}["${meta.icon} ${meta.label}"]`);
+      }
+
+      const chainOrder: GroupKey[] = ['ui', 'workflow', 'core', 'policy'];
+      const chainGroups = chainOrder.filter((key) => orderedGroups.includes(key));
+      for (let i = 0; i < chainGroups.length - 1; i += 1) {
+        lines.push(`    ${groupMeta[chainGroups[i]].mermaidId} --> ${groupMeta[chainGroups[i + 1]].mermaidId}`);
+      }
+
+      const anchorId = chainGroups.length > 0
+        ? groupMeta[chainGroups[chainGroups.length - 1]].mermaidId
+        : (orderedGroups.length > 0 ? groupMeta[orderedGroups[0]].mermaidId : null);
+
+      if (anchorId && orderedGroups.includes('tooling')) {
+        lines.push(`    ${groupMeta.tooling.mermaidId} -.-> ${anchorId}`);
+      }
+      if (anchorId && orderedGroups.includes('misc')) {
+        lines.push(`    ${groupMeta.misc.mermaidId} -.-> ${anchorId}`);
       }
 
       lines.push('```');
