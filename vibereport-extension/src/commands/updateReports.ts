@@ -12,7 +12,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { VibeReportConfig } from '../models/types.js';
-import { VibeReportError } from '../models/errors.js';
+import { OperationCancelledError, VibeReportError } from '../models/errors.js';
 import {
   WorkspaceScanner,
   SnapshotService,
@@ -90,15 +90,17 @@ export class UpdateReportsCommand {
       {
         location: vscode.ProgressLocation.Notification,
         title: `Vibe Report: ${projectName}`,
-        cancellable: false,
+        cancellable: true,
       },
-      async (progress) => {
+      async (progress, token) => {
         await this._executeWithProgress(
           analysisRootPath,
           config,
           projectName,
           progress,
-          isFirstRun
+          isFirstRun,
+          undefined,
+          token
         );
       }
     );
@@ -146,16 +148,17 @@ export class UpdateReportsCommand {
       {
         location: vscode.ProgressLocation.Notification,
         title: `Vibe Report: ${projectName}`,
-        cancellable: false,
+        cancellable: true,
       },
-      async (progress) => {
+      async (progress, token) => {
         await this._executeWithProgress(
           analysisRootPath,
           config,
           projectName,
           progress,
           isFirstRun,
-          options
+          options,
+          token
         );
       }
     );
@@ -167,7 +170,8 @@ export class UpdateReportsCommand {
     projectName: string,
     progress: vscode.Progress<{ message?: string; increment?: number }>,
     isFirstRun: boolean,
-    completionOptions?: ExecuteForWorkspaceOptions
+    completionOptions?: ExecuteForWorkspaceOptions,
+    cancellationToken?: vscode.CancellationToken
   ): Promise<void> {
     const reportProgress = (message: string, increment?: number) => {
       progress.report({ message, increment });
@@ -214,6 +218,7 @@ export class UpdateReportsCommand {
         config,
         isFirstRun,
         reportProgress,
+        cancellationToken,
         deps: {
           workspaceScanner: this.workspaceScanner,
           snapshotService: this.snapshotService,
@@ -235,6 +240,17 @@ export class UpdateReportsCommand {
         },
       });
     } catch (error) {
+      if (error instanceof OperationCancelledError) {
+        this.log('보고서 업데이트가 취소되었습니다.');
+        return;
+      }
+      if (
+        error instanceof UpdateReportsWorkflowError &&
+        error.cause instanceof OperationCancelledError
+      ) {
+        this.log('보고서 업데이트가 취소되었습니다.');
+        return;
+      }
       if (error instanceof UpdateReportsWorkflowError) {
         this._handleError(error.cause, error.step);
       } else {

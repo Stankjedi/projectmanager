@@ -15,14 +15,14 @@
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
-  <img src="https://img.shields.io/badge/version-0.4.22-brightgreen" alt="Current Version">
+  <img src="https://img.shields.io/badge/version-0.4.32-brightgreen" alt="Current Version">
 </p>
 
 ---
 
 바이브 코딩(AI 페어 프로그래밍)을 통해 프로그램을 제작할 때, 프로젝트 상태를 분석하고 AI 에이전트에게 전달할 개선 프롬프트를 자동으로 생성하는 확장 프로그램입니다.
 
-> **🚀 v0.4.22 주요 업데이트**: 사이드바 뷰/명령 실행 시 확장 활성화 누락으로 발생하던 무한 로딩/빈 화면을 해결하고, 개발 환경의 TypeScript `vscode` 타입 오류를 수정했습니다.
+> **🚀 v0.4.32 주요 업데이트**: Activation Events 정리, TROUBLESHOOTING/라인 엔딩 표준화 문서 추가, Report Doctor 문서 경로 동기화 수정.
 
 ## ✨ Features
 
@@ -84,20 +84,20 @@ GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니�
 #### 방법 2: 명령줄에서 설치
 ```bash
 # VSIX 파일 다운로드 후
-code --install-extension vibereport-0.4.22.vsix
+code --install-extension vibereport-0.4.32.vsix
 ```
 
 #### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
 ```powershell
 # GitHub에서 직접 다운로드 (PowerShell)
-Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.22/vibereport-0.4.22.vsix" -OutFile "vibereport-0.4.22.vsix"
-code --install-extension vibereport-0.4.22.vsix
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.32/vibereport-0.4.32.vsix" -OutFile "vibereport-0.4.32.vsix"
+code --install-extension vibereport-0.4.32.vsix
 ```
 
 ```bash
 # Linux/Mac
-curl -L -o vibereport-0.4.22.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.22/vibereport-0.4.22.vsix
-code --install-extension vibereport-0.4.22.vsix
+curl -L -o vibereport-0.4.32.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.32/vibereport-0.4.32.vsix
+code --install-extension vibereport-0.4.32.vsix
 ```
 
 ### Development (개발자용)
@@ -238,6 +238,11 @@ pnpm run docs
 - pnpm
 - VS Code 1.100+
 
+### WSL (Windows Subsystem for Linux)
+- **권장 위치**: `/mnt/c` 대신 WSL 파일시스템(예: `~/dev/projectmanager`)에 저장/작업
+- Rollup 오류 `Cannot find module @rollup/rollup-linux-x64-gnu`: Windows에서 설치된 `node_modules` 재사용 금지 → WSL에서 `node_modules` 삭제 후 재설치
+- 추가 안내: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
 ### Building
 ```bash
 pnpm install
@@ -247,40 +252,32 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.22.vsix 생성
+# vibereport-0.4.32.vsix 생성
 ```
 
 ## 📝 Changelog
 
-### v0.4.22 (2025-12-19) - 🐛 Bug Fix
+### v0.4.31 (2025-12-23) - 🧼 Refactoring / Code Quality
 
-- **확장 활성화 안정화**: `onView:*` / `onCommand:*` activation event를 추가하여 사이드바 뷰/명령 실행 시 항상 확장이 활성화되도록 수정했습니다.
-- **개발 환경 타입 오류 수정**: `tsconfig.json`에 `vscode` 타입을 포함하여 TypeScript 에러를 제거했습니다.
+- **Activation Events 정리**: 불필요한 `onView:*`, `onCommand:*` activation events 제거
+- **문서 추가**: `TROUBLESHOOTING.md` (WSL/pnpm 문제 해결), `.gitattributes` (라인 엔딩 표준화)
+- **Report Doctor 경로 수정**: 문서 버전 동기화 검사 시 README.md 경로 수정
 
-### v0.4.21 (2025-12-19) - 🐛 Bug Fix
+### v0.4.30 (2025-12-23) - 📦 배포
 
-- **analysisRoot 경로 정합**: Summary/History/명령/Auto-update가 analysisRoot 하위 생성 파일을 올바르게 사용합니다.
-- **설정 Export/Import 개선**: 누락된 키 추가 및 레거시 키 자동 매핑으로 설정 동기화가 안정화됩니다.
+- **버전 업데이트**: 문서 버전 동기화 및 릴리즈 안내 정리
 
-### v0.4.20 (2025-12-19) - 🐛 Bug Fix
+### v0.4.28 (2025-12-20) - 📦 배포
 
-- **런타임 의존성 번들링**: 0.4.19에서 발생한 확장 미작동/무한로딩 이슈를 수정했습니다.
-- **활성화 안정성 개선**: `jsonc-parser` 동적 import 및 워크스페이스 없는 창에서의 watcher 가드로 활성화 실패를 방지합니다.
+- **버전 업데이트**: 로컬 패키징을 위한 패치 버전 상승 및 릴리즈 산출물 갱신
 
-### v0.4.18 (2025-12-19) - ✨ Improvements
+### v0.4.27 (2025-12-20) - 🐛 Bug Fix
 
-#### 🔒 보안 / 안정성
-- **프리뷰 HTML 이스케이프 강화**: 인라인 코드/링크 라벨 이스케이프 및 `href` 안전 처리로 XSS 위험을 줄였습니다.
+- **Mermaid 다이어그램 subgraph 수정**: 다크 테마에서 subgraph가 검은색으로 표시되던 버그 수정
 
-#### 🧪 품질/검증
-- **Execution Checklist 헤더 파싱 유연화**: 이모지 유무 모두 지원하여 체크리스트 파싱 실패를 방지합니다.
-- **확장 활성화/프리뷰 테스트 보강**: 비활성화 분기, 에디터 부재/비마크다운 문서 등을 추가 검증합니다.
+### v0.4.25 (2025-12-19) - 🧼 Refactoring
 
-#### 📊 평가/히스토리
-- **평가 히스토리 버전 라벨 개선**: 버전 미존재 시 `git:abcdef0@branch` 형식으로 표시합니다.
-
-#### 🚀 최적화
-- **설정 저장 최적화**: 변경 없는 설정 키는 업데이트를 건너뛰어 불필요한 config write를 줄입니다.
+- **Redundant Activation Events 제거**: VS Code 자동 감지 사용으로 불필요한 activation events 제거
 
 ---
 

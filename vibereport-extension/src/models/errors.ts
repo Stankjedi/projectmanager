@@ -14,6 +14,14 @@ export class VibeReportError extends Error {
   }
 }
 
+export class OperationCancelledError extends Error {
+  constructor(message = 'Operation cancelled') {
+    super(message);
+    this.name = 'OperationCancelledError';
+    Object.setPrototypeOf(this, OperationCancelledError.prototype);
+  }
+}
+
 export class WorkspaceScanError extends VibeReportError {
   constructor(message: string, details?: string) {
     super(
@@ -78,4 +86,3 @@ export class FileOperationError extends VibeReportError {
 export function formatErrorMessage(area: string, message: string): string {
   return `[VibeReport] ${area}: ${message}`;
 }
-

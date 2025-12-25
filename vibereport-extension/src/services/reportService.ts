@@ -58,11 +58,16 @@ import {
   formatSessionEntry,
 } from './reportService/sessionHistoryUtils.js';
 import { writeFileIfChanged } from './reportService/writeFileIfChanged.js';
+import { OperationCancelledError } from '../models/errors.js';
 
 const TODO_FIXME_SECTION_MARKERS = {
   START: '<!-- AUTO-TODO-FIXME-START -->',
   END: '<!-- AUTO-TODO-FIXME-END -->',
 } as const;
+
+type CancellationTokenLike = {
+  isCancellationRequested: boolean;
+};
 
 export class ReportService {
   private outputChannel: vscode.OutputChannel;
@@ -101,10 +106,15 @@ export class ReportService {
   async cleanupAppliedItems(
     rootPath: string,
     config: VibeReportConfig,
-    appliedImprovements: AppliedImprovement[]
+    appliedImprovements: AppliedImprovement[],
+    cancellationToken?: CancellationTokenLike
   ): Promise<{ improvementRemoved: number; promptRemoved: number }> {
     if (appliedImprovements.length === 0) {
       return { improvementRemoved: 0, promptRemoved: 0 };
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+      throw new OperationCancelledError('Cleanup applied items cancelled');
     }
 
     const paths = this.getReportPaths(rootPath, config);
@@ -117,6 +127,9 @@ export class ReportService {
     // 개선 보고서에서 적용 완료 항목 제거
     try {
       const improvementContent = await fs.readFile(paths.improvement, 'utf-8');
+      if (cancellationToken?.isCancellationRequested) {
+        throw new OperationCancelledError('Cleanup applied items cancelled');
+      }
       const { content: cleanedImprovement, removedCount: impCount } = this.removeAppliedItemsFromContent(
         improvementContent,
         appliedIds,
@@ -125,17 +138,26 @@ export class ReportService {
       );
 
       if (impCount > 0) {
+        if (cancellationToken?.isCancellationRequested) {
+          throw new OperationCancelledError('Cleanup applied items cancelled');
+        }
         await fs.writeFile(paths.improvement, cleanedImprovement, 'utf-8');
         improvementRemoved = impCount;
         this.log(`개선 보고서에서 적용 완료 항목 ${impCount}개 제거됨`);
       }
     } catch (error) {
+      if (error instanceof OperationCancelledError) {
+        throw error;
+      }
       this.log(`개선 보고서 클린업 실패: ${error}`);
     }
 
     // Prompt.md에서 적용 완료 항목 제거
     try {
       const promptContent = await fs.readFile(paths.prompt, 'utf-8');
+      if (cancellationToken?.isCancellationRequested) {
+        throw new OperationCancelledError('Cleanup applied items cancelled');
+      }
       const { content: cleanedPrompt, removedCount: promptCount } = this.removeAppliedItemsFromContent(
         promptContent,
         appliedIds,
@@ -144,11 +166,17 @@ export class ReportService {
       );
 
       if (promptCount > 0) {
+        if (cancellationToken?.isCancellationRequested) {
+          throw new OperationCancelledError('Cleanup applied items cancelled');
+        }
         await fs.writeFile(paths.prompt, cleanedPrompt, 'utf-8');
         promptRemoved = promptCount;
         this.log(`Prompt.md에서 적용 완료 항목 ${promptCount}개 제거됨`);
       }
     } catch (error) {
+      if (error instanceof OperationCancelledError) {
+        throw error;
+      }
       this.log(`Prompt.md 클린업 실패: ${error}`);
     }
 
@@ -166,100 +194,105 @@ export class ReportService {
   ): { content: string; removedCount: number } {
     let removedCount = 0;
     let result = content;
+    let changed = false;
 
-    // ID 기반 제거 패턴들
-    for (const id of appliedIds) {
-      // 개선 보고서 형식: ### 🔴 긴급 (P1) 항목명 또는 #### [P1-1] 항목명 등
-      // ID가 포함된 섹션 찾기: | **ID** | `id` | 형태
+    const escapedIds = [...appliedIds]
+      .filter(Boolean)
+      .map(id => this.escapeRegex(id));
+    const escapedTitles = [...appliedTitles]
+      .filter(Boolean)
+      .map(title => this.escapeRegex(title));
+
+    const idGroup = escapedIds.length > 0 ? escapedIds.join('|') : '';
+    const titleGroup = escapedTitles.length > 0 ? escapedTitles.join('|') : '';
+
+    const replaceWithCount = (pattern: RegExp) => {
+      let localCount = 0;
+      result = result.replace(pattern, () => {
+        localCount += 1;
+        return '';
+      });
+      if (localCount > 0) {
+        removedCount += localCount;
+        changed = true;
+      }
+    };
+
+    if (idGroup) {
       const idPattern = new RegExp(
-        `(###[^#]*?\\|\\s*\\*\\*ID\\*\\*\\s*\\|\\s*\`${this.escapeRegex(id)}\`[\\s\\S]*?)(?=\\n###|\\n## |$)`,
+        `(###[^#]*?\\|\\s*\\*\\*ID\\*\\*\\s*\\|\\s*\`(?:${idGroup})\`[\\s\\S]*?)(?=\\n###|\\n## |$)`,
         'gi'
       );
+      replaceWithCount(idPattern);
+    }
 
-      if (idPattern.test(result)) {
-        result = result.replace(idPattern, '');
-        removedCount++;
+    if (titleGroup) {
+      if (type === 'prompt') {
+        const promptTitlePattern = new RegExp(
+          `(###\\s*\\[(?:PROMPT-\\d+|OPT-\\d+)\\]\\s*(?:${titleGroup})[\\s\\S]*?)(?=\\n###\\s*\\[(?:PROMPT-|OPT-)|\\n##\\s+|\\*\\*🎉|$)`,
+          'gi'
+        );
+        replaceWithCount(promptTitlePattern);
+      }
+
+      if (type === 'improvement') {
+        const improvementTitlePattern = new RegExp(
+          `((?:###|####)\\s*(?:\\[P[123]-\\d+\\]|[🔴🟡🟢⚡].*?)\\s*(?:${titleGroup})[\\s\\S]*?)(?=\\n(?:###|####)|\\n## |$)`,
+          'gi'
+        );
+        replaceWithCount(improvementTitlePattern);
       }
     }
 
-    // 제목 기반 제거 (ID가 없는 경우 폴백)
-    for (const title of appliedTitles) {
-      // 프롬프트 형식: ### [PROMPT-001] Title 또는 ### [OPT-1] Title
-      const promptTitlePattern = new RegExp(
-        `(###\\s*\\[(?:PROMPT-\\d+|OPT-\\d+)\\]\\s*${this.escapeRegex(title)}[\\s\\S]*?)(?=\\n###\\s*\\[(?:PROMPT-|OPT-)|\\n##\\s+|\\*\\*🎉|$)`,
-        'gi'
-      );
-
-      if (promptTitlePattern.test(result)) {
-        const before = result;
-        result = result.replace(promptTitlePattern, '');
-        if (result !== before) {
-          removedCount++;
-        }
-      }
-
-      // 개선 보고서 형식: #### [P1-1] Title 또는 ### 🟡 중요 (P2) - Title
-      const improvementTitlePattern = new RegExp(
-        `((?:###|####)\\s*(?:\\[P[123]-\\d+\\]|[🔴🟡🟢⚡].*?)\\s*${this.escapeRegex(title)}[\\s\\S]*?)(?=\\n(?:###|####)|\\n## |$)`,
-        'gi'
-      );
-
-      if (improvementTitlePattern.test(result)) {
-        const before = result;
-        result = result.replace(improvementTitlePattern, '');
-        if (result !== before) {
-          removedCount++;
-        }
-      }
-    }
-
-    // Prompt.md의 Execution Checklist에서 완료된 프롬프트 행 제거
-    if (type === 'prompt') {
-      const checklistMatch = result.match(
-        EXECUTION_CHECKLIST_BLOCK_REGEX
-      );
-
+    if (type === 'prompt' && (idGroup || titleGroup)) {
+      const checklistMatch = result.match(EXECUTION_CHECKLIST_BLOCK_REGEX);
       if (checklistMatch) {
         const originalChecklist = checklistMatch[0];
         let checklist = originalChecklist;
 
-        // ID 또는 제목이 포함된 테이블 행 제거
-        for (const id of appliedIds) {
+        if (idGroup) {
           const rowPatternById = new RegExp(
-            `^\\|\\s*\\d+\\s*\\|[^|]*${this.escapeRegex(id)}[^|]*\\|[^|]*\\|[^|]*\\|\\s*$`,
+            `^\\|\\s*\\d+\\s*\\|[^|]*(?:${idGroup})[^|]*\\|[^|]*\\|[^|]*\\|\\s*$`,
             'gmi'
           );
+          let removedRows = 0;
           checklist = checklist.replace(rowPatternById, () => {
-            removedCount++;
+            removedRows += 1;
             return '';
           });
+          if (removedRows > 0) {
+            removedCount += removedRows;
+          }
         }
 
-        for (const title of appliedTitles) {
+        if (titleGroup) {
           const rowPatternByTitle = new RegExp(
-            `^\\|\\s*\\d+\\s*\\|[^|]*\\|[^|]*${this.escapeRegex(title)}[^|]*\\|[^|]*\\|[^|]*\\|\\s*$`,
+            `^\\|\\s*\\d+\\s*\\|[^|]*\\|[^|]*(?:${titleGroup})[^|]*\\|[^|]*\\|[^|]*\\|\\s*$`,
             'gmi'
           );
+          let removedRows = 0;
           checklist = checklist.replace(rowPatternByTitle, () => {
-            removedCount++;
+            removedRows += 1;
             return '';
           });
+          if (removedRows > 0) {
+            removedCount += removedRows;
+          }
         }
 
         if (checklist !== originalChecklist) {
           result = result.replace(originalChecklist, checklist);
+          changed = true;
         }
       }
     }
 
-    // 연속된 빈 줄 정리
-    result = result.replace(/\n{3,}/g, '\n\n');
-    // 연속된 구분선 정리
-    result = result.replace(/(\n---\n){2,}/g, '\n---\n');
-
-    // Prompt.md의 체크리스트 요약 갱신
-    if (type === 'prompt') {
-      result = this.updatePromptChecklistSummary(result);
+    if (changed) {
+      result = result.replace(/\n{3,}/g, '\n\n');
+      result = result.replace(/(\n---\n){2,}/g, '\n---\n');
+      if (type === 'prompt') {
+        result = this.updatePromptChecklistSummary(result);
+      }
     }
 
     return { content: result, removedCount };
@@ -293,13 +326,14 @@ export class ReportService {
     const rows: string[] = [];
     for (let i = alignmentRowIndex + 1; i < lines.length; i++) {
       const line = lines[i];
-      if (!line.trim().startsWith('|')) {
-        break;
-      }
-      rows.push(line);
+      const trimmed = line.trim();
+      if (trimmed === '') continue;
+      if (trimmed.startsWith('**Total:')) break;
+      if (!trimmed.startsWith('|')) break;
+      rows.push(trimmed);
     }
 
-    const promptRowCount = rows.filter((line) => /\|\s*\d+\s*\|/.test(line)).length;
+    const promptRowCount = rows.filter(line => /\|\s*\d+\s*\|/.test(line)).length;
 
     const summaryIndex = lines.findIndex(
       (line, index) => index > alignmentRowIndex && line.includes('**Total:')

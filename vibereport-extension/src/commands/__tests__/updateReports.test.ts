@@ -22,7 +22,7 @@ vi.mock('vscode', () => ({
     showErrorMessage: vi.fn(),
     showTextDocument: vi.fn(),
     withProgress: vi.fn(async (_options, task) => {
-      return task({ report: vi.fn() });
+      return task({ report: vi.fn() }, { isCancellationRequested: false });
     }),
     createOutputChannel: vi.fn(() => ({
       appendLine: vi.fn(),
@@ -165,7 +165,7 @@ describe('UpdateReportsCommand', () => {
         expect.objectContaining({
           location: vscode.ProgressLocation.Notification,
           title: 'Vibe Report: test',
-          cancellable: false,
+          cancellable: true,
         }),
         expect.any(Function)
       );
@@ -387,6 +387,126 @@ describe('UpdateReportsCommand', () => {
 describe('runUpdateReportsWorkflow', () => {
   afterEach(() => {
     vi.resetModules();
+  });
+
+  it('bails out when cancellation is requested after scan and skips state/session writes', async () => {
+    const { runUpdateReportsWorkflow } = await import('../updateReportsWorkflow.js');
+    const { OperationCancelledError } = await import('../../models/errors.js');
+
+    const cancellationToken = { isCancellationRequested: false };
+
+    const snapshot = {
+      projectName: 'test',
+      generatedAt: '2025-01-01T00:00:00.000Z',
+      rootPath: '/test/workspace',
+      filesCount: 0,
+      dirsCount: 0,
+      languageStats: {},
+      importantFiles: [],
+      structureSummary: [],
+      mainConfigFiles: { packageJson: { version: '0.4.14' }, otherConfigs: [] },
+    } as any;
+
+    const state = {
+      lastSnapshot: null,
+      sessions: [],
+      appliedImprovements: [],
+      lastUpdated: '2025-01-01T00:00:00.000Z',
+      version: 1,
+    } as any;
+
+    const diff = {
+      isInitial: true,
+      newFiles: [],
+      removedFiles: [],
+      changedConfigs: [],
+      totalChanges: 0,
+      linesAdded: 0,
+      linesRemoved: 0,
+      linesTotal: 0,
+      previousSnapshotTime: '2025-01-01T00:00:00.000Z',
+      currentSnapshotTime: '2025-01-01T00:00:00.000Z',
+      languageStatsDiff: {},
+    } as any;
+
+    const deps = {
+      workspaceScanner: {
+        scan: vi.fn(async () => {
+          cancellationToken.isCancellationRequested = true;
+          return snapshot;
+        }),
+      },
+      snapshotService: {
+        loadState: vi.fn(async () => state),
+        createInitialState: vi.fn(() => state),
+        compareSnapshots: vi.fn(async () => diff),
+        updateSnapshot: vi.fn(),
+        addSession: vi.fn(),
+        saveState: vi.fn(),
+      },
+      reportService: {
+        ensureReportDirectory: vi.fn(),
+        getReportPaths: vi.fn(() => ({
+          evaluation: '/test/devplan/Project_Evaluation_Report.md',
+          improvement: '/test/devplan/Project_Improvement_Exploration_Report.md',
+          sessionHistory: '/test/devplan/Session_History.md',
+          prompt: '/test/devplan/Prompt.md',
+        })),
+        createEvaluationTemplate: vi.fn(),
+        createImprovementTemplate: vi.fn(),
+        cleanupAppliedItems: vi.fn(),
+        updateSessionHistoryFile: vi.fn(),
+      },
+      aiService: {
+        runAnalysisPrompt: vi.fn(),
+      },
+      fs: {
+        readFile: vi.fn(),
+        writeFile: vi.fn(),
+      },
+      ui: {
+        withProgress: vi.fn(),
+        clipboardWriteText: vi.fn(),
+        showInformationMessage: vi.fn(),
+        showWarningMessage: vi.fn(),
+        openMarkdownDocument: vi.fn(),
+      },
+      buildAnalysisPrompt: vi.fn(() => 'PROMPT'),
+      log: vi.fn(),
+      now: () => new Date('2025-01-01T00:00:00.000Z'),
+    } as any;
+
+    await expect(
+      runUpdateReportsWorkflow({
+        rootPath: '/test/workspace',
+        projectName: 'test',
+        config: {
+          reportDirectory: 'devplan',
+          analysisRoot: '',
+          snapshotFile: '.vscode/vibereport-state.json',
+          enableGitDiff: true,
+          respectGitignore: true,
+          includeSensitiveFiles: false,
+          excludePatternsIncludeDefaults: true,
+          excludePatterns: [],
+          maxFilesToScan: 5000,
+          autoOpenReports: true,
+          enableDirectAi: false,
+          language: 'ko',
+          projectVisionMode: 'auto',
+          defaultProjectType: 'auto-detect',
+          defaultQualityFocus: 'development',
+        },
+        isFirstRun: true,
+        reportProgress: vi.fn(),
+        cancellationToken,
+        deps,
+      })
+    ).rejects.toThrow(OperationCancelledError);
+
+    expect(deps.reportService.ensureReportDirectory).not.toHaveBeenCalled();
+    expect(deps.snapshotService.saveState).not.toHaveBeenCalled();
+    expect(deps.reportService.updateSessionHistoryFile).not.toHaveBeenCalled();
   });
 
   it('calls dependencies in the expected order (first run writes templates)', async () => {

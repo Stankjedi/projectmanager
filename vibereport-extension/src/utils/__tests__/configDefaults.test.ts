@@ -20,6 +20,7 @@ vi.mock('vscode', () => ({
 }));
 
 import { DEFAULT_CONFIG, loadConfig } from '../configUtils.js';
+import { normalizeExcludePatterns } from '../excludePatternUtils.js';
 
 type ExtensionPackageJson = {
   contributes?: {
@@ -62,6 +63,18 @@ describe('config defaults', () => {
     expect(excludeContributed).toEqual(DEFAULT_CONFIG.excludePatterns);
     expect(excludeContributed).toContain('**/*.vsix');
     expect(excludeContributed).toContain('**/temp_compare/**');
+  });
+
+  it('normalizes excludePatterns deterministically', () => {
+    const inputA = [' **/node_modules/** ', '', '**/dist/**', '**/node_modules/**', '**/.git/**'];
+    const inputB = ['**/dist/**', '**/.git/**', '**/node_modules/**'];
+
+    expect(normalizeExcludePatterns(inputA)).toEqual([
+      '**/.git/**',
+      '**/dist/**',
+      '**/node_modules/**',
+    ]);
+    expect(normalizeExcludePatterns(inputA)).toEqual(normalizeExcludePatterns(inputB));
   });
 
   it('merges excludePatterns with defaults when includeDefaults enabled', () => {

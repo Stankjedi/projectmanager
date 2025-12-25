@@ -18,6 +18,29 @@ export function createEvaluationTemplate(args: {
 
 ---
 
+## 📝 요약(한눈에)
+
+${MARKERS.TLDR_START}
+| 항목 | 내용 |
+|:---|:---|
+| **전체 등급** | - |
+| **전체 점수** | -/100 |
+| **가장 큰 리스크** | - |
+| **권장 최우선 작업** | - |
+${MARKERS.TLDR_END}
+
+---
+
+## ⚠️ 리스크 요약
+
+${MARKERS.RISK_SUMMARY_START}
+| 리스크 레벨 | 항목 | 관련 개선 ID |
+|------------|------|-------------|
+| - | - | - |
+${MARKERS.RISK_SUMMARY_END}
+
+---
+
 ${MARKERS.OVERVIEW_START}
 ## 📋 프로젝트 개요
 
@@ -65,11 +88,29 @@ ${MARKERS.SCORE_END}
 
 ---
 
+## 🔗 점수 ↔ 개선 항목 매핑
+
+${MARKERS.SCORE_MAPPING_START}
+| 카테고리 | 현재 점수 | 주요 리스크 | 관련 개선 항목 ID |
+|----------|----------|------------|------------------|
+| - | - | - | - |
+${MARKERS.SCORE_MAPPING_END}
+
+---
+
 <!-- AUTO-DETAIL-START -->
 ## 🔍 기능별 상세 평가
 
 *첫 번째 분석 후 상세 평가가 표시됩니다.*
 <!-- AUTO-DETAIL-END -->
+
+---
+
+${MARKERS.SUMMARY_START}
+## 📈 현재 상태 요약
+
+*첫 번째 분석 후 요약이 표시됩니다.*
+${MARKERS.SUMMARY_END}
 
 ---
 
@@ -88,6 +129,29 @@ ${MARKERS.SCORE_END}
   return `# 📊 Project Evaluation Report
 
 > This document is automatically managed by Vibe Coding Report VS Code extension.
+
+---
+
+## 📝 TL;DR
+
+${MARKERS.TLDR_START}
+| Item | Value |
+|:---|:---|
+| **Overall Grade** | - |
+| **Overall Score** | -/100 |
+| **Biggest Risk** | - |
+| **Top Recommendation** | - |
+${MARKERS.TLDR_END}
+
+---
+
+## ⚠️ Risk Summary
+
+${MARKERS.RISK_SUMMARY_START}
+| Risk Level | Item | Related Improvement ID |
+|-----------|------|-------------------------|
+| - | - | - |
+${MARKERS.RISK_SUMMARY_END}
 
 ---
 
@@ -138,11 +202,29 @@ ${MARKERS.SCORE_END}
 
 ---
 
+## 🔗 Score to Improvement Mapping
+
+${MARKERS.SCORE_MAPPING_START}
+| Category | Current Score | Major Risk | Related Improvement IDs |
+|----------|--------------|------------|--------------------------|
+| - | - | - | - |
+${MARKERS.SCORE_MAPPING_END}
+
+---
+
 <!-- AUTO-DETAIL-START -->
 ## 🔍 Detailed Feature Evaluation
 
 *Detailed evaluation will be displayed after the first analysis.*
 <!-- AUTO-DETAIL-END -->
+
+---
+
+${MARKERS.SUMMARY_START}
+## 📈 Current State Summary
+
+*Summary will be displayed after the first analysis.*
+${MARKERS.SUMMARY_END}
 
 ---
 
@@ -175,12 +257,14 @@ export function createImprovementTemplate(args: {
 
 ---
 
+${MARKERS.OVERVIEW_START}
 ## 📋 프로젝트 정보
 
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | ${snapshot.projectName} |
 | **최초 분석일** | ${now} |
+${MARKERS.OVERVIEW_END}
 
 ---
 
@@ -259,6 +343,14 @@ ${MARKERS.OPTIMIZATION_START}
 
 *아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
 ${MARKERS.OPTIMIZATION_END}
+
+---
+
+${MARKERS.FEATURE_LIST_START}
+## ✨ 기능 추가 항목
+
+*아직 분석되지 않았습니다. 첫 번째 보고서 업데이트를 실행해주세요.*
+${MARKERS.FEATURE_LIST_END}
 `;
   }
 
@@ -271,12 +363,14 @@ ${MARKERS.OPTIMIZATION_END}
 
 ---
 
+${MARKERS.OVERVIEW_START}
 ## 📋 Project Information
 
 | Item | Value |
 |------|-------|
 | **Project Name** | ${snapshot.projectName} |
 | **First Analyzed** | ${now} |
+${MARKERS.OVERVIEW_END}
 
 ---
 
@@ -355,6 +449,14 @@ ${MARKERS.OPTIMIZATION_START}
 
 *Not analyzed yet. Please run the first report update.*
 ${MARKERS.OPTIMIZATION_END}
+
+---
+
+${MARKERS.FEATURE_LIST_START}
+## ✨ Feature Additions
+
+*Not analyzed yet. Please run the first report update.*
+${MARKERS.FEATURE_LIST_END}
 `;
 }
 

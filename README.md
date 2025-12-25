@@ -52,7 +52,7 @@
 
 ### From VSIX
 ```bash
-code --install-extension vibereport-extension/vibereport-0.4.28.vsix
+code --install-extension vibereport-extension/vibereport-0.4.32.vsix
 ```
 
 ### Development
@@ -187,6 +187,28 @@ pnpm run docs
 - pnpm
 - VS Code 1.100+
 
+### WSL (Windows Subsystem for Linux)
+- **권장 위치**: `/mnt/c` 대신 WSL 파일시스템(예: `~/dev/projectmanager`)에 저장/작업
+- **권장 버전**: Node.js 20+, pnpm 9
+- **의존성 설치**:
+  ```bash
+  pnpm -C vibereport-extension install --frozen-lockfile
+  ```
+
+#### Troubleshooting (특히 /mnt/c에서 발생)
+- 자세한 내용: [vibereport-extension/TROUBLESHOOTING.md](vibereport-extension/TROUBLESHOOTING.md)
+- `ERR_PNPM_EACCES` during install: `/mnt/c` 밖으로 이동 → `vibereport-extension/node_modules` 삭제 → 재설치
+- Rollup 오류 `Cannot find module @rollup/rollup-linux-x64-gnu`: Windows에서 설치된 `node_modules` 재사용 금지 → WSL에서 재설치
+
+#### Verify like CI
+```bash
+pnpm -C vibereport-extension install --frozen-lockfile
+pnpm -C vibereport-extension run compile
+pnpm -C vibereport-extension run lint
+pnpm -C vibereport-extension run test:run
+pnpm -C vibereport-extension run test:coverage
+```
+
 ### Building
 ```bash
 pnpm install
@@ -196,7 +218,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.28.vsix 생성
+# vibereport-0.4.32.vsix 생성
 ```
 
 ## 📝 License

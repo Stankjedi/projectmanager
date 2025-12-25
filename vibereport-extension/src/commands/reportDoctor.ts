@@ -15,6 +15,7 @@ import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/i
 import {
   repairReportMarkdown,
   validateReportMarkdown,
+  validateDocsVersionSync,
   type ReportDocumentType,
 } from '../utils/reportDoctorUtils.js';
 
@@ -83,6 +84,11 @@ export class ReportDoctorCommand {
         template: '',
       },
     ];
+    const docsPaths = {
+      packageJson: path.join(workspaceRoot, 'vibereport-extension', 'package.json'),
+      changelog: path.join(workspaceRoot, 'vibereport-extension', 'CHANGELOG.md'),
+      readme: path.join(workspaceRoot, 'README.md'),
+    };
 
     this.outputChannel.show(true);
     this.outputChannel.appendLine('='.repeat(60));
@@ -100,25 +106,29 @@ export class ReportDoctorCommand {
       content: string;
       issues: ReturnType<typeof validateReportMarkdown>;
       fileExists: boolean;
-    }> = [];
+    }> = await Promise.all(
+      targets.map(async (target) => {
+        const { content, fileExists } = await this.readFileBestEffort(
+          target.filePath
+        );
+        const issues = validateReportMarkdown(content, target.type);
+        return { target, content, issues, fileExists };
+      })
+    );
 
-    for (const target of targets) {
-      const { content, fileExists } = await this.readFileBestEffort(
-        target.filePath
-      );
-      const issues = validateReportMarkdown(content, target.type);
-      results.push({ target, content, issues, fileExists });
-
+    for (const result of results) {
       this.outputChannel.appendLine('');
-      this.outputChannel.appendLine(`- ${target.label}: ${target.filePath}`);
-      if (!fileExists) {
+      this.outputChannel.appendLine(
+        `- ${result.target.label}: ${result.target.filePath}`
+      );
+      if (!result.fileExists) {
         this.outputChannel.appendLine('  - Status: missing file');
       }
-      if (issues.length === 0) {
+      if (result.issues.length === 0) {
         this.outputChannel.appendLine('  - OK: No issues found');
       } else {
-        this.outputChannel.appendLine(`  - Issues: ${issues.length}`);
-        for (const issue of issues) {
+        this.outputChannel.appendLine(`  - Issues: ${result.issues.length}`);
+        for (const issue of result.issues) {
           this.outputChannel.appendLine(
             `    - [${issue.sectionId}] ${issue.code}: ${issue.message}`
           );
@@ -126,7 +136,47 @@ export class ReportDoctorCommand {
       }
     }
 
-    const totalIssues = results.reduce((sum, r) => sum + r.issues.length, 0);
+    const [packageResult, changelogResult, readmeResult] = await Promise.all([
+      this.readFileBestEffort(docsPaths.packageJson),
+      this.readFileBestEffort(docsPaths.changelog),
+      this.readFileBestEffort(docsPaths.readme),
+    ]);
+
+    let packageVersion = '';
+    if (packageResult.fileExists) {
+      try {
+        const parsed = JSON.parse(packageResult.content) as { version?: string };
+        if (typeof parsed.version === 'string') {
+          packageVersion = parsed.version;
+        }
+      } catch {
+        packageVersion = '';
+      }
+    }
+
+    const docsIssues = validateDocsVersionSync({
+      packageVersion,
+      readmeContent: readmeResult.content,
+      changelogContent: changelogResult.content,
+    });
+
+    this.outputChannel.appendLine('');
+    this.outputChannel.appendLine(
+      `- Docs: ${docsPaths.readme} | ${docsPaths.changelog} | ${docsPaths.packageJson}`
+    );
+    if (docsIssues.length === 0) {
+      this.outputChannel.appendLine('  - OK: No issues found');
+    } else {
+      this.outputChannel.appendLine(`  - Issues: ${docsIssues.length}`);
+      for (const issue of docsIssues) {
+        this.outputChannel.appendLine(
+          `    - [${issue.sectionId}] ${issue.code}: ${issue.message}`
+        );
+      }
+    }
+
+    const reportIssuesCount = results.reduce((sum, r) => sum + r.issues.length, 0);
+    const totalIssues = reportIssuesCount + docsIssues.length;
     if (totalIssues === 0) {
       vscode.window.showInformationMessage(
         'Report Doctor: No marker/table issues found.'
@@ -134,16 +184,28 @@ export class ReportDoctorCommand {
       return;
     }
 
+    const actions: string[] = [];
+    if (reportIssuesCount > 0) {
+      actions.push('Repair', 'Open Reports');
+    }
+    if (docsIssues.length > 0) {
+      actions.push('Open Docs');
+    }
+    actions.push('Cancel');
+
     const action = await vscode.window.showWarningMessage(
       `Report Doctor found ${totalIssues} issue(s).`,
       { modal: true },
-      'Repair',
-      'Open Reports',
-      'Cancel'
+      ...actions
     );
 
     if (action === 'Open Reports') {
       await this.openReports(results.map(r => r.target.filePath));
+      return;
+    }
+
+    if (action === 'Open Docs') {
+      await this.openReports([docsPaths.readme, docsPaths.changelog, docsPaths.packageJson]);
       return;
     }
 

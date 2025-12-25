@@ -387,6 +387,182 @@ describe('ReportService', () => {
       expect(promptWrite?.[1]).not.toContain('### [PROMPT-001] My Prompt Title');
       expect(promptWrite?.[1]).toContain('### [PROMPT-002] Keep Me');
     });
+
+    it('removes multiple applied IDs and prompt titles in a single pass', async () => {
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+
+      const improvementContent = [
+        '# 개선 보고서',
+        '',
+        '### 🔴 중요 (P1) 첫 항목',
+        '',
+        '| 항목 | 내용 |',
+        '|------|------|',
+        '| **ID** | `test-commands-001` |',
+        '',
+        '내용',
+        '',
+        '### 🟡 중요 (P2) 두 번째 항목',
+        '',
+        '| 항목 | 내용 |',
+        '|------|------|',
+        '| **ID** | `dev-eol-standardize-001` |',
+        '',
+        '내용',
+        '',
+        '## 다음 섹션',
+        'keep',
+      ].join('\n');
+
+      const promptContent = [
+        '# AI Agent Improvement Prompts',
+        '',
+        '## Execution Checklist',
+        '',
+        '| # | Prompt ID | Title | Priority | Status |',
+        '|:---:|:---|:---|:---:|:---:|',
+        '| 1 | PROMPT-001 | First Item | P1 | ⬜ Pending |',
+        '| 2 | PROMPT-002 | Keep Me | P2 | ⬜ Pending |',
+        '| 3 | PROMPT-003 | EOL Standardize | P2 | ⬜ Pending |',
+        '',
+        '**Total: 3 prompts** | **Completed: 0** | **Remaining: 3**',
+        '',
+        '### [PROMPT-001] First Item',
+        '',
+        'Execute this prompt now.',
+        '',
+        '### [PROMPT-002] Keep Me',
+        '',
+        'Do not remove.',
+        '',
+        '### [PROMPT-003] EOL Standardize',
+        '',
+        'Remove me.',
+      ].join('\n');
+
+      readFileMock.mockImplementation(async (filePath: any) => {
+        const file = String(filePath);
+        if (file.endsWith('Project_Improvement_Exploration_Report.md')) {
+          return improvementContent;
+        }
+        if (file.endsWith('Prompt.md')) {
+          return promptContent;
+        }
+        throw new Error(`unexpected read: ${file}`);
+      });
+      writeFileMock.mockResolvedValue(undefined);
+
+      const applied: AppliedImprovement[] = [
+        {
+          id: 'test-commands-001',
+          title: 'First Item',
+          appliedAt: '2025-01-01T00:00:00.000Z',
+          sessionId: 'session-001',
+        },
+        {
+          id: 'dev-eol-standardize-001',
+          title: 'EOL Standardize',
+          appliedAt: '2025-01-02T00:00:00.000Z',
+          sessionId: 'session-002',
+        },
+      ];
+
+      const result = await service.cleanupAppliedItems(mockRootPath, mockConfig, applied);
+
+      expect(result.improvementRemoved).toBeGreaterThanOrEqual(2);
+      expect(result.promptRemoved).toBeGreaterThanOrEqual(2);
+
+      const promptWrite = writeFileMock.mock.calls.find(call =>
+        String(call[0]).endsWith('Prompt.md')
+      );
+      const nextPrompt = String(promptWrite?.[1] ?? '');
+      expect(nextPrompt).toContain('### [PROMPT-002] Keep Me');
+      expect(nextPrompt).not.toContain('### [PROMPT-001] First Item');
+      expect(nextPrompt).not.toContain('### [PROMPT-003] EOL Standardize');
+      expect(nextPrompt).toContain('**Total: 1 prompts**');
+    });
+
+    it('handles large Prompt.md content and updates checklist summary', async () => {
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+
+      const rows = Array.from({ length: 50 }, (_, index) => {
+        const number = String(index + 1).padStart(3, '0');
+        return `| ${index + 1} | PROMPT-${number} | Title ${index + 1} | P2 | ⬜ Pending |`;
+      });
+      const sections = Array.from({ length: 50 }, (_, index) => {
+        const number = String(index + 1).padStart(3, '0');
+        return [
+          `### [PROMPT-${number}] Title ${index + 1}`,
+          '',
+          'Execute.',
+          '',
+        ].join('\n');
+      }).join('\n');
+
+      const promptContent = [
+        '# AI Agent Improvement Prompts',
+        '',
+        '## Execution Checklist',
+        '',
+        '| # | Prompt ID | Title | Priority | Status |',
+        '|:---:|:---|:---|:---:|:---:|',
+        ...rows,
+        '',
+        '**Total: 50 prompts** | **Completed: 0** | **Remaining: 50**',
+        '',
+        sections,
+      ].join('\n');
+
+      readFileMock.mockImplementation(async (filePath: any) => {
+        const file = String(filePath);
+        if (file.endsWith('Project_Improvement_Exploration_Report.md')) {
+          return '';
+        }
+        if (file.endsWith('Prompt.md')) {
+          return promptContent;
+        }
+        throw new Error(`unexpected read: ${file}`);
+      });
+      writeFileMock.mockResolvedValue(undefined);
+
+      const applied: AppliedImprovement[] = [
+        {
+          id: 'unused-001',
+          title: 'Title 10',
+          appliedAt: '2025-01-01T00:00:00.000Z',
+          sessionId: 'session-001',
+        },
+        {
+          id: 'unused-002',
+          title: 'Title 20',
+          appliedAt: '2025-01-02T00:00:00.000Z',
+          sessionId: 'session-002',
+        },
+      ];
+
+      await service.cleanupAppliedItems(mockRootPath, mockConfig, applied);
+
+      const promptWrite = writeFileMock.mock.calls.find(call =>
+        String(call[0]).endsWith('Prompt.md')
+      );
+      const nextPrompt = String(promptWrite?.[1] ?? '');
+      expect(nextPrompt).not.toContain('### [PROMPT-010] Title 10');
+      expect(nextPrompt).not.toContain('### [PROMPT-020] Title 20');
+      expect(nextPrompt).toContain('**Total: 48 prompts**');
+    });
+
+    it('skips cleanup when there are no applied items', async () => {
+      const readFileMock = vi.mocked(fs.readFile);
+      const writeFileMock = vi.mocked(fs.writeFile);
+
+      const result = await service.cleanupAppliedItems(mockRootPath, mockConfig, []);
+
+      expect(result).toEqual({ improvementRemoved: 0, promptRemoved: 0 });
+      expect(readFileMock).not.toHaveBeenCalled();
+      expect(writeFileMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateImprovementReport', () => {

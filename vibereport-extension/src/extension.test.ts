@@ -144,6 +144,10 @@ vi.mock('./commands/index.js', () => ({
     constructor(_outputChannel: unknown) {}
     execute = vi.fn();
   },
+  OpenTroubleshootingCommand: class MockOpenTroubleshootingCommand {
+    constructor(_outputChannel: unknown, _extensionUri: unknown) {}
+    execute = vi.fn();
+  },
 }));
 
 vi.mock('./commands/openReportPreview.js', () => ({
@@ -295,9 +299,10 @@ describe('extension', () => {
 	      'vibereport.setProjectVision',
 	      'vibereport.setAnalysisRootWizard',
 	      'vibereport.generatePrompt',
-	      'vibereport.shareReport',
-	      'vibereport.exportReportBundle',
-	      'vibereport.openReportPreview',
+      'vibereport.shareReport',
+      'vibereport.exportReportBundle',
+      'vibereport.openReportPreview',
+      'vibereport.openTroubleshooting',
       'vibereport.clearHistory',
       'vibereport.reportDoctor',
       'vibereport.refreshViews',

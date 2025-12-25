@@ -2,21 +2,21 @@
 
 > **MANDATORY EXECUTION RULES**
 > 1. **Tool-first editing:** Always modify files via file-edit tools (`replace_string_in_file`, `multi_replace_string_in_file`, `create_file`, or an equivalent patch tool). Do not respond with text-only suggestions.
-> 2. **Sequential execution:** Execute prompts strictly in order (PROMPT-001 → PROMPT-002 → PROMPT-003 → PROMPT-004 → OPT-1). Do not skip or reorder.
-> 3. **No placeholders:** Write complete, working code and tests. Do not leave TODO stubs or "..." omissions.
+> 2. **Sequential execution:** Execute prompts strictly in order (PROMPT-001 -> PROMPT-002 -> PROMPT-003 -> PROMPT-004 -> OPT-1). Do not skip or reorder.
+> 3. **No placeholders:** Write complete, working code and tests. Do not leave TODO stubs or omitted logic.
 > 4. **Verify every prompt:** Run the verification commands before marking a prompt done.
 > 5. **Report completion:** After each prompt, report touched files, verification results, and the next prompt ID.
-> 6. **English-only output** for this file (no non-English characters).
+> 6. **English-only output** for this file (no Korean characters).
 
 ## Execution Checklist
 
 | # | Prompt ID | Title | Priority | Status |
 |:---:|:---|:---|:---:|:---:|
-| 1 | PROMPT-001 | Fix monorepo structure diagram + entrypoint detection (`scan-structure-001`) | P1 | ⬜ Pending |
-| 2 | PROMPT-002 | Exclude sensitive files during scan by default (`security-sensitive-scan-001`) | P2 | ⬜ Pending |
-| 3 | PROMPT-003 | Preserve default exclude patterns via merge option (`config-exclude-001`) | P2 | ⬜ Pending |
-| 4 | PROMPT-004 | Add an analysisRoot setup wizard command (`feat-analysisroot-wizard-001`) | P3 | ⬜ Pending |
-| 5 | OPT-1 | Cache Git info (status/log) with TTL (`opt-gitinfo-cache-001`) | OPT | ⬜ Pending |
+| 1 | PROMPT-001 | Expand Report Doctor managed sections (`doctor-sections-001`) | P1 | ⬜ Pending |
+| 2 | PROMPT-002 | Standardize line endings and renormalize (`dev-eol-standardize-001`) | P2 | ⬜ Pending |
+| 3 | PROMPT-003 | Generalize WSL mount detection in preflight (`dev-preflight-wsl-mount-001`) | P2 | ⬜ Pending |
+| 4 | PROMPT-004 | Add command to open Troubleshooting docs (`feat-open-troubleshooting-001`) | P3 | ⬜ Pending |
+| 5 | OPT-1 | Optimize applied-item cleanup performance (`opt-applied-cleanup-perf-001`) | OPT | ⬜ Pending |
 
 > **Total: 5 prompts | Completed: 0 | Remaining: 5**
 
@@ -24,31 +24,30 @@
 
 ## Priority 1 (Critical)
 
-### [PROMPT-001] Fix monorepo structure diagram + entrypoint detection
+### [PROMPT-001] Expand Report Doctor managed sections
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-002].
 - Status: P1 (Pending)
-- Linked Improvement ID: `scan-structure-001`
+- Linked Improvement ID: `doctor-sections-001`
 
 **Task:**
-Make `WorkspaceScanner.generateFunctionBasedStructure(...)` classify monorepo paths such as `vibereport-extension/src/...` correctly and detect entrypoints like `vibereport-extension/src/extension.ts`, so the generated `structureDiagram` is accurate for nested projects.
+Expand Report Doctor validation and repair coverage so it matches all auto-managed sections in the Evaluation and Improvement reports.
 
 **Target files:**
-- `vibereport-extension/src/services/workspaceScanner.ts`
-- `vibereport-extension/src/services/__tests__/workspaceScanner.test.ts`
+- `vibereport-extension/src/utils/reportDoctorUtils.ts`
+- `vibereport-extension/src/utils/markdownUtils.ts`
+- `vibereport-extension/src/services/reportTemplates.ts`
+- Tests: `vibereport-extension/src/utils/__tests__/reportDoctorUtils.test.ts`
 
 **Steps:**
-1. Update the file-to-category mapping to support both:
-   - root layouts: `src/<category>/...`
-   - nested layouts: `<package>/src/<category>/...` (e.g., `vibereport-extension/src/commands/...`)
-2. Keep existing top-level categories (e.g., `devplan/`) working.
-3. Update entrypoint detection to allow an optional path prefix (not only `src/...` at repo root), and ensure `*/src/extension.ts` is recognized.
-4. Add a unit test that scans a mocked workspace containing:
-   - `vibereport-extension/src/extension.ts`
-   - `vibereport-extension/src/commands/index.ts`
-   - `devplan/Prompt.md`
-   and asserts that `snapshot.structureDiagram` includes at least one non-devplan category (e.g., `commands/`) and lists `vibereport-extension/src/extension.ts` under "Entry points".
+1. In `reportDoctorUtils.ts`, extend the managed section lists:
+   - Evaluation report: add managed sections for TL;DR (`MARKERS.TLDR_*`), Risk Summary (`MARKERS.RISK_SUMMARY_*`), Score Mapping (`MARKERS.SCORE_MAPPING_*`), and Current Summary (`MARKERS.SUMMARY_*`).
+   - Improvement report: add managed sections for Project Overview (`MARKERS.OVERVIEW_*`) and Feature List (`MARKERS.FEATURE_LIST_*`).
+2. Set `validateTables: true` for the table-driven sections (TL;DR, Risk Summary, Score Mapping, Overview). Keep it `false` for free-form sections (Summary, Feature List).
+3. Ensure `repairReportMarkdown()` can restore missing or duplicated blocks for the newly managed sections using the corresponding blocks from the report templates.
+4. Update `reportDoctorUtils.test.ts` fixtures so the template/content samples include all required managed markers for the report type being tested.
+5. Add at least one new unit test that verifies missing markers for a newly added section are detected (for example: missing `MARKERS.TLDR_END` or missing `MARKERS.FEATURE_LIST_START`).
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -62,104 +61,103 @@ Make `WorkspaceScanner.generateFunctionBasedStructure(...)` classify monorepo pa
 
 ## Priority 2 (High)
 
-### [PROMPT-002] Exclude sensitive files during scan by default
+### [PROMPT-002] Standardize line endings and renormalize
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-003].
 - Status: P2 (Pending)
-- Linked Improvement ID: `security-sensitive-scan-001`
+- Linked Improvement ID: `dev-eol-standardize-001`
 
 **Task:**
-Prevent accidental leakage of secrets by filtering common sensitive files (e.g., `.env*`, `*.pem`, `*.key`, `*token*`) from scan results by default.
+Make line endings consistent across the repository to reduce cross-platform diffs and snapshot noise (LF for text files; keep binary files untouched).
 
 **Target files:**
-- `vibereport-extension/src/services/workspaceScanner/fileCollector.ts`
-- `vibereport-extension/src/models/types.ts` (config typing)
-- `vibereport-extension/package.json` (configuration)
-- `vibereport-extension/src/services/__tests__/workspaceScanner.test.ts`
+- `.gitattributes`
+- `vibereport-extension/.gitattributes`
 
 **Steps:**
-1. Implement a small `isSensitivePath(relativePath)` filter inside `applyGitignoreAndSensitiveFilters(...)` to exclude common secret patterns (case-insensitive).
-2. Add a config escape hatch (default: do not include sensitive files), e.g. `vibereport.includeSensitiveFiles: false`.
-3. Add tests that prove:
-   - `.env` and `vsctoken.txt` are excluded when the setting is false/default.
-   - they are included when the setting is true.
+1. Define a single policy for text files (recommended: `* text=auto eol=lf`) and keep explicit `binary` patterns for assets (`.png`, `.vsix`, etc.).
+2. If you keep platform-specific exceptions, make them explicit (for example: `.bat`/`.cmd`/`.ps1` remain CRLF for Windows compatibility).
+3. Run `git add --renormalize .` and confirm the diff is line-ending-only (no semantic changes).
+4. Ensure Markdown files in the repo are normalized to LF so report snapshots do not churn on Windows/WSL.
 
 **Verification:**
+- `git diff --check`
 - `pnpm -C vibereport-extension run compile`
-- `pnpm -C vibereport-extension run test:run`
+- `pnpm -C vibereport-extension run lint`
 
 **After Completion:**
 - Proceed directly to [PROMPT-003].
 
----
-
-### [PROMPT-003] Preserve default exclude patterns via merge option
+### [PROMPT-003] Generalize WSL mount detection in preflight
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-004].
 - Status: P2 (Pending)
-- Linked Improvement ID: `config-exclude-001`
+- Linked Improvement ID: `dev-preflight-wsl-mount-001`
 
 **Task:**
-Add an opt-in/opt-out configuration flag that preserves the extension's default `excludePatterns` even when users customize `vibereport.excludePatterns`, so large artifacts (e.g., `*.vsix`) and other noisy paths stay excluded by default.
+Generalize the WSL mounted-path detection in the test preflight script so it works for any `/mnt/<drive>` path (not just `/mnt/c`), and keep the guidance accurate.
 
 **Target files:**
-- `vibereport-extension/src/utils/configUtils.ts`
-- `vibereport-extension/src/models/types.ts`
-- `vibereport-extension/package.json`
-- `vibereport-extension/src/utils/__tests__/configDefaults.test.ts`
+- `vibereport-extension/scripts/preflightTestEnv.js`
+- `vibereport-extension/src/scripts/__tests__/preflightTestEnv.test.ts`
+- `vibereport-extension/TROUBLESHOOTING.md`
 
 **Steps:**
-1. Extend `VibeReportConfig` with `excludePatternsIncludeDefaults: boolean` (default: `true`).
-2. Update `DEFAULT_CONFIG` and `loadConfig()` so when the flag is enabled the effective patterns are:
-   - `DEFAULT_CONFIG.excludePatterns` + user `excludePatterns` (trim + dedupe)
-   and when disabled the effective patterns are user-only.
-3. Update the contributed VS Code setting schema (package.json) with a clear description and default value.
-4. Add/adjust tests to ensure:
-   - the new setting is contributed with the correct default.
-   - `loadConfig()` returns merged patterns when enabled.
+1. Update `isWslMountedPath()` to return `true` for `/mnt/<drive>` and its subdirectories (for example: `/mnt/c`, `/mnt/d/dev/repo`) and `false` otherwise.
+   - Keep the existing normalization behavior (`\\` to `/`, lowercase).
+   - Suggested regex after normalization: `^/mnt/[a-z](/|$)`.
+2. Update `printWslRollupFix()` messaging (if needed) so it refers to `/mnt/<drive>` or `/mnt/*` rather than a single drive letter.
+3. Update `preflightTestEnv.test.ts` to cover:
+   - `/mnt/c` and `/mnt/c/projects/x` => true
+   - `/mnt/d` and `/mnt/d/projects/x` => true
+   - `/home/user/repo` => false
+4. Update `TROUBLESHOOTING.md` so WSL examples are generalized (use `/mnt/<drive>` or `/mnt/*`).
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
+- `pnpm -C vibereport-extension run lint`
 - `pnpm -C vibereport-extension run test:run`
 
 **After Completion:**
 - Proceed directly to [PROMPT-004].
 
----
-
 ## Priority 3 (Feature)
 
-### [PROMPT-004] Add an analysisRoot setup wizard command
+### [PROMPT-004] Add command to open Troubleshooting docs
 
 **Directives:**
 - Execute this prompt now, then proceed to [OPT-1].
 - Status: P3 (Pending)
-- Linked Improvement ID: `feat-analysisroot-wizard-001`
+- Linked Improvement ID: `feat-open-troubleshooting-001`
 
 **Task:**
-Add a command that helps users pick and persist `vibereport.analysisRoot` for monorepos via Quick Pick, improving scan accuracy without manual settings edits.
+Add a VS Code command that opens the extension's `TROUBLESHOOTING.md` so users can access troubleshooting guidance from the Command Palette in one step.
 
 **Target files:**
-- `vibereport-extension/package.json`
-- `vibereport-extension/src/commands/setAnalysisRootWizard.ts` (new)
+- `vibereport-extension/package.json` (add a new command contribution)
+- `vibereport-extension/src/commands/openTroubleshooting.ts` (new)
 - `vibereport-extension/src/commands/index.ts`
 - `vibereport-extension/src/extension.ts`
-- `vibereport-extension/src/commands/__tests__/setAnalysisRootWizard.test.ts` (new)
+- `vibereport-extension/TROUBLESHOOTING.md`
+- Tests under `vibereport-extension/src/commands/__tests__/`
 
 **Steps:**
-1. Contribute a new command id (e.g., `vibereport.setAnalysisRootWizard`) with a clear title and category.
-2. Implement the command:
-   - Select `workspaceRoot` via `selectWorkspaceRoot()`.
-   - Discover candidate folders by searching for signals like `package.json`, `tsconfig.json`, and `src/extension.ts` under the workspace (excluding `node_modules`, `.git`, and other ignored paths).
-   - Present candidates as workspace-relative paths in `showQuickPick` (dedupe + sort; prefer shallow paths and ones that look like VS Code extensions).
-   - Update workspace configuration `vibereport.analysisRoot` and validate with `resolveAnalysisRoot(workspaceRoot, selected)`.
-3. Add tests that mock:
-   - `vscode.workspace.findFiles` (candidates)
-   - `vscode.window.showQuickPick` (selection)
-   - `vscode.workspace.getConfiguration('vibereport').update(...)` (writes)
-   and assert the correct value is persisted.
+1. Add a new command contribution in `vibereport-extension/package.json`:
+   - command ID: `vibereport.openTroubleshooting`
+   - title: `Open Troubleshooting Guide`
+   - category: `VibeCoding`
+2. Implement `OpenTroubleshootingCommand` in `vibereport-extension/src/commands/openTroubleshooting.ts`:
+   - accept `outputChannel` and `extensionUri` (or `extensionPath`) in the constructor
+   - build the doc URI with `vscode.Uri.joinPath(extensionUri, 'TROUBLESHOOTING.md')`
+   - open it via `vscode.workspace.openTextDocument` and `vscode.window.showTextDocument`
+   - on failure, show a warning message and log details to the output channel
+3. Export and wire the command in `vibereport-extension/src/commands/index.ts` and register it in `vibereport-extension/src/extension.ts`.
+4. Add unit tests that mock VS Code APIs and verify:
+   - success path opens the correct URI
+   - missing-file path shows a warning and does not throw
+5. Ensure `TROUBLESHOOTING.md` is packaged with the extension (do not exclude it via `.vscodeignore` if present).
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -173,28 +171,38 @@ Add a command that helps users pick and persist `vibereport.analysisRoot` for mo
 
 ## Optimization (OPT)
 
-### [OPT-1] Cache Git info (status/log) with TTL
+### [OPT-1] Optimize applied-item cleanup performance
 
 **Directives:**
 - Execute this prompt now, then proceed to Final Completion.
 - Status: OPT (Pending)
-- Linked Improvement ID: `opt-gitinfo-cache-001`
+- Linked Improvement ID: `opt-applied-cleanup-perf-001`
 
 **Task:**
-Reduce repeated Git overhead by caching `WorkspaceScanner.getGitInfo()` results in `snapshotCache` for a short TTL.
+Speed up applied-item cleanup for large Prompt.md and improvement reports by reducing repeated full-document regex scans while preserving behavior.
 
 **Target files:**
-- `vibereport-extension/src/services/workspaceScanner.ts`
-- `vibereport-extension/src/services/snapshotCache.ts`
-- `vibereport-extension/src/services/__tests__/workspaceScanner.test.ts`
+- `vibereport-extension/src/services/reportService.ts`
+- Tests in `vibereport-extension/src/services/__tests__/reportService.test.ts` (or a new focused test file)
 
 **Steps:**
-1. Add a cache key (e.g., `createCacheKey('git-info', rootPath)`) and reuse cached results when available.
-2. Keep behavior unchanged for non-repo workspaces and for errors (fail open to `undefined`).
-3. Add tests that verify repeated scans within TTL reduce calls to `simpleGit().status()` and `.log()`.
+1. Identify the hot path in `cleanupAppliedItems` / `removeAppliedItemsFromContent` where it loops over IDs/titles and applies multiple global regex passes.
+2. Refactor to reduce passes over the full content:
+   - prefer a single scan that removes sections by ID rows like `| **ID** | \`doctor-sections-001\` |` and updates the checklist in one pass
+   - avoid running expensive cleanup regexes repeatedly when there is no change
+3. Preserve the observable behavior:
+   - same removal rules (by ID first, then title fallback)
+   - same whitespace/section separator normalization
+   - same checklist summary update behavior
+4. Add tests that cover:
+   - multiple applied IDs, mixed prompt IDs and titles
+   - large synthetic Prompt.md content (many sections) still produces correct output
+   - no changes when there are no applied items
+5. Do not change public command behavior; only optimize internals.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
+- `pnpm -C vibereport-extension run lint`
 - `pnpm -C vibereport-extension run test:run`
 
 **After Completion:**

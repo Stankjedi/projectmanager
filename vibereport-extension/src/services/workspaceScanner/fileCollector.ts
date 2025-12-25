@@ -2,25 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { VibeReportConfig } from '../../models/types.js';
+import { OperationCancelledError } from '../../models/errors.js';
 import { getCachedValue, setCachedValue, createCacheKey } from '../snapshotCache.js';
 import { getGitignoreMatcher } from '../../utils/gitignoreUtils.js';
-
-function normalizeExcludePatterns(patterns: string[]): string[] {
-  const trimmed = patterns
-    .map((pattern) => pattern.trim())
-    .filter((pattern) => pattern.length > 0)
-    .sort();
-
-  const unique: string[] = [];
-  const seen = new Set<string>();
-  for (const pattern of trimmed) {
-    if (seen.has(pattern)) continue;
-    seen.add(pattern);
-    unique.push(pattern);
-  }
-
-  return unique;
-}
+import { normalizeExcludePatterns } from '../../utils/excludePatternUtils.js';
 
 function isSensitivePath(relativePath: string): boolean {
   const normalized = relativePath.replace(/\\/g, '/');
@@ -81,8 +66,13 @@ export async function collectFiles(args: {
   rootPath: string;
   config: VibeReportConfig;
   log?: (message: string) => void;
+  cancellationToken?: vscode.CancellationToken;
 }): Promise<string[]> {
-  const { rootPath, config, log } = args;
+  const { rootPath, config, log, cancellationToken } = args;
+
+  if (cancellationToken?.isCancellationRequested) {
+    throw new OperationCancelledError('File collection cancelled');
+  }
 
   const normalizedExcludePatterns = normalizeExcludePatterns(config.excludePatterns);
   const gitignoreMtimeMs = await getGitignoreMtimeMs(rootPath, config.respectGitignore);
@@ -106,7 +96,16 @@ export async function collectFiles(args: {
   const excludePattern =
     normalizedExcludePatterns.length > 0 ? `{${normalizedExcludePatterns.join(',')}}` : undefined;
 
-  const uris = await vscode.workspace.findFiles('**/*', excludePattern, config.maxFilesToScan);
+  const uris = await vscode.workspace.findFiles(
+    '**/*',
+    excludePattern,
+    config.maxFilesToScan,
+    cancellationToken
+  );
+
+  if (cancellationToken?.isCancellationRequested) {
+    throw new OperationCancelledError('File collection cancelled');
+  }
 
   const files = uris
     .filter((uri) => uri.fsPath.startsWith(rootPath))
@@ -120,6 +119,10 @@ export async function collectFiles(args: {
     includeSensitiveFiles: config.includeSensitiveFiles,
     normalizedSnapshotFile,
   });
+
+  if (cancellationToken?.isCancellationRequested) {
+    throw new OperationCancelledError('File collection cancelled');
+  }
 
   setCachedValue(cacheKey, filteredFiles);
   return filteredFiles;

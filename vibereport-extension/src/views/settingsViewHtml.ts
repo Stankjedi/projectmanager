@@ -1,14 +1,17 @@
 import { DEFAULT_CONFIG } from '../utils/configUtils.js';
+import { escapeHtmlAttribute } from '../utils/htmlEscape.js';
 
 export function buildSettingsHtml(args: { nonce: string; cspSource: string }): string {
   const { nonce, cspSource } = args;
+  const escapedNonce = escapeHtmlAttribute(nonce);
+  const escapedCspSource = escapeHtmlAttribute(cspSource);
 
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${escapedCspSource} 'unsafe-inline'; script-src 'nonce-${escapedNonce}';">
   <title>Vibe Report Settings</title>
   <style>
     body {
@@ -333,7 +336,7 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
     <button class="btn btn-secondary" id="btn-reset">🔄 기본값 복원</button>
   </div>
 
-  <script nonce="${nonce}">
+  <script nonce="${escapedNonce}">
     const vscode = acquireVsCodeApi();
     const DEFAULTS = ${JSON.stringify(DEFAULT_CONFIG)};
     const UI_DEFAULTS = {
@@ -454,4 +457,3 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
 </body>
 </html>`;
 }
-

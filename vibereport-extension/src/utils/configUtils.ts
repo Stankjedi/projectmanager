@@ -9,16 +9,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { VibeReportConfig, ProjectType, QualityFocus } from '../models/types.js';
 import { resolveAnalysisRootPortable } from './analysisRootUtils.js';
+import { normalizeExcludePatterns } from './excludePatternUtils.js';
 
 // Cache last selected workspace root for multi-root UX.
 let lastSelectedWorkspaceRoot: string | null = null;
-
-function normalizeExcludePatterns(patterns: string[]): string[] {
-  const trimmed = patterns.map((pattern) => pattern.trim()).filter((pattern) => pattern.length > 0);
-  const unique = Array.from(new Set(trimmed));
-  unique.sort();
-  return unique;
-}
 
 /**
  * Get last selected workspace root (in-memory for current session)

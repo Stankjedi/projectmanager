@@ -5,16 +5,17 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-	import {
-	  UpdateReportsCommand,
-	  MarkImprovementAppliedCommand,
-	  SetProjectVisionCommand,
-	  SetAnalysisRootWizardCommand,
-	  GeneratePromptCommand,
-	  ShareReportCommand,
-	  ExportReportBundleCommand,
-	  ReportDoctorCommand,
-	} from './commands/index.js';
+import {
+  UpdateReportsCommand,
+  MarkImprovementAppliedCommand,
+  SetProjectVisionCommand,
+  SetAnalysisRootWizardCommand,
+  GeneratePromptCommand,
+  ShareReportCommand,
+  ExportReportBundleCommand,
+  ReportDoctorCommand,
+  OpenTroubleshootingCommand,
+} from './commands/index.js';
 import { UpdateReportsAllCommand } from './commands/updateReportsAll.js';
 import { exportSettings, importSettings } from './commands/settingsSync.js';
 import { CleanHistoryCommand } from './commands/cleanHistory.js';
@@ -25,43 +26,167 @@ import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
 import { SettingsViewProvider } from './views/SettingsViewProvider.js';
-import { formatTimestampForUi, loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from './utils/index.js';
+import {
+  formatTimestampForUi,
+  loadConfig,
+  selectWorkspaceRoot,
+  resolveAnalysisRoot,
+} from './utils/index.js';
 import { validateOpenCodeReferencePath } from './utils/pathGuards.js';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 
+type CommandInstances = {
+  reportService: ReportService;
+  updateReportsCommand: UpdateReportsCommand;
+  updateReportsAllCommand: UpdateReportsAllCommand;
+  markAppliedCommand: MarkImprovementAppliedCommand;
+  setVisionCommand: SetProjectVisionCommand;
+  setAnalysisRootWizardCommand: SetAnalysisRootWizardCommand;
+  generatePromptCommand: GeneratePromptCommand;
+  shareReportCommand: ShareReportCommand;
+  exportReportBundleCommand: ExportReportBundleCommand;
+  reportDoctorCommand: ReportDoctorCommand;
+  openTroubleshootingCommand: OpenTroubleshootingCommand;
+  cleanHistoryCommand: CleanHistoryCommand;
+  openReportPreviewCommand: OpenReportPreviewCommand;
+};
+
+type ViewProviders = {
+  historyViewProvider: HistoryViewProvider;
+  summaryViewProvider: SummaryViewProvider;
+  settingsViewProvider: SettingsViewProvider;
+};
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  // 출력 채널 생성
   outputChannel = vscode.window.createOutputChannel('Vibe Report');
   context.subscriptions.push(outputChannel);
 
+  logActivationHeader(outputChannel);
+
+  const commands = createCommandInstances(context, outputChannel);
+  setupPreviewStyles(context, outputChannel);
+
+  statusBarItem = createStatusBarItem(context);
+
+  const viewProviders = registerViewProviders(context, outputChannel);
+  const autoUpdateManager = setupAutoUpdate(
+    context,
+    outputChannel,
+    commands.updateReportsCommand
+  );
+
+  registerAutoUpdateStatusHandlers(
+    context,
+    autoUpdateManager,
+    viewProviders.summaryViewProvider
+  );
+  registerCommands(context, commands, viewProviders);
+  registerFileWatchers(context, outputChannel, viewProviders);
+
+  outputChannel.appendLine('모든 명령이 등록되었습니다.');
+}
+
+export function deactivate(): void {
+  if (outputChannel) {
+    outputChannel.appendLine('Vibe Coding Report 확장이 비활성화되었습니다.');
+    outputChannel.dispose();
+  }
+}
+
+function logActivationHeader(channel: vscode.OutputChannel): void {
   const extensionVersion =
     (require('../package.json') as { version?: string }).version ?? 'unknown';
 
-  outputChannel.appendLine('='.repeat(50));
-  outputChannel.appendLine(`Vibe Coding Report Extension v${extensionVersion}`);
-  outputChannel.appendLine(`활성화 시간: ${new Date().toISOString()}`);
-  outputChannel.appendLine('='.repeat(50));
+  channel.appendLine('='.repeat(50));
+  channel.appendLine(`Vibe Coding Report Extension v${extensionVersion}`);
+  channel.appendLine(`활성화 시간: ${new Date().toISOString()}`);
+  channel.appendLine('='.repeat(50));
+}
 
-  // 서비스 인스턴스 생성
-  const reportService = new ReportService(outputChannel);
-  const updateReportsCommand = new UpdateReportsCommand(outputChannel, context.globalState);
+function createCommandInstances(
+  context: vscode.ExtensionContext,
+  channel: vscode.OutputChannel
+): CommandInstances {
+  const reportService = new ReportService(channel);
+  const updateReportsCommand = new UpdateReportsCommand(channel, context.globalState);
   const updateReportsAllCommand = new UpdateReportsAllCommand(
-    outputChannel,
+    channel,
     updateReportsCommand
   );
-	  const markAppliedCommand = new MarkImprovementAppliedCommand(outputChannel);  
-	  const setVisionCommand = new SetProjectVisionCommand(outputChannel);
-	  const setAnalysisRootWizardCommand = new SetAnalysisRootWizardCommand(outputChannel);
-	  const generatePromptCommand = new GeneratePromptCommand(outputChannel);
-	  const shareReportCommand = new ShareReportCommand(outputChannel);
-	  const exportReportBundleCommand = new ExportReportBundleCommand(outputChannel);
-	  const reportDoctorCommand = new ReportDoctorCommand(outputChannel);
-	  const cleanHistoryCommand = new CleanHistoryCommand(outputChannel);
-  const openReportPreviewCommand = new OpenReportPreviewCommand(outputChannel, context.extensionUri);
 
-  // Auto-update Reports (opt-in)
+  return {
+    reportService,
+    updateReportsCommand,
+    updateReportsAllCommand,
+    markAppliedCommand: new MarkImprovementAppliedCommand(channel),
+    setVisionCommand: new SetProjectVisionCommand(channel),
+    setAnalysisRootWizardCommand: new SetAnalysisRootWizardCommand(channel),
+    generatePromptCommand: new GeneratePromptCommand(channel),
+    shareReportCommand: new ShareReportCommand(channel),
+    exportReportBundleCommand: new ExportReportBundleCommand(channel),
+    reportDoctorCommand: new ReportDoctorCommand(channel),
+    openTroubleshootingCommand: new OpenTroubleshootingCommand(
+      channel,
+      context.extensionUri
+    ),
+    cleanHistoryCommand: new CleanHistoryCommand(channel),
+    openReportPreviewCommand: new OpenReportPreviewCommand(
+      channel,
+      context.extensionUri
+    ),
+  };
+}
+
+function setupPreviewStyles(
+  context: vscode.ExtensionContext,
+  channel: vscode.OutputChannel
+): void {
+  const previewStyleService = new PreviewStyleService(channel, context.extensionPath);
+  previewStyleService.updatePreviewStyles();
+  context.subscriptions.push(previewStyleService.registerConfigChangeListener());
+}
+
+function createStatusBarItem(context: vscode.ExtensionContext): vscode.StatusBarItem {
+  const item = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100
+  );
+  item.command = 'vibereport.updateReports';
+  item.text = '$(notebook-render-output) Vibe Report';
+  item.tooltip = '프로젝트 보고서 업데이트 (Vibe Coding)';
+  item.show();
+  context.subscriptions.push(item);
+  return item;
+}
+
+function registerViewProviders(
+  context: vscode.ExtensionContext,
+  channel: vscode.OutputChannel
+): ViewProviders {
+  const historyViewProvider = new HistoryViewProvider(context.extensionUri, channel);
+  const summaryViewProvider = new SummaryViewProvider(context.extensionUri, channel);
+  const settingsViewProvider = new SettingsViewProvider(context.extensionUri, channel);
+
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('vibereport.history', historyViewProvider)
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('vibereport.summary', summaryViewProvider)
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('vibereport.settings', settingsViewProvider)
+  );
+
+  return { historyViewProvider, summaryViewProvider, settingsViewProvider };
+}
+
+function setupAutoUpdate(
+  context: vscode.ExtensionContext,
+  channel: vscode.OutputChannel,
+  updateReportsCommand: UpdateReportsCommand
+): AutoUpdateReportsManager {
   const baseConfig = loadConfig();
   const readAutoUpdateSettings = (): { enabled: boolean; debounceMs: number } => {
     const cfg = vscode.workspace.getConfiguration('vibereport');
@@ -82,13 +207,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     async () => {
       const folders = vscode.workspace.workspaceFolders ?? [];
       for (const folder of folders) {
-        const silentProgress: vscode.Progress<{ message?: string; increment?: number }> = {
-          report: ({ message }) => {
-            if (message) {
-              outputChannel.appendLine(`[AutoUpdate] ${folder.name}: ${message}`);
-            }
-          },
-        };
+        const silentProgress: vscode.Progress<{ message?: string; increment?: number }> =
+          {
+            report: ({ message }) => {
+              if (message) {
+                channel.appendLine(`[AutoUpdate] ${folder.name}: ${message}`);
+              }
+            },
+          };
 
         await updateReportsCommand.executeForWorkspace(folder.uri.fsPath, folder.name, {
           progress: silentProgress,
@@ -98,8 +224,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }
   );
-  context.subscriptions.push(autoUpdateManager);
 
+  context.subscriptions.push(autoUpdateManager);
   autoUpdateManager.applySettings(readAutoUpdateSettings());
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(event => {
@@ -112,333 +238,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
-  // 미리보기 스타일 서비스 초기화
-  const previewStyleService = new PreviewStyleService(outputChannel, context.extensionPath);
-  previewStyleService.updatePreviewStyles();
-  context.subscriptions.push(previewStyleService.registerConfigChangeListener());
+  return autoUpdateManager;
+}
 
-  // Status Bar 아이템 생성
-  statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right,
-    100
-  );
-  statusBarItem.command = 'vibereport.updateReports';
-  statusBarItem.text = '$(notebook-render-output) Vibe Report';
-  statusBarItem.tooltip = '프로젝트 보고서 업데이트 (Vibe Coding)';
-  statusBarItem.show();
-  context.subscriptions.push(statusBarItem);
-
-  // 명령 등록: Update Reports
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.updateReports', async () => {
-      await updateReportsCommand.execute();
-      // 업데이트 후 View 새로고침 (약간의 지연 후 실행)
-      setTimeout(() => {
-        vscode.commands.executeCommand('vibereport.refreshViews');
-      }, 500);
-    })
-  );
-
-  // 명령 등록: Update Reports All (multi-root batch)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.updateReportsAll', async () => {
-      await updateReportsAllCommand.execute();
-    })
-  );
-
-  // 명령 등록: Export Settings
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.exportSettings', async () => {
-      await exportSettings();
-    })
-  );
-
-  // 명령 등록: Import Settings
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.importSettings', async () => {
-      await importSettings();
-    })
-  );
-
-  // 명령 등록: Clear History
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.clearHistory', async () => {
-      await cleanHistoryCommand.execute();
-      setTimeout(() => {
-        vscode.commands.executeCommand('vibereport.refreshViews');        
-      }, 500);
-    })
-  );
-
-  // 명령 등록: Report Doctor
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.reportDoctor', async () => {
-      await reportDoctorCommand.execute();
-    })
-  );
-
-  // 명령 등록: Open Evaluation Report
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.openEvaluationReport', async () => {
-      const workspaceRoot = await selectWorkspaceRoot();
-      if (!workspaceRoot) return;
-
-      const config = loadConfig();
-      let rootPath = workspaceRoot;
-      try {
-        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
-        );
-        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
-        return;
-      }
-      const reportOpenMode = vscode.workspace.getConfiguration('vibereport').get<string>('reportOpenMode', 'previewOnly');
-
-      if (reportOpenMode === 'editorOnly') {
-        // MD 에디터만 열기
-        await reportService.openReport(rootPath, config, 'evaluation');
-      } else if (reportOpenMode === 'both') {
-        // MD 에디터와 프리뷰 둘 다 열기
-        await reportService.openReport(rootPath, config, 'evaluation');
-        setTimeout(() => {
-          vscode.commands.executeCommand('vibereport.openReportPreview');
-        }, 100);
-      } else {
-        // previewOnly: 파일 열고 프리뷰로 전환
-        // 에디터에서 파일을 연 뒤 openReportPreview 명령을 실행하면
-        // openReportPreview 내부에서 ViewColumn.Active를 사용하여 현재 에디터(방금 연 파일)를 대체하거나 위에 덮어씀
-        await reportService.openReport(rootPath, config, 'evaluation');
-
-        // 약간의 지연 후 프리뷰 실행 (파일 로딩 확보)
-        setTimeout(() => {
-          vscode.commands.executeCommand('vibereport.openReportPreview');
-        }, 100);
-      }
-    })
-  );
-
-  // 명령 등록: Open Improvement Report
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.openImprovementReport', async () => {
-      const workspaceRoot = await selectWorkspaceRoot();
-      if (!workspaceRoot) return;
-
-      const config = loadConfig();
-      let rootPath = workspaceRoot;
-      try {
-        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
-        );
-        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
-        return;
-      }
-      const reportOpenMode = vscode.workspace.getConfiguration('vibereport').get<string>('reportOpenMode', 'previewOnly');
-
-      if (reportOpenMode === 'editorOnly') {
-        // MD 에디터만 열기
-        await reportService.openReport(rootPath, config, 'improvement');
-      } else if (reportOpenMode === 'both') {
-        // MD 에디터와 프리뷰 둘 다 열기
-        await reportService.openReport(rootPath, config, 'improvement');
-        setTimeout(() => {
-          vscode.commands.executeCommand('vibereport.openReportPreview');
-        }, 100);
-      } else {
-        // previewOnly: 파일 열고 프리뷰로 전환
-        await reportService.openReport(rootPath, config, 'improvement');
-
-        setTimeout(() => {
-          vscode.commands.executeCommand('vibereport.openReportPreview');
-        }, 100);
-      }
-    })
-  );
-
-  // 명령 등록: Open Prompt File
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.openPrompt', async () => {
-      const workspaceRoot = await selectWorkspaceRoot();
-      if (!workspaceRoot) return;
-
-      const config = loadConfig();
-      let rootPath = workspaceRoot;
-      try {
-        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
-        );
-        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
-        return;
-      }
-      const promptPath = vscode.Uri.file(
-        require('path').join(rootPath, config.reportDirectory, 'Prompt.md')
-      );
-
-      try {
-        const doc = await vscode.workspace.openTextDocument(promptPath);
-        await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showWarningMessage(
-          'Prompt.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
-        );
-      }
-    })
-  );
-
-  // 명령 등록: Open Session History
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.openSessionHistory', async () => {
-      const workspaceRoot = await selectWorkspaceRoot();
-      if (!workspaceRoot) return;
-
-      const config = loadConfig();
-      let rootPath = workspaceRoot;
-      try {
-        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
-        );
-        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
-        return;
-      }
-      const historyPath = vscode.Uri.file(
-        require('path').join(rootPath, config.reportDirectory, 'Session_History.md')
-      );
-
-      try {
-        const doc = await vscode.workspace.openTextDocument(historyPath);
-        await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showWarningMessage(
-          'Session_History.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
-        );
-      }
-    })
-  );
-
-  // 명령 등록: Open Function In File (reports용 코드/함수 링크)
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'vibereport.openFunctionInFile',
-      async (filePath: string, symbolName?: string) => {
-        await openFunctionInFile(filePath, symbolName);
-      }
-    )
-  );
-
-  // 명령 등록: Initialize Reports
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.initializeReports', async () => {
-      const workspaceRoot = await selectWorkspaceRoot();
-      if (!workspaceRoot) return;
-
-      const config = loadConfig();
-      let rootPath = workspaceRoot;
-      try {
-        rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
-      } catch (error) {
-        vscode.window.showErrorMessage(
-          'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
-        );
-        outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
-        return;
-      }
-
-      const exists = await reportService.reportsExist(rootPath, config);
-
-      if (exists) {
-        const overwrite = await vscode.window.showWarningMessage(
-          '보고서 파일이 이미 존재합니다. 초기화하면 기존 내용이 삭제됩니다.',
-          '초기화',
-          '취소'
-        );
-        if (overwrite !== '초기화') {
-          return;
-        }
-      }
-
-      // 빈 보고서 업데이트 실행
-      await updateReportsCommand.execute();
-    })
-  );
-
-  // 명령 등록: Mark Improvement Applied
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.markApplied', async () => {
-      await markAppliedCommand.execute();
-    })
-  );
-
-  // 명령 등록: Set Project Vision
-	  context.subscriptions.push(
-	    vscode.commands.registerCommand('vibereport.setProjectVision', async () => {
-	      await setVisionCommand.execute();
-	    })
-	  );
-	
-	  // 명령 등록: Set Analysis Root Wizard
-	  context.subscriptions.push(
-	    vscode.commands.registerCommand('vibereport.setAnalysisRootWizard', async () => {
-	      await setAnalysisRootWizardCommand.execute();
-	    })
-	  );
-
-	  // 명령 등록: Generate Prompt (개선 항목 선택하여 프롬프트 생성)
-	  context.subscriptions.push(
-	    vscode.commands.registerCommand('vibereport.generatePrompt', async () => {
-	      await generatePromptCommand.execute();
-    })
-  );
-
-  // 명령 등록: Share Report Preview (외부 공유용 프리뷰 복사)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.shareReport', async () => {
-      await shareReportCommand.execute();
-    })
-  );
-
-  // 명령 등록: Export Report Bundle (보고서 + 공유 프리뷰 번들 내보내기)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.exportReportBundle', async () => {
-      await exportReportBundleCommand.execute();
-    })
-  );
-
-  // 명령 등록: Open Report Preview (Mermaid 지원 Webview 미리보기)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.openReportPreview', async () => {
-      await openReportPreviewCommand.execute();
-    })
-  );
-
-  // [REMOVED] showLastRunSummary - Summary View와 중복
-  // [REMOVED] copyAsPrompt - generatePrompt와 중복
-
-
-  // View Providers 등록
-  const historyViewProvider = new HistoryViewProvider(context.extensionUri, outputChannel);
-  const summaryViewProvider = new SummaryViewProvider(context.extensionUri, outputChannel);
-  const settingsViewProvider = new SettingsViewProvider(context.extensionUri, outputChannel);
-
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('vibereport.history', historyViewProvider)
-  );
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('vibereport.summary', summaryViewProvider)
-  );
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('vibereport.settings', settingsViewProvider)
-  );
-
-  // Auto-update 상태를 StatusBar + Summary View에 반영
+function registerAutoUpdateStatusHandlers(
+  context: vscode.ExtensionContext,
+  autoUpdateManager: AutoUpdateReportsManager,
+  summaryViewProvider: SummaryViewProvider
+): void {
   const renderAutoUpdateStatus = (status: AutoUpdateStatus): void => {
     const baseText = '$(notebook-render-output) Vibe Report';
     const baseTooltip = '프로젝트 보고서 업데이트 (Vibe Coding)';
@@ -472,81 +279,274 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     autoUpdateManager.onDidChangeStatus(status => renderAutoUpdateStatus(status))
   );
   renderAutoUpdateStatus(autoUpdateManager.getStatus());
+}
 
-  // 명령 등록: Refresh Views (수동 또는 자동 호출용)
+function registerCommands(
+  context: vscode.ExtensionContext,
+  commands: CommandInstances,
+  viewProviders: ViewProviders
+): void {
+  const {
+    reportService,
+    updateReportsCommand,
+    updateReportsAllCommand,
+    markAppliedCommand,
+    setVisionCommand,
+    setAnalysisRootWizardCommand,
+    generatePromptCommand,
+    shareReportCommand,
+    exportReportBundleCommand,
+    reportDoctorCommand,
+    openTroubleshootingCommand,
+    cleanHistoryCommand,
+    openReportPreviewCommand,
+  } = commands;
+  const { historyViewProvider, summaryViewProvider, settingsViewProvider } =
+    viewProviders;
+
+  const refreshViews = (): void => {
+    summaryViewProvider.refresh();
+    historyViewProvider.refresh();
+    settingsViewProvider.refresh();
+    outputChannel.appendLine('[RefreshViews] Views refreshed manually');
+  };
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.refreshViews', () => {
-      summaryViewProvider.refresh();
-      historyViewProvider.refresh();
-      settingsViewProvider.refresh();
-      outputChannel.appendLine('[RefreshViews] Views refreshed manually');
+    vscode.commands.registerCommand('vibereport.updateReports', async () => {
+      await updateReportsCommand.execute();
+      setTimeout(() => {
+        vscode.commands.executeCommand('vibereport.refreshViews');
+      }, 500);
     })
   );
 
-  // ===== File System Watcher for Auto-Refresh =====
-  const config = loadConfig();
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    outputChannel.appendLine('[FileWatcher] No workspace folder open; skipping auto-refresh watchers');
-  } else {
-    const workspaceRoot = workspaceFolder.uri.fsPath;
-    let analysisRootPath = workspaceRoot;
-    try {
-      analysisRootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
-    } catch (error) {
-      outputChannel.appendLine(`[FileWatcher] Invalid analysisRoot: ${String(error)}`);
-    }
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.updateReportsAll', async () => {
+      await updateReportsAllCommand.execute();
+    })
+  );
 
-    const reportDir = require('path').join(analysisRootPath, config.reportDirectory);
-    const stateFile = require('path').join(analysisRootPath, config.snapshotFile);
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.exportSettings', async () => {
+      await exportSettings();
+    })
+  );
 
-    try {
-      // 보고서 파일 감시 (.md)
-      const reportWatcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(reportDir, '*.md')
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.importSettings', async () => {
+      await importSettings();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.clearHistory', async () => {
+      await cleanHistoryCommand.execute();
+      setTimeout(() => {
+        vscode.commands.executeCommand('vibereport.refreshViews');
+      }, 500);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.reportDoctor', async () => {
+      await reportDoctorCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openTroubleshooting', async () => {
+      await openTroubleshootingCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openEvaluationReport', async () => {
+      const resolved = await resolveAnalysisRootContext();
+      if (!resolved) return;
+
+      const reportOpenMode = vscode.workspace
+        .getConfiguration('vibereport')
+        .get<string>('reportOpenMode', 'previewOnly');
+
+      if (reportOpenMode === 'editorOnly') {
+        await reportService.openReport(resolved.rootPath, resolved.config, 'evaluation');
+      } else if (reportOpenMode === 'both') {
+        await reportService.openReport(resolved.rootPath, resolved.config, 'evaluation');
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      } else {
+        await reportService.openReport(resolved.rootPath, resolved.config, 'evaluation');
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openImprovementReport', async () => {
+      const resolved = await resolveAnalysisRootContext();
+      if (!resolved) return;
+
+      const reportOpenMode = vscode.workspace
+        .getConfiguration('vibereport')
+        .get<string>('reportOpenMode', 'previewOnly');
+
+      if (reportOpenMode === 'editorOnly') {
+        await reportService.openReport(resolved.rootPath, resolved.config, 'improvement');
+      } else if (reportOpenMode === 'both') {
+        await reportService.openReport(resolved.rootPath, resolved.config, 'improvement');
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      } else {
+        await reportService.openReport(resolved.rootPath, resolved.config, 'improvement');
+        setTimeout(() => {
+          vscode.commands.executeCommand('vibereport.openReportPreview');
+        }, 100);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openPrompt', async () => {
+      const resolved = await resolveAnalysisRootContext();
+      if (!resolved) return;
+
+      const promptPath = vscode.Uri.file(
+        path.join(resolved.rootPath, resolved.config.reportDirectory, 'Prompt.md')
       );
 
-      // 상태 파일 감시 (.json)
-      const stateWatcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(
-          require('path').dirname(stateFile),
-          require('path').basename(stateFile)
+      try {
+        const doc = await vscode.workspace.openTextDocument(promptPath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showWarningMessage(
+          'Prompt.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
+        );
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openSessionHistory', async () => {
+      const resolved = await resolveAnalysisRootContext();
+      if (!resolved) return;
+
+      const historyPath = vscode.Uri.file(
+        path.join(
+          resolved.rootPath,
+          resolved.config.reportDirectory,
+          'Session_History.md'
         )
       );
 
-      const refreshViews = () => {
-        summaryViewProvider.refresh();
-        historyViewProvider.refresh();
-        outputChannel.appendLine('[FileWatcher] Files changed, refreshing views...');
-      };
+      try {
+        const doc = await vscode.workspace.openTextDocument(historyPath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showWarningMessage(
+          'Session_History.md 파일이 없습니다. 먼저 보고서 업데이트를 실행해주세요.'
+        );
+      }
+    })
+  );
 
-      reportWatcher.onDidChange(refreshViews);
-      reportWatcher.onDidCreate(refreshViews);
-      reportWatcher.onDidDelete(refreshViews);
-
-      stateWatcher.onDidChange(refreshViews);
-      stateWatcher.onDidCreate(refreshViews);
-
-      context.subscriptions.push(reportWatcher);
-      context.subscriptions.push(stateWatcher);
-      outputChannel.appendLine(`[FileWatcher] Watching for changes in: ${reportDir}/*.md`);
-      outputChannel.appendLine(`[FileWatcher] Watching state file: ${stateFile}`);
-    } catch (error) {
-      outputChannel.appendLine(`[FileWatcher] Failed to initialize watchers: ${error}`);
-    }
-  }
-
-  // 명령 등록: Show Session Detail
   context.subscriptions.push(
-    vscode.commands.registerCommand('vibereport.showSessionDetail', (session: import('./models/types.js').SessionRecord) => {
-      const panel = vscode.window.createWebviewPanel(
-        'sessionDetail',
-        `세션: ${formatTimestampForUi(session.timestamp)}`,
-        vscode.ViewColumn.One,
-        {}
+    vscode.commands.registerCommand(
+      'vibereport.openFunctionInFile',
+      async (filePath: string, symbolName?: string) => {
+        await openFunctionInFile(filePath, symbolName);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.initializeReports', async () => {
+      const resolved = await resolveAnalysisRootContext();
+      if (!resolved) return;
+
+      const exists = await reportService.reportsExist(
+        resolved.rootPath,
+        resolved.config
       );
 
-      panel.webview.html = `<!DOCTYPE html>
+      if (exists) {
+        const overwrite = await vscode.window.showWarningMessage(
+          '보고서 파일이 이미 존재합니다. 초기화하면 기존 내용이 삭제됩니다.',
+          '초기화',
+          '취소'
+        );
+        if (overwrite !== '초기화') {
+          return;
+        }
+      }
+
+      await updateReportsCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.markApplied', async () => {
+      await markAppliedCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.setProjectVision', async () => {
+      await setVisionCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.setAnalysisRootWizard', async () => {
+      await setAnalysisRootWizardCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.generatePrompt', async () => {
+      await generatePromptCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.shareReport', async () => {
+      await shareReportCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.exportReportBundle', async () => {
+      await exportReportBundleCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.openReportPreview', async () => {
+      await openReportPreviewCommand.execute();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibereport.refreshViews', () => {
+      refreshViews();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'vibereport.showSessionDetail',
+      (session: import('./models/types.js').SessionRecord) => {
+        const panel = vscode.window.createWebviewPanel(
+          'sessionDetail',
+          `세션: ${formatTimestampForUi(session.timestamp)}`,
+          vscode.ViewColumn.One,
+          {}
+        );
+
+        panel.webview.html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -599,24 +599,94 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   </div>
 </body>
 </html>`;
-    })
+      }
+    )
   );
-
-  // [REMOVED] applyFromSelection - generatePrompt/copyAsPrompt와 중복
-
-  outputChannel.appendLine('모든 명령이 등록되었습니다.');
 }
 
-export function deactivate(): void {
-  if (outputChannel) {
-    outputChannel.appendLine('Vibe Coding Report 확장이 비활성화되었습니다.');
-    outputChannel.dispose();
+function registerFileWatchers(
+  context: vscode.ExtensionContext,
+  channel: vscode.OutputChannel,
+  viewProviders: ViewProviders
+): void {
+  const config = loadConfig();
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    channel.appendLine('[FileWatcher] No workspace folder open; skipping auto-refresh watchers');
+    return;
+  }
+
+  const workspaceRoot = workspaceFolder.uri.fsPath;
+  let analysisRootPath = workspaceRoot;
+  try {
+    analysisRootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+  } catch (error) {
+    channel.appendLine(`[FileWatcher] Invalid analysisRoot: ${String(error)}`);
+  }
+
+  const reportDir = path.join(analysisRootPath, config.reportDirectory);
+  const stateFile = path.join(analysisRootPath, config.snapshotFile);
+
+  try {
+    const reportWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(reportDir, '*.md')
+    );
+
+    const stateWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(
+        path.dirname(stateFile),
+        path.basename(stateFile)
+      )
+    );
+
+    const refreshViews = () => {
+      viewProviders.summaryViewProvider.refresh();
+      viewProviders.historyViewProvider.refresh();
+      channel.appendLine('[FileWatcher] Files changed, refreshing views...');
+    };
+
+    reportWatcher.onDidChange(refreshViews);
+    reportWatcher.onDidCreate(refreshViews);
+    reportWatcher.onDidDelete(refreshViews);
+
+    stateWatcher.onDidChange(refreshViews);
+    stateWatcher.onDidCreate(refreshViews);
+
+    context.subscriptions.push(reportWatcher);
+    context.subscriptions.push(stateWatcher);
+    channel.appendLine(`[FileWatcher] Watching for changes in: ${reportDir}/*.md`);
+    channel.appendLine(`[FileWatcher] Watching state file: ${stateFile}`);
+  } catch (error) {
+    channel.appendLine(`[FileWatcher] Failed to initialize watchers: ${error}`);
   }
 }
 
-// ===== Helper Functions =====
+async function resolveAnalysisRootContext(): Promise<
+  | { rootPath: string; config: ReturnType<typeof loadConfig> }
+  | null
+> {
+  const workspaceRoot = await selectWorkspaceRoot();
+  if (!workspaceRoot) return null;
 
-async function openFunctionInFile(filePath: string, symbolName?: string): Promise<void> {
+  const config = loadConfig();
+  let rootPath = workspaceRoot;
+  try {
+    rootPath = resolveAnalysisRoot(workspaceRoot, config.analysisRoot);
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      'analysisRoot 설정이 유효하지 않습니다. 워크스페이스 루트 하위 경로만 허용됩니다.'
+    );
+    outputChannel.appendLine(`[analysisRoot] invalid: ${String(error)}`);
+    return null;
+  }
+
+  return { rootPath, config };
+}
+
+async function openFunctionInFile(
+  filePath: string,
+  symbolName?: string
+): Promise<void> {
   const config = loadConfig();
   const normalizedInput = typeof filePath === 'string' ? filePath.trim() : '';
   const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
@@ -700,6 +770,3 @@ function findSymbolByName(
   }
   return undefined;
 }
-
-// [REMOVED] formatAsPrompt - 더 이상 사용하지 않음 (copyAsPrompt/applyFromSelection 제거)
-// [REMOVED] createSummaryHtml - 더 이상 사용하지 않음 (showLastRunSummary 제거)

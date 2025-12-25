@@ -4,4 +4,5 @@ export { GeneratePromptCommand } from './generatePrompt.js';
 export { ShareReportCommand } from './shareReport.js';
 export { ExportReportBundleCommand } from './exportReportBundle.js';
 export { ReportDoctorCommand } from './reportDoctor.js';
+export { OpenTroubleshootingCommand } from './openTroubleshooting.js';
 export { SetAnalysisRootWizardCommand } from './setAnalysisRootWizard.js';

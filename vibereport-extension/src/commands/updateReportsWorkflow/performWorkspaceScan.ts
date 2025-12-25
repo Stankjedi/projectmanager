@@ -4,22 +4,44 @@ import type {
   VibeReportConfig,
   VibeReportState,
 } from '../../models/types.js';
-import { WorkspaceScanError } from '../../models/errors.js';
-import type { UpdateReportsWorkflowDeps, WorkflowProgress } from '../updateReportsWorkflow.js';
+import { OperationCancelledError, WorkspaceScanError } from '../../models/errors.js';
+import type {
+  CancellationTokenLike,
+  UpdateReportsWorkflowDeps,
+  WorkflowProgress,
+} from '../updateReportsWorkflow.js';
+
+function throwIfCancelled(cancellationToken?: CancellationTokenLike): void {
+  if (!cancellationToken?.isCancellationRequested) {
+    return;
+  }
+
+  throw new OperationCancelledError('Workspace scan cancelled');
+}
 
 export async function performWorkspaceScan(args: {
   rootPath: string;
   config: VibeReportConfig;
   reportProgress: WorkflowProgress;
   deps: UpdateReportsWorkflowDeps;
+  cancellationToken?: CancellationTokenLike;
 }): Promise<{ snapshot: ProjectSnapshot; state: VibeReportState; diff: SnapshotDiff }> {
-  const { rootPath, config, reportProgress, deps } = args;
+  const { rootPath, config, reportProgress, deps, cancellationToken } = args;
 
   reportProgress('프로젝트 구조 스캔 중...', 20);
   let snapshot: ProjectSnapshot;
   try {
-    snapshot = await deps.workspaceScanner.scan(rootPath, config, reportProgress);
+    throwIfCancelled(cancellationToken);
+    snapshot = await deps.workspaceScanner.scan(
+      rootPath,
+      config,
+      reportProgress,
+      cancellationToken
+    );
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     throw new WorkspaceScanError(
       '프로젝트 구조 스캔 실패',
       error instanceof Error ? error.message : String(error)
@@ -29,6 +51,7 @@ export async function performWorkspaceScan(args: {
   reportProgress('상태 분석 중...', 40);
   let state: VibeReportState;
   try {
+    throwIfCancelled(cancellationToken);
     const loadedState = await deps.snapshotService.loadState(rootPath, config);
     state = loadedState ?? deps.snapshotService.createInitialState();
   } catch (error) {
@@ -38,6 +61,7 @@ export async function performWorkspaceScan(args: {
 
   let diff: SnapshotDiff;
   try {
+    throwIfCancelled(cancellationToken);
     diff = await deps.snapshotService.compareSnapshots(
       state.lastSnapshot,
       snapshot,
@@ -45,6 +69,9 @@ export async function performWorkspaceScan(args: {
       config
     );
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     throw new WorkspaceScanError(
       '스냅샷 비교 실패',
       error instanceof Error ? error.message : String(error)

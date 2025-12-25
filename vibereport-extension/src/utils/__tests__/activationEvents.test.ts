@@ -7,7 +7,7 @@ type ExtensionPackageJson = {
 };
 
 describe('package.json activationEvents', () => {
-  it('activates on views and key commands so sidebar never stays empty', async () => {
+  it('activates on startup (or key contributions) so sidebar never stays empty', async () => {
     const raw = await fs.readFile(
       path.resolve(process.cwd(), 'package.json'),
       'utf-8'
@@ -25,6 +25,12 @@ describe('package.json activationEvents', () => {
         .filter((value): value is string => typeof value === 'string')
     );
 
+    expect(events.size, 'Expected package.json activationEvents to include at least one string.').toBeGreaterThan(0);
+
+    // Prefer a single reliable activation event.
+    if (events.has('onStartupFinished')) return;
+
+    // Otherwise require the view/command activation events explicitly.
     const required = [
       'onView:vibereport.summary',
       'onView:vibereport.history',
@@ -37,4 +43,3 @@ describe('package.json activationEvents', () => {
     }
   });
 });
-

@@ -14,6 +14,7 @@ import {
   formatTimestampForUi,
   resolveAnalysisRoot,
 } from '../utils/index.js';
+import { escapeHtml, escapeHtmlAttribute } from '../utils/htmlEscape.js';
 
 export class SummaryViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'vibereport.summary';
@@ -135,6 +136,8 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
   private getHtmlContent(state: VibeReportState | null): string {
     const nonce = this.getNonce();
     const cspSource = this._view?.webview.cspSource || '';
+    const safeNonce = escapeHtmlAttribute(nonce);
+    const safeCspSource = escapeHtmlAttribute(cspSource);
 
     const sessionsCount = state?.sessions.length || 0;
     const appliedCount = state?.appliedImprovements.length || 0;
@@ -142,6 +145,10 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
       ? formatTimestampForUi(state.lastUpdated)
       : '없음';
     const projectName = state?.lastSnapshot?.projectName || '프로젝트 미설정';
+    const safeSessionsCount = escapeHtml(String(sessionsCount));
+    const safeAppliedCount = escapeHtml(String(appliedCount));
+    const safeLastUpdate = escapeHtml(lastUpdate);
+    const safeProjectName = escapeHtml(projectName);
 
     const autoUpdate = this.autoUpdateStatus;
     const autoUpdateEnabledLabel = autoUpdate?.enabled ? '켜짐' : '꺼짐';
@@ -161,6 +168,7 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     const autoUpdateLine = autoUpdate
       ? `자동 업데이트: ${autoUpdateEnabledLabel} · 상태: ${autoUpdateRunningLabel} · 대기 변경: ${pendingCount}개 · 마지막 실행: ${lastRunAt} (${lastRunResult})`
       : null;
+    const safeAutoUpdateLine = autoUpdateLine ? escapeHtml(autoUpdateLine) : null;
 
     const lastSession = state?.sessions[state.sessions.length - 1];
     const lineMetrics =
@@ -171,13 +179,20 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
           total: lastSession.diffSummary.linesTotal,
         }
         : null;
+    const safeLineMetrics = lineMetrics
+      ? {
+        added: escapeHtml(String(lineMetrics.added)),
+        removed: escapeHtml(String(lineMetrics.removed)),
+        total: escapeHtml(String(lineMetrics.total)),
+      }
+      : null;
 
     return `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${safeCspSource} 'unsafe-inline'; script-src 'nonce-${safeNonce}';">
   <title>Vibe Report Summary</title>
   <style>
     body {
@@ -256,28 +271,28 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="header">
-    📊 <span class="project-name">${projectName}</span>
+    📊 <span class="project-name">${safeProjectName}</span>
   </div>
 
   ${state ? `
     <div class="stats">
       <div class="stat-card">
-        <div class="stat-value">${sessionsCount}</div>
+        <div class="stat-value">${safeSessionsCount}</div>
         <div class="stat-label">세션</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${appliedCount}</div>
+        <div class="stat-value">${safeAppliedCount}</div>
         <div class="stat-label">적용 완료</div>
       </div>
     </div>
 
     <div class="last-update">
-      마지막 업데이트: ${lastUpdate}
+      마지막 업데이트: ${safeLastUpdate}
     </div>
 
-    ${lineMetrics ? `
+    ${safeLineMetrics ? `
     <div class="last-update">
-      최근 라인 변경: +${lineMetrics.added} / -${lineMetrics.removed} (총 ${lineMetrics.total}줄)
+      최근 라인 변경: +${safeLineMetrics.added} / -${safeLineMetrics.removed} (총 ${safeLineMetrics.total}줄)
     </div>
     ` : ''}
   ` : `
@@ -286,9 +301,9 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     </div>
   `}
 
-  ${autoUpdateLine ? `
+  ${safeAutoUpdateLine ? `
     <div class="last-update">
-      ${autoUpdateLine}
+      ${safeAutoUpdateLine}
     </div>
   ` : ''}
 
@@ -313,7 +328,7 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
     </button>
   </div>
 
-  <script nonce="${nonce}">
+  <script nonce="${safeNonce}">
     const vscode = acquireVsCodeApi();
     
     document.getElementById('btn-update').addEventListener('click', function() {

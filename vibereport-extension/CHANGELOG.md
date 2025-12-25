@@ -4,6 +4,24 @@
 
 ---
 
+## [0.4.32] - 2025-12-23
+
+### 🧼 리팩토링 / 코드 품질
+
+- **Activation Events 정리**: 불필요한 `onView:*`, `onCommand:*` activation events 제거 (VS Code 자동 생성 사용)
+- **문서 추가**: `TROUBLESHOOTING.md` (WSL/pnpm 문제 해결 가이드), `.gitattributes` (라인 엔딩 표준화)
+- **Report Doctor 경로 수정**: 문서 버전 동기화 검사 시 README.md 경로 수정
+
+---
+
+## [0.4.30] - 2025-12-23
+
+### 📦 배포
+
+- **버전 업데이트**: 문서 버전 동기화 및 릴리즈 안내 정리
+
+---
+
 ## [0.4.28] - 2025-12-20
 
 ### 📦 배포

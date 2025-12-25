@@ -10,7 +10,7 @@ import type {
   ProjectVision,
 } from '../models/types.js';
 import { EVALUATION_CATEGORY_LABELS, scoreToGrade } from '../models/types.js';
-import { FileOperationError } from '../models/errors.js';
+import { FileOperationError, OperationCancelledError } from '../models/errors.js';
 import { SnapshotService } from '../services/snapshotService.js';
 import { formatScoreChange, gradeEmoji, parseScoresFromAIResponse } from '../utils/markdownUtils.js';
 import { extractBetweenMarkersLines, replaceBetweenMarkersLines } from '../utils/markerUtils.js';
@@ -51,7 +51,8 @@ export interface WorkspaceScannerLike {
   scan(
     rootPath: string,
     config: VibeReportConfig,
-    reportProgress: WorkflowProgress
+    reportProgress: WorkflowProgress,
+    cancellationToken?: CancellationTokenLike
   ): Promise<ProjectSnapshot>;
 }
 
@@ -87,7 +88,8 @@ export interface ReportServiceLike {
   cleanupAppliedItems(
     rootPath: string,
     config: VibeReportConfig,
-    appliedImprovements: AppliedImprovement[]
+    appliedImprovements: AppliedImprovement[],
+    cancellationToken?: CancellationTokenLike
   ): Promise<{ improvementRemoved: number; promptRemoved: number }>;
   updateSessionHistoryFile(
     rootPath: string,
@@ -133,6 +135,7 @@ export interface RunUpdateReportsWorkflowArgs {
   config: VibeReportConfig;
   isFirstRun: boolean;
   reportProgress: WorkflowProgress;
+  cancellationToken?: CancellationTokenLike;
   deps: UpdateReportsWorkflowDeps;
 }
 
@@ -156,25 +159,50 @@ export class UpdateReportsWorkflowError extends Error {
   }
 }
 
+function throwIfCancelled(
+  cancellationToken?: CancellationTokenLike,
+  step?: string
+): void {
+  if (!cancellationToken?.isCancellationRequested) {
+    return;
+  }
+
+  const message = step ? `${step} cancelled` : 'Operation cancelled';
+  throw new OperationCancelledError(message);
+}
+
 export async function runUpdateReportsWorkflow(
   args: RunUpdateReportsWorkflowArgs
 ): Promise<RunUpdateReportsWorkflowResult> {
-  const { rootPath, config, isFirstRun, reportProgress, deps } = args;
+  const {
+    rootPath,
+    config,
+    isFirstRun,
+    reportProgress,
+    deps,
+    cancellationToken,
+  } = args;
 
   let snapshot: ProjectSnapshot;
   let state: VibeReportState;
   let diff: SnapshotDiff;
   try {
+    throwIfCancelled(cancellationToken, '프로젝트 스캔');
     ({ snapshot, state, diff } = await performWorkspaceScan({
       rootPath,
       config,
       reportProgress,
       deps,
+      cancellationToken,
     }));
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     throw new UpdateReportsWorkflowError('프로젝트 스캔', error);
   }
 
+  throwIfCancelled(cancellationToken, '적용 완료 항목 추론');
   const stateWithApplied = await inferAppliedImprovementsBestEffort({
     rootPath,
     config,
@@ -183,6 +211,7 @@ export async function runUpdateReportsWorkflow(
   });
 
   try {
+    throwIfCancelled(cancellationToken, '보고서 템플릿 준비');
     await prepareReportTemplates({
       rootPath,
       config,
@@ -190,8 +219,12 @@ export async function runUpdateReportsWorkflow(
       isFirstRun,
       reportProgress,
       deps,
+      cancellationToken,
     });
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     throw new UpdateReportsWorkflowError('보고서 템플릿 준비', error);
   }
 
@@ -201,10 +234,12 @@ export async function runUpdateReportsWorkflow(
     state: stateWithApplied,
     reportProgress,
     deps,
+    cancellationToken,
   });
 
   let prompt: string;
   try {
+    throwIfCancelled(cancellationToken, '프롬프트 생성');
     prompt = await generateAndCopyPrompt({
       snapshot,
       diff,
@@ -213,13 +248,18 @@ export async function runUpdateReportsWorkflow(
       config,
       reportProgress,
       deps,
+      cancellationToken,
     });
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     throw new UpdateReportsWorkflowError('프롬프트 생성', error);
   }
 
   let updatedState: VibeReportState;
   try {
+    throwIfCancelled(cancellationToken, '세션 기록 저장');
     updatedState = await saveSessionRecord({
       rootPath,
       config,
@@ -228,8 +268,12 @@ export async function runUpdateReportsWorkflow(
       diff,
       isFirstRun,
       deps,
+      cancellationToken,
     });
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     throw new UpdateReportsWorkflowError('세션 기록 저장', error);
   }
 
@@ -297,8 +341,10 @@ async function cleanupAppliedItemsBestEffort(args: {
   state: VibeReportState;
   reportProgress: WorkflowProgress;
   deps: UpdateReportsWorkflowDeps;
+  cancellationToken?: CancellationTokenLike;
 }): Promise<void> {
-  const { rootPath, config, state, reportProgress, deps } = args;
+  const { rootPath, config, state, reportProgress, deps, cancellationToken } = args;
+  throwIfCancelled(cancellationToken, '적용 완료 항목 정리');
   const applied = state.appliedImprovements ?? [];
   if (applied.length === 0) {
     return;
@@ -307,13 +353,21 @@ async function cleanupAppliedItemsBestEffort(args: {
   reportProgress('적용 완료 항목 정리 중...', 65);
 
   try {
-    const result = await deps.reportService.cleanupAppliedItems(rootPath, config, applied);
+    const result = await deps.reportService.cleanupAppliedItems(
+      rootPath,
+      config,
+      applied,
+      cancellationToken
+    );
     if (result.improvementRemoved > 0 || result.promptRemoved > 0) {
       deps.log(
         `적용 완료 항목 제거: 개선보고서 ${result.improvementRemoved}개, Prompt.md ${result.promptRemoved}개`
       );
     }
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     deps.log(`적용 완료 항목 클린업 실패 (계속 진행): ${error}`);
   }
 }
@@ -326,10 +380,21 @@ export async function generateAndCopyPrompt(args: {
   config: VibeReportConfig;
   reportProgress: WorkflowProgress;
   deps: UpdateReportsWorkflowDeps;
+  cancellationToken?: CancellationTokenLike;
 }): Promise<string> {
-  const { snapshot, diff, state, isFirstRun, config, reportProgress, deps } = args;
+  const {
+    snapshot,
+    diff,
+    state,
+    isFirstRun,
+    config,
+    reportProgress,
+    deps,
+    cancellationToken,
+  } = args;
 
   reportProgress('분석 프롬프트 생성 중...', 80);
+  throwIfCancelled(cancellationToken, '프롬프트 생성');
 
   // projectVisionMode에 따라 비전 결정
   let projectVision: ProjectVision | undefined;
@@ -380,6 +445,8 @@ export async function generateAndCopyPrompt(args: {
         }
       );
 
+      throwIfCancelled(cancellationToken, '프롬프트 생성');
+
       if (directAiResult.cancelled) {
         await deps.ui.clipboardWriteText(prompt);
         deps.ui.showInformationMessage('Direct AI cancelled. Prompt copied to clipboard.');
@@ -395,12 +462,16 @@ export async function generateAndCopyPrompt(args: {
       await deps.ui.clipboardWriteText(prompt);
     }
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     deps.log(`클립보드 복사 실패: ${error}`);
     deps.ui.showWarningMessage(
       '클립보드 복사에 실패했습니다. 프롬프트가 생성되었지만 수동으로 복사해야 합니다.'
     );
   }
 
+  throwIfCancelled(cancellationToken, '프롬프트 생성');
   return prompt;
 }
 
@@ -412,9 +483,20 @@ async function saveSessionRecord(args: {
   diff: SnapshotDiff;
   isFirstRun: boolean;
   deps: UpdateReportsWorkflowDeps;
+  cancellationToken?: CancellationTokenLike;
 }): Promise<VibeReportState> {
-  const { rootPath, config, state, snapshot, diff, isFirstRun, deps } = args;
+  const {
+    rootPath,
+    config,
+    state,
+    snapshot,
+    diff,
+    isFirstRun,
+    deps,
+    cancellationToken,
+  } = args;
 
+  throwIfCancelled(cancellationToken, '세션 기록 저장');
   const sessionId = SnapshotService.generateSessionId();
   const sessionRecord: SessionRecord = {
     id: sessionId,
@@ -436,6 +518,7 @@ async function saveSessionRecord(args: {
   updatedState = deps.snapshotService.addSession(updatedState, sessionRecord);
 
   try {
+    throwIfCancelled(cancellationToken, '세션 기록 저장');
     await deps.snapshotService.saveState(rootPath, config, updatedState);
   } catch {
     throw new FileOperationError(
@@ -449,6 +532,7 @@ async function saveSessionRecord(args: {
   const isMajorChange = SnapshotService.isMajorVersionChange(previousVersion, currentVersion);
 
   try {
+    throwIfCancelled(cancellationToken, '세션 기록 저장');
     await deps.reportService.updateSessionHistoryFile(
       rootPath,
       config,
@@ -465,12 +549,16 @@ async function saveSessionRecord(args: {
       deps.log(`버전 변경 감지 (${previousVersion} → ${currentVersion}), 세션 히스토리에 기록`);
     }
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     deps.log(`세션 히스토리 파일 업데이트 실패: ${error}`);
   }
 
   // 평가 점수 추이(best-effort): Evaluation Report의 TLDR 점수를 상태에 누적하고,
   // AUTO-TREND 섹션의 표 데이터 행만 최신 히스토리로 갱신합니다.
   try {
+    throwIfCancelled(cancellationToken, '평가 추이 업데이트');
     const paths = deps.reportService.getReportPaths(rootPath, config);
     const evaluationReportContent = await deps.fs.readFile(
       paths.evaluation,
@@ -664,6 +752,9 @@ async function saveSessionRecord(args: {
       await deps.fs.writeFile(paths.evaluation, nextEvaluationReportContent, 'utf-8');
     }
   } catch (error) {
+    if (error instanceof OperationCancelledError) {
+      throw error;
+    }
     deps.log(`평가 추이 업데이트 실패 (계속 진행): ${error}`);
   }
 

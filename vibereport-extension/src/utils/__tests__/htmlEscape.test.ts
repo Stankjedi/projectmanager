@@ -3,12 +3,12 @@ import { escapeHtml, escapeHtmlAttribute } from '../htmlEscape.js';
 
 describe('htmlEscape', () => {
   it('escapes basic HTML characters', () => {
-    expect(escapeHtml('&<>"\'')).toBe('&amp;&lt;&gt;&quot;&#39;');
+    expect(escapeHtml('&<>"\'`')).toBe('&amp;&lt;&gt;&quot;&#39;&#96;');
   });
 
   it('handles mixed content without dropping characters', () => {
-    expect(escapeHtml('A&B <tag> "quote"')).toBe(
-      'A&amp;B &lt;tag&gt; &quot;quote&quot;'
+    expect(escapeHtml('A&B <tag> "quote" `backtick`')).toBe(
+      'A&amp;B &lt;tag&gt; &quot;quote&quot; &#96;backtick&#96;'
     );
   });
 });

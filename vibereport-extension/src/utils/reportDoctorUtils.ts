@@ -18,6 +18,7 @@ export type ReportDoctorIssueCode =
   | 'DUPLICATE_START_MARKER'
   | 'DUPLICATE_END_MARKER'
   | 'TABLE_COLUMN_MISMATCH'
+  | 'DOCS_VERSION_MISMATCH'
   | 'PROMPT_CONTAINS_HANGUL'
   | 'PROMPT_MISSING_TITLE'
   | 'PROMPT_CHECKLIST_SECTION_MISSING'
@@ -42,6 +43,18 @@ interface ManagedSectionDefinition {
 
 const EVALUATION_SECTIONS: ManagedSectionDefinition[] = [
   {
+    id: 'tldr',
+    startMarker: MARKERS.TLDR_START,
+    endMarker: MARKERS.TLDR_END,
+    validateTables: true,
+  },
+  {
+    id: 'risk-summary',
+    startMarker: MARKERS.RISK_SUMMARY_START,
+    endMarker: MARKERS.RISK_SUMMARY_END,
+    validateTables: true,
+  },
+  {
     id: 'overview',
     startMarker: MARKERS.OVERVIEW_START,
     endMarker: MARKERS.OVERVIEW_END,
@@ -60,9 +73,21 @@ const EVALUATION_SECTIONS: ManagedSectionDefinition[] = [
     validateTables: true,
   },
   {
+    id: 'score-mapping',
+    startMarker: MARKERS.SCORE_MAPPING_START,
+    endMarker: MARKERS.SCORE_MAPPING_END,
+    validateTables: true,
+  },
+  {
     id: 'detail',
     startMarker: '<!-- AUTO-DETAIL-START -->',
     endMarker: '<!-- AUTO-DETAIL-END -->',
+    validateTables: false,
+  },
+  {
+    id: 'summary',
+    startMarker: MARKERS.SUMMARY_START,
+    endMarker: MARKERS.SUMMARY_END,
     validateTables: false,
   },
   {
@@ -75,6 +100,12 @@ const EVALUATION_SECTIONS: ManagedSectionDefinition[] = [
 
 const IMPROVEMENT_SECTIONS: ManagedSectionDefinition[] = [
   {
+    id: 'overview',
+    startMarker: MARKERS.OVERVIEW_START,
+    endMarker: MARKERS.OVERVIEW_END,
+    validateTables: true,
+  },
+  {
     id: 'error-exploration',
     startMarker: MARKERS.ERROR_EXPLORATION_START,
     endMarker: MARKERS.ERROR_EXPLORATION_END,
@@ -84,7 +115,7 @@ const IMPROVEMENT_SECTIONS: ManagedSectionDefinition[] = [
     id: 'summary',
     startMarker: MARKERS.SUMMARY_START,
     endMarker: MARKERS.SUMMARY_END,
-    validateTables: true,
+    validateTables: false,
   },
   {
     id: 'improvement-list',
@@ -96,6 +127,12 @@ const IMPROVEMENT_SECTIONS: ManagedSectionDefinition[] = [
     id: 'optimization',
     startMarker: MARKERS.OPTIMIZATION_START,
     endMarker: MARKERS.OPTIMIZATION_END,
+    validateTables: false,
+  },
+  {
+    id: 'feature-list',
+    startMarker: MARKERS.FEATURE_LIST_START,
+    endMarker: MARKERS.FEATURE_LIST_END,
     validateTables: false,
   },
 ];
@@ -141,6 +178,55 @@ function parseMarkdownTableRowCells(line: string): string[] | null {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function validateDocsVersionSync(args: {
+  packageVersion: string;
+  readmeContent: string;
+  changelogContent: string;
+}): ReportDoctorIssue[] {
+  const issues: ReportDoctorIssue[] = [];
+
+  if (!args.packageVersion) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: 'package.json is missing a valid version string.',
+    });
+    return issues;
+  }
+
+  const changelogMatch = args.changelogContent.match(/^##\s*\[(\d+\.\d+\.\d+)\]/m);
+  if (!changelogMatch) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: 'CHANGELOG.md is missing a top version heading like "## [x.y.z]".',
+    });
+  } else if (changelogMatch[1] !== args.packageVersion) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: `CHANGELOG.md top version (${changelogMatch[1]}) does not match package.json (${args.packageVersion}).`,
+    });
+  }
+
+  const readmeMatch = args.readmeContent.match(/(\d+\.\d+\.\d+)/);
+  if (!readmeMatch) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: 'README.md is missing a version string like "x.y.z".',
+    });
+  } else if (readmeMatch[1] !== args.packageVersion) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: `README.md version (${readmeMatch[1]}) does not match package.json (${args.packageVersion}).`,
+    });
+  }
+
+  return issues;
 }
 
 function validatePromptMarkdown(content: string): ReportDoctorIssue[] {

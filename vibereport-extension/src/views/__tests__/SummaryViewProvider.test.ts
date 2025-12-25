@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockState = {
+  lastUpdated: new Date().toISOString(),
+  sessions: [],
+  appliedImprovements: [],
+  lastSnapshot: { projectName: 'Test Project' },
+};
+
 // Mock SnapshotService to avoid filesystem access
 vi.mock('../../services/index.js', () => {
-  const loadState = vi.fn().mockResolvedValue({
-    lastUpdated: new Date().toISOString(),
-    sessions: [],
-    appliedImprovements: [],
-    lastSnapshot: { projectName: 'Test Project' },
-  });
+  const loadState = vi.fn().mockResolvedValue(mockState);
 
   class SnapshotService {
     loadState = loadState;
@@ -43,6 +45,7 @@ describe('SummaryViewProvider', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockState.lastSnapshot.projectName = 'Test Project';
   });
 
   it('sets webview options and renders HTML on resolve', async () => {
@@ -83,5 +86,27 @@ describe('SummaryViewProvider', () => {
     await provider.refresh();
 
     expect(webviewView.webview.html).toContain('DOCTYPE html');
+  });
+
+  it('escapes project name characters in the rendered HTML', async () => {
+    const dirtyName = "Project <>&\"'`";
+    mockState.lastSnapshot.projectName = dirtyName;
+
+    const { SummaryViewProvider } = await import('../SummaryViewProvider.js');
+    const provider = new SummaryViewProvider(mockExtensionUri, mockOutput);
+    const webviewView = {
+      webview: {
+        options: {},
+        html: '',
+        onDidReceiveMessage: vi.fn(),
+      },
+    } as any;
+
+    provider.resolveWebviewView(webviewView, {} as any, { isCancellationRequested: false } as any);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(webviewView.webview.html).toContain('Project &lt;&gt;&amp;&quot;&#39;&#96;');
+    expect(webviewView.webview.html).not.toContain(dirtyName);
   });
 });

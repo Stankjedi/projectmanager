@@ -26,6 +26,7 @@ import type {
   VibeReportConfig,
 } from '../models/types.js';
 import { LANGUAGE_EXTENSIONS, IMPORTANT_CONFIG_FILES } from '../models/types.js';
+import { OperationCancelledError } from '../models/errors.js';
 import { collectFiles as collectFilesImpl } from './workspaceScanner/fileCollector.js';
 import { calculateLanguageStats } from './workspaceScanner/languageStats.js';
 import { scanTodoFixmeFindings } from './workspaceScanner/todoFixmeScanner.js';
@@ -49,16 +50,19 @@ export class WorkspaceScanner {
   async scan(
     rootPath: string,
     config: VibeReportConfig,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    cancellationToken?: vscode.CancellationToken
   ): Promise<ProjectSnapshot> {
     const projectName = path.basename(rootPath);
 
     onProgress?.('파일 목록 수집 중...', 10);
     this.log(`스캔 시작: ${rootPath}`);
+    this.throwIfCancelled(cancellationToken, '파일 목록 수집');
 
     // 파일 목록 수집
-    const files = await this.collectFiles(rootPath, config);
+    const files = await this.collectFiles(rootPath, config, cancellationToken);
     onProgress?.('언어 통계 분석 중...', 30);
+    this.throwIfCancelled(cancellationToken, '언어 통계 분석');
 
     // 언어 통계 계산
     const languageStats = calculateLanguageStats(files);
@@ -71,6 +75,7 @@ export class WorkspaceScanner {
     });
 
     onProgress?.('설정 파일 분석 중...', 50);
+    this.throwIfCancelled(cancellationToken, '설정 파일 분석');
 
     // 주요 설정 파일 분석
     const mainConfigFiles = await this.analyzeConfigFiles(rootPath);
@@ -79,6 +84,7 @@ export class WorkspaceScanner {
     const importantFiles = this.identifyImportantFiles(files, rootPath);
 
     onProgress?.('프로젝트 구조 생성 중...', 70);
+    this.throwIfCancelled(cancellationToken, '프로젝트 구조 생성');
 
     // 디렉토리 구조 요약 (상위 3레벨)
     const structureSummary = await this.buildStructureSummary(rootPath, config, 3);
@@ -87,9 +93,11 @@ export class WorkspaceScanner {
     const structureDiagram = this.generateFunctionBasedStructure(files, rootPath, mainConfigFiles);
 
     onProgress?.('TODO/FIXME 스캔 중...', 80);
+    this.throwIfCancelled(cancellationToken, 'TODO/FIXME 스캔');
     const todoFixmeFindings = await scanTodoFixmeFindings(rootPath, files);
 
     onProgress?.('Git 정보 수집 중...', 85);
+    this.throwIfCancelled(cancellationToken, 'Git 정보 수집');
 
     // Git 정보
     let gitInfo: GitInfo | undefined;
@@ -98,6 +106,7 @@ export class WorkspaceScanner {
     }
 
     onProgress?.('스냅샷 생성 완료', 100);
+    this.throwIfCancelled(cancellationToken, '스냅샷 생성');
 
     const snapshot: ProjectSnapshot = {
       generatedAt: new Date().toISOString(),
@@ -126,13 +135,26 @@ export class WorkspaceScanner {
    */
   private async collectFiles(
     rootPath: string,
-    config: VibeReportConfig
+    config: VibeReportConfig,
+    cancellationToken?: vscode.CancellationToken
   ): Promise<string[]> {
     return collectFilesImpl({
       rootPath,
       config,
       log: (message) => this.log(message),
+      cancellationToken,
     });
+  }
+
+  private throwIfCancelled(
+    cancellationToken: vscode.CancellationToken | undefined,
+    step: string
+  ): void {
+    if (!cancellationToken?.isCancellationRequested) {
+      return;
+    }
+
+    throw new OperationCancelledError(`Workspace scan cancelled: ${step}`);
   }
 
   /**
