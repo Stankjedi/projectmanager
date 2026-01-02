@@ -30,10 +30,14 @@ export class HistoryViewProvider implements vscode.TreeDataProvider<HistoryItem>
   private outputChannel: vscode.OutputChannel;
   private snapshotService: SnapshotService;
 
-  constructor(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
+  constructor(
+    extensionUri: vscode.Uri,
+    outputChannel: vscode.OutputChannel,
+    storageRoot?: string
+  ) {
     this.extensionUri = extensionUri;
     this.outputChannel = outputChannel;
-    this.snapshotService = new SnapshotService(outputChannel);
+    this.snapshotService = new SnapshotService(outputChannel, storageRoot);
   }
 
   refresh(): void {

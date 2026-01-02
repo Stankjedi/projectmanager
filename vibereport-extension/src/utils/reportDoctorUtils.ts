@@ -5,9 +5,10 @@
  * basic markdown table sanity in managed report sections.
  */
 
-import { MARKERS } from './markdownUtils.js';
+import { MARKERS } from './markdownMarkers.js';
 import { findMarkerRange } from './markerUtils.js';
 import { EXECUTION_CHECKLIST_HEADING_REGEX } from './promptChecklistUtils.js';
+import { isSensitivePath } from './sensitiveFilesUtils.js';
 
 export type ReportDocumentType = 'evaluation' | 'improvement' | 'prompt';
 
@@ -19,6 +20,7 @@ export type ReportDoctorIssueCode =
   | 'DUPLICATE_END_MARKER'
   | 'TABLE_COLUMN_MISMATCH'
   | 'DOCS_VERSION_MISMATCH'
+  | 'SENSITIVE_FILES_PRESENT'
   | 'PROMPT_CONTAINS_HANGUL'
   | 'PROMPT_MISSING_TITLE'
   | 'PROMPT_CHECKLIST_SECTION_MISSING'
@@ -180,6 +182,20 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function findSensitiveFiles(fileList: string[]): string[] {
+  const sensitiveFiles: string[] = [];
+
+  for (const filePath of fileList) {
+    const normalized = filePath.replace(/\\/g, '/');
+    if (!isSensitivePath(normalized)) continue;
+
+    sensitiveFiles.push(normalized);
+    if (sensitiveFiles.length >= 20) break;
+  }
+
+  return sensitiveFiles;
+}
+
 export function validateDocsVersionSync(args: {
   packageVersion: string;
   readmeContent: string;
@@ -227,6 +243,55 @@ export function validateDocsVersionSync(args: {
   }
 
   return issues;
+}
+
+export function fixDocsVersionSync(args: {
+  packageVersion: string;
+  readmeContent: string;
+  changelogContent: string;
+}): {
+  readmeContent: string;
+  changelogContent: string;
+  changed: { readme: boolean; changelog: boolean };
+} {
+  const readmeNewline = detectNewline(args.readmeContent);
+  const changelogNewline = detectNewline(args.changelogContent);
+
+  const normalizedReadme = normalizeNewlines(args.readmeContent);
+  const normalizedChangelog = normalizeNewlines(args.changelogContent);
+
+  const fixedChangelog = normalizedChangelog.replace(
+    /^##\s*\[(\d+\.\d+\.\d+)\]/m,
+    `## [${args.packageVersion}]`
+  );
+
+  let fixedReadme = normalizedReadme.replace(/(\d+\.\d+\.\d+)/, args.packageVersion);
+  fixedReadme = fixedReadme.replace(
+    /vibereport-(\d+\.\d+\.\d+)\.vsix/g,
+    `vibereport-${args.packageVersion}.vsix`
+  );
+
+  // If versioned release URLs exist, keep both the URL version and VSIX filename in sync.
+  fixedReadme = fixedReadme.replace(
+    /releases\/download\/v(\d+\.\d+\.\d+)\/vibereport-(\d+\.\d+\.\d+)\.vsix/g,
+    `releases/download/v${args.packageVersion}/vibereport-${args.packageVersion}.vsix`
+  );
+
+  const finalReadme =
+    readmeNewline === '\r\n' ? fixedReadme.replace(/\n/g, '\r\n') : fixedReadme;
+  const finalChangelog =
+    changelogNewline === '\r\n'
+      ? fixedChangelog.replace(/\n/g, '\r\n')
+      : fixedChangelog;
+
+  return {
+    readmeContent: finalReadme,
+    changelogContent: finalChangelog,
+    changed: {
+      readme: finalReadme !== args.readmeContent,
+      changelog: finalChangelog !== args.changelogContent,
+    },
+  };
 }
 
 function validatePromptMarkdown(content: string): ReportDoctorIssue[] {

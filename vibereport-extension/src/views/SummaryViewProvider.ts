@@ -26,10 +26,14 @@ export class SummaryViewProvider implements vscode.WebviewViewProvider {
   private autoUpdateStatus: AutoUpdateStatus | undefined;
   private autoUpdateRefreshTimer: NodeJS.Timeout | undefined;
 
-  constructor(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
+  constructor(
+    extensionUri: vscode.Uri,
+    outputChannel: vscode.OutputChannel,
+    storageRoot?: string
+  ) {
     this.extensionUri = extensionUri;
     this.outputChannel = outputChannel;
-    this.snapshotService = new SnapshotService(outputChannel);
+    this.snapshotService = new SnapshotService(outputChannel, storageRoot);
   }
 
   public setAutoUpdateStatus(status: AutoUpdateStatus): void {

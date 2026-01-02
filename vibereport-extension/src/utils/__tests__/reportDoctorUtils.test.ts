@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { MARKERS } from '../markdownUtils.js';
-import { repairReportMarkdown, validateReportMarkdown } from '../reportDoctorUtils.js';
+import { fixDocsVersionSync, repairReportMarkdown, validateReportMarkdown } from '../reportDoctorUtils.js';
 
 describe('reportDoctorUtils', () => {
   it('detects missing marker end tags', () => {
@@ -407,5 +407,59 @@ describe('reportDoctorUtils', () => {
         expect.objectContaining({ code: 'TABLE_COLUMN_MISMATCH' }),
       ])
     );
+  });
+
+  it('fixDocsVersionSync preserves CRLF newlines while updating docs versions', () => {
+    const readmeContent = [
+      'Current version: 0.0.1',
+      'Install vibereport-0.0.1.vsix',
+      'Download https://github.com/Stankjedi/projectmanager/releases/download/v0.0.1/vibereport-0.0.1.vsix',
+    ].join('\r\n');
+
+    const changelogContent = [
+      '## [0.0.1] - 2026-01-01',
+      '',
+      '- Initial release',
+    ].join('\r\n');
+
+    const fixed = fixDocsVersionSync({
+      packageVersion: '9.9.9',
+      readmeContent,
+      changelogContent,
+    });
+
+    expect(fixed.readmeContent).not.toMatch(/[^\r]\n/);
+    expect(fixed.changelogContent).not.toMatch(/[^\r]\n/);
+
+    expect(fixed.readmeContent).toContain('Current version: 9.9.9');
+    expect(fixed.readmeContent).toContain('vibereport-9.9.9.vsix');
+    expect(fixed.readmeContent).toContain(
+      'releases/download/v9.9.9/vibereport-9.9.9.vsix'
+    );
+    expect(fixed.readmeContent).not.toContain('0.0.1');
+
+    expect(fixed.changelogContent).toMatch(/^##\s*\[9\.9\.9\]/m);
+    expect(fixed.changelogContent).not.toContain('## [0.0.1]');
+  });
+
+  it('fixDocsVersionSync is a no-op when docs already match', () => {
+    const readmeContent = [
+      'Current version: 9.9.9',
+      'Install vibereport-9.9.9.vsix',
+      'Download https://github.com/Stankjedi/projectmanager/releases/download/v9.9.9/vibereport-9.9.9.vsix',
+    ].join('\r\n');
+
+    const changelogContent = ['## [9.9.9] - 2026-01-01'].join('\r\n');
+
+    const fixed = fixDocsVersionSync({
+      packageVersion: '9.9.9',
+      readmeContent,
+      changelogContent,
+    });
+
+    expect(fixed.changed.readme).toBe(false);
+    expect(fixed.changed.changelog).toBe(false);
+    expect(fixed.readmeContent).toBe(readmeContent);
+    expect(fixed.changelogContent).toBe(changelogContent);
   });
 });

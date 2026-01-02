@@ -54,6 +54,9 @@ describe('OpenReportPreviewCommand', () => {
           toString: () => `webview:${uri.fsPath ?? ''}`,
         })),
       },
+      onDidDispose: vi.fn(),
+      dispose: vi.fn(),
+      reveal: vi.fn(),
     };
 
     vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as never);
@@ -89,6 +92,9 @@ describe('OpenReportPreviewCommand', () => {
           toString: () => `webview:${uri.fsPath ?? ''}`,
         })),
       },
+      onDidDispose: vi.fn(),
+      dispose: vi.fn(),
+      reveal: vi.fn(),
     };
 
     vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as never);
@@ -175,6 +181,9 @@ describe('OpenReportPreviewCommand', () => {
             toString: () => `webview:${uri.fsPath ?? ''}`,
           })),
         },
+        onDidDispose: vi.fn(),
+        dispose: vi.fn(),
+        reveal: vi.fn(),
       };
 
       vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as never);

@@ -11,11 +11,11 @@ const config: UserConfigExport = {
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/**/__tests__/**'],
       thresholds: {
-        // Baseline as of 2025-12-16 (slightly below current numbers)
-        statements: 66,
-        branches: 45,
-        functions: 60,
-        lines: 67,
+        // Baseline as of 2026-01-02 (slightly below current coverage ~86.75/71.11/85.44/88.41)
+        statements: 80,
+        branches: 60,
+        functions: 75,
+        lines: 80,
       },
     },
   },

@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/utils/analysisRootUtils.ts</title>
+    <title>Code coverage report for src/commands/openTroubleshooting.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/utils</a> analysisRootUtils.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/commands</a> openTroubleshooting.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.9% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>10/11</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.88% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>8/9</span>
+                <span class='fraction'>1/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.9% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>10/11</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
@@ -91,60 +91,84 @@
 <a name='L26'></a><a href='#L26'>26</a>
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a>
-<a name='L29'></a><a href='#L29'>29</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">47x</span>
-<span class="cline-any cline-yes">47x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">47x</span>
-<span class="cline-any cline-yes">30x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import * as path from 'path';
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Open Troubleshooting Command
+ *
+ * @description Opens the extension's TROUBLESHOOTING.md from the command palette.
+ */
 &nbsp;
-export function resolveAnalysisRootPortable(
-  workspaceRoot: string,
-  analysisRoot: string,
-  pathApi: typeof path.posix
-): string {
-  const normalizedWorkspaceRoot = pathApi.resolve(workspaceRoot);
-  const trimmed = analysisRoot.trim();
+import * as vscode from 'vscode';
 &nbsp;
-  if (!trimmed) {
-    return normalizedWorkspaceRoot;
+export class OpenTroubleshootingCommand {
+  private outputChannel: vscode.OutputChannel;
+  private extensionUri: vscode.Uri;
+&nbsp;
+  constructor(outputChannel: vscode.OutputChannel, extensionUri: vscode.Uri) {
+    this.outputChannel = outputChannel;
+    this.extensionUri = extensionUri;
   }
 &nbsp;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (pathApi.isAbsolute(trimmed)) {
-<span class="cstat-no" title="statement not covered" >    throw new Error('analysisRoot must be a subpath of the workspace root');</span>
+  async execute(): Promise&lt;void&gt; {
+    const docUri = vscode.Uri.joinPath(this.extensionUri, 'TROUBLESHOOTING.md');
+&nbsp;
+    try {
+      const doc = await vscode.workspace.openTextDocument(docUri);
+      await vscode.window.showTextDocument(doc, { preview: false });
+    } catch (error) {
+      vscode.window.showWarningMessage(
+        'Unable to open TROUBLESHOOTING.md. Please reinstall the extension or check your installation.'
+      );
+      this.outputChannel.appendLine(
+        `[OpenTroubleshooting] Failed to open ${docUri.fsPath}: ${
+          error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error)</span>
+        }`
+      );
+    }
   }
-&nbsp;
-  const resolved = pathApi.resolve(normalizedWorkspaceRoot, trimmed);
-  const relative = pathApi.relative(normalizedWorkspaceRoot, resolved);
-&nbsp;
-  if (relative === '' || (!relative.startsWith('..') &amp;&amp; !pathApi.isAbsolute(relative))) {
-    return resolved;
-  }
-&nbsp;
-  throw new Error('analysisRoot must be a subpath of the workspace root');
 }
 &nbsp;
 &nbsp;</pre></td></tr></table></pre>

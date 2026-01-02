@@ -109,6 +109,7 @@ describe('WorkspaceScanner', () => {
 	    reportDirectory: 'devplan',
 	    analysisRoot: '',
 	    snapshotFile: '.vscode/state.json',
+	    snapshotStorageMode: 'workspaceFile',
 	    enableGitDiff: false,
 	    respectGitignore: true,
 	    includeSensitiveFiles: false,

@@ -1,0 +1,8 @@
+feat: add AI agent planning and reporting documents and implement core vibereport-extension components.
+feat: Initialize vibereport-extension with core functionality, commands, services, utilities, and tests.
+feat: Introduce workspace scanning, prompt generation, and report improvement workflows.
+feat: Set up vibereport-extension with new tests, coverage reports, and `updateRepo` command.
+feat: Introduce CI workflow, project evaluation report, and new testing and reporting utilities, along with README updates.
+feat: Add project evaluation reports, session history, and vibereport extension files.
+chore: release v0.4.25 - remove redundant activation events
+feat: introduce AI agent devplan documentation and initialize vibereport VS Code extension with CI workflow.

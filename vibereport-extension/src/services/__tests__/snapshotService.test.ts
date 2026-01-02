@@ -56,6 +56,7 @@ describe('SnapshotService', () => {
 	    reportDirectory: 'devplan',
 	    analysisRoot: '',
 	    snapshotFile: '.vscode/state.json',
+	    snapshotStorageMode: 'workspaceFile',
 	    enableGitDiff: false,
 	    respectGitignore: true,
 	    includeSensitiveFiles: false,
@@ -151,6 +152,30 @@ describe('SnapshotService', () => {
       await service.saveState(mockRootPath, mockConfig, state);
 
       expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    it('stores state under vscode storage when snapshotStorageMode=vscodeStorage', async () => {
+      service = new SnapshotService(mockOutputChannel, '/mock/vscode-storage');
+
+      const state: VibeReportState = {
+        lastSnapshot: null,
+        sessions: [],
+        appliedImprovements: [],
+        lastUpdated: new Date().toISOString(),
+        version: 1,
+      };
+
+      const config: VibeReportConfig = {
+        ...mockConfig,
+        snapshotStorageMode: 'vscodeStorage',
+      };
+
+      await service.saveState(mockRootPath, config, state);
+
+      const writePath = vi.mocked(fs.writeFile).mock.calls[0]?.[0] as string;
+      expect(writePath).toContain('/mock/vscode-storage');
+      expect(writePath).toContain('/vibereport/');
+      expect(writePath).toMatch(/vibereport-state\.json$/);
     });
 
     it('writes state even when mkdir fails', async () => {

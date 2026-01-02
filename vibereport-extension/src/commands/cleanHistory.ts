@@ -15,9 +15,9 @@ export class CleanHistoryCommand {
     private outputChannel: vscode.OutputChannel;
     private snapshotService: SnapshotService;
 
-    constructor(outputChannel: vscode.OutputChannel) {
+    constructor(outputChannel: vscode.OutputChannel, storageRoot?: string) {
         this.outputChannel = outputChannel;
-        this.snapshotService = new SnapshotService(outputChannel);
+        this.snapshotService = new SnapshotService(outputChannel, storageRoot);
     }
 
     async execute(): Promise<void> {

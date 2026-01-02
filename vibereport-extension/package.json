@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.4.35",
+  "version": "0.4.36",
   "publisher": "Stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -178,6 +178,15 @@
           "type": "string",
           "default": ".vscode/vibereport-state.json",
           "description": "스냅샷 상태 파일 경로"
+        },
+        "vibereport.snapshotStorageMode": {
+          "type": "string",
+          "enum": [
+            "workspaceFile",
+            "vscodeStorage"
+          ],
+          "default": "workspaceFile",
+          "description": "스냅샷 상태 저장 위치 모드 (workspaceFile: 워크스페이스 내 파일, vscodeStorage: VS Code 저장소)"
         },
         "vibereport.enableGitDiff": {
           "type": "boolean",

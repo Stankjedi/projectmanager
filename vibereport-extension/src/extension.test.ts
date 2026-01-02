@@ -249,11 +249,13 @@ describe('extension', () => {
   it('activate() registers all command IDs', async () => {
     const { activate } = await import('./extension.js');
 
-    const context = {
-      subscriptions: [],
-      extensionUri: { fsPath: 'C:\\test\\ext' },
-      extensionPath: 'C:\\test\\ext',
-    } as unknown as vscode.ExtensionContext;
+	    const context = {
+	      subscriptions: [],
+	      extensionUri: { fsPath: 'C:\\test\\ext' },
+	      extensionPath: 'C:\\test\\ext',
+	      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	      globalState: {},
+	    } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
       get: vi.fn((key: string, defaultValue: unknown) => {
@@ -314,12 +316,14 @@ describe('extension', () => {
   });
 
   describe('vibereport.openFunctionInFile', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     const baseConfig = {
       reportDirectory: 'devplan',
@@ -401,13 +405,15 @@ describe('extension', () => {
     });
   });
 
-  describe('vibereport.openEvaluationReport', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	  describe('vibereport.openEvaluationReport', () => {
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     beforeEach(async () => {
       reportServiceMock.openReport.mockClear();
@@ -545,13 +551,15 @@ describe('extension', () => {
     });
   });
 
-  describe('vibereport.openImprovementReport', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	  describe('vibereport.openImprovementReport', () => {
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     beforeEach(async () => {
       reportServiceMock.openReport.mockClear();
@@ -686,13 +694,15 @@ describe('extension', () => {
     });
   });
 
-  describe('vibereport.openPrompt', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	  describe('vibereport.openPrompt', () => {
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     beforeEach(async () => {
       vi.mocked(vscode.window.showWarningMessage).mockClear();
@@ -750,13 +760,15 @@ describe('extension', () => {
     });
   });
 
-  describe('vibereport.openSessionHistory', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	  describe('vibereport.openSessionHistory', () => {
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     beforeEach(async () => {
       vi.mocked(vscode.window.showWarningMessage).mockClear();
@@ -814,13 +826,15 @@ describe('extension', () => {
     });
   });
 
-  describe('vibereport.initializeReports', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	  describe('vibereport.initializeReports', () => {
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     beforeEach(async () => {
       updateReportsCommandMock.execute.mockClear();
@@ -899,13 +913,15 @@ describe('extension', () => {
     });
   });
 
-  describe('vibereport.openFunctionInFile', () => {
-    const createContext = (): vscode.ExtensionContext =>
-      ({
-        subscriptions: [],
-        extensionUri: { fsPath: 'C:\\test\\ext' },
-        extensionPath: 'C:\\test\\ext',
-      }) as unknown as vscode.ExtensionContext;
+	  describe('vibereport.openFunctionInFile', () => {
+	    const createContext = (): vscode.ExtensionContext =>
+	      ({
+	        subscriptions: [],
+	        extensionUri: { fsPath: 'C:\\test\\ext' },
+	        extensionPath: 'C:\\test\\ext',
+	        globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+	        globalState: {},
+	      }) as unknown as vscode.ExtensionContext;
 
     beforeEach(() => {
       vi.mocked(vscode.workspace.openTextDocument).mockReset();
@@ -1050,6 +1066,8 @@ describe('extension', () => {
       subscriptions: [],
       extensionUri: { fsPath: 'C:\\test\\ext' },
       extensionPath: 'C:\\test\\ext',
+      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+      globalState: {},
     } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
@@ -1079,6 +1097,8 @@ describe('extension', () => {
       subscriptions: [],
       extensionUri: { fsPath: 'C:\\test\\ext' },
       extensionPath: 'C:\\test\\ext',
+      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+      globalState: {},
     } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.workspace).workspaceFolders = undefined as unknown as vscode.WorkspaceFolder[];
@@ -1104,6 +1124,8 @@ describe('extension', () => {
       subscriptions: [],
       extensionUri: { fsPath: 'C:\\test\\ext' },
       extensionPath: 'C:\\test\\ext',
+      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+      globalState: {},
     } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
@@ -1133,6 +1155,8 @@ describe('extension', () => {
       subscriptions: [],
       extensionUri: { fsPath: 'C:\\test\\ext' },
       extensionPath: 'C:\\test\\ext',
+      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+      globalState: {},
     } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
@@ -1155,6 +1179,8 @@ describe('extension', () => {
       subscriptions: [],
       extensionUri: { fsPath: 'C:\\test\\ext' },
       extensionPath: 'C:\\test\\ext',
+      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+      globalState: {},
     } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.workspace).workspaceFolders = [
@@ -1186,6 +1212,8 @@ describe('extension', () => {
       subscriptions: [],
       extensionUri: { fsPath: 'C:\\test\\ext' },
       extensionPath: 'C:\\test\\ext',
+      globalStorageUri: { fsPath: 'C:\\test\\ext\\.storage' },
+      globalState: {},
     } as unknown as vscode.ExtensionContext;
 
     vi.mocked(vscode.window.createOutputChannel).mockImplementationOnce(() => {

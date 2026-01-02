@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { createHash } from 'node:crypto';
 import type {
   ProjectSnapshot,
   SnapshotDiff,
@@ -20,15 +21,33 @@ import { STATE_VERSION } from '../models/types.js';
 
 export class SnapshotService {
   private outputChannel: vscode.OutputChannel;
+  private storageRoot: string | undefined;
 
-  constructor(outputChannel: vscode.OutputChannel) {
+  constructor(outputChannel: vscode.OutputChannel, storageRoot?: string) {
     this.outputChannel = outputChannel;
+    this.storageRoot = storageRoot;
+  }
+
+  private hashWorkspaceRoot(rootPath: string): string {
+    return createHash('sha256').update(rootPath).digest('hex').slice(0, 12);
   }
 
   /**
    * 상태 파일 경로 계산
    */
   private getStatePath(rootPath: string, config: VibeReportConfig): string {
+    const storageMode = config.snapshotStorageMode ?? 'workspaceFile';
+
+    if (storageMode === 'vscodeStorage' && this.storageRoot) {
+      const workspaceHash = this.hashWorkspaceRoot(rootPath);
+      return path.join(
+        this.storageRoot,
+        'vibereport',
+        workspaceHash,
+        'vibereport-state.json'
+      );
+    }
+
     return path.join(rootPath, config.snapshotFile);
   }
 

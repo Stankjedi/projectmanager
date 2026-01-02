@@ -65,12 +65,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   logActivationHeader(outputChannel);
 
-  const commands = createCommandInstances(context, outputChannel);
+  const storageRoot = context.globalStorageUri.fsPath;
+  const commands = createCommandInstances(context, outputChannel, storageRoot);
   setupPreviewStyles(context, outputChannel);
 
   statusBarItem = createStatusBarItem(context);
 
-  const viewProviders = registerViewProviders(context, outputChannel);
+  const viewProviders = registerViewProviders(context, outputChannel, storageRoot);
   const autoUpdateManager = setupAutoUpdate(
     context,
     outputChannel,
@@ -107,10 +108,15 @@ function logActivationHeader(channel: vscode.OutputChannel): void {
 
 function createCommandInstances(
   context: vscode.ExtensionContext,
-  channel: vscode.OutputChannel
+  channel: vscode.OutputChannel,
+  storageRoot: string
 ): CommandInstances {
   const reportService = new ReportService(channel);
-  const updateReportsCommand = new UpdateReportsCommand(channel, context.globalState);
+  const updateReportsCommand = new UpdateReportsCommand(
+    channel,
+    context.globalState,
+    storageRoot
+  );
   const updateReportsAllCommand = new UpdateReportsAllCommand(
     channel,
     updateReportsCommand
@@ -120,18 +126,18 @@ function createCommandInstances(
     reportService,
     updateReportsCommand,
     updateReportsAllCommand,
-    markAppliedCommand: new MarkImprovementAppliedCommand(channel),
-    setVisionCommand: new SetProjectVisionCommand(channel),
+    markAppliedCommand: new MarkImprovementAppliedCommand(channel, storageRoot),
+    setVisionCommand: new SetProjectVisionCommand(channel, storageRoot),
     setAnalysisRootWizardCommand: new SetAnalysisRootWizardCommand(channel),
     generatePromptCommand: new GeneratePromptCommand(channel),
     shareReportCommand: new ShareReportCommand(channel),
     exportReportBundleCommand: new ExportReportBundleCommand(channel),
-    reportDoctorCommand: new ReportDoctorCommand(channel),
+    reportDoctorCommand: new ReportDoctorCommand(channel, storageRoot),
     openTroubleshootingCommand: new OpenTroubleshootingCommand(
       channel,
       context.extensionUri
     ),
-    cleanHistoryCommand: new CleanHistoryCommand(channel),
+    cleanHistoryCommand: new CleanHistoryCommand(channel, storageRoot),
     openReportPreviewCommand: new OpenReportPreviewCommand(
       channel,
       context.extensionUri
@@ -163,10 +169,19 @@ function createStatusBarItem(context: vscode.ExtensionContext): vscode.StatusBar
 
 function registerViewProviders(
   context: vscode.ExtensionContext,
-  channel: vscode.OutputChannel
+  channel: vscode.OutputChannel,
+  storageRoot: string
 ): ViewProviders {
-  const historyViewProvider = new HistoryViewProvider(context.extensionUri, channel);
-  const summaryViewProvider = new SummaryViewProvider(context.extensionUri, channel);
+  const historyViewProvider = new HistoryViewProvider(
+    context.extensionUri,
+    channel,
+    storageRoot
+  );
+  const summaryViewProvider = new SummaryViewProvider(
+    context.extensionUri,
+    channel,
+    storageRoot
+  );
   const settingsViewProvider = new SettingsViewProvider(context.extensionUri, channel);
 
   context.subscriptions.push(

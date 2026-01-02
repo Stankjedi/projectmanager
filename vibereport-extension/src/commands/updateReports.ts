@@ -44,10 +44,14 @@ export class UpdateReportsCommand {
   private aiService: AiService;
   private outputChannel: vscode.OutputChannel;
 
-  constructor(outputChannel: vscode.OutputChannel, memento?: vscode.Memento) {
+  constructor(
+    outputChannel: vscode.OutputChannel,
+    memento?: vscode.Memento,
+    storageRoot?: string
+  ) {
     this.outputChannel = outputChannel;
     this.workspaceScanner = new WorkspaceScanner(outputChannel);
-    this.snapshotService = new SnapshotService(outputChannel);
+    this.snapshotService = new SnapshotService(outputChannel, storageRoot);
     this.reportService = new ReportService(outputChannel);
     this.aiService = new AiService(outputChannel, memento);
   }
@@ -369,9 +373,9 @@ export class MarkImprovementAppliedCommand {
   private snapshotService: SnapshotService;
   private outputChannel: vscode.OutputChannel;
 
-  constructor(outputChannel: vscode.OutputChannel) {
+  constructor(outputChannel: vscode.OutputChannel, storageRoot?: string) {
     this.outputChannel = outputChannel;
-    this.snapshotService = new SnapshotService(outputChannel);
+    this.snapshotService = new SnapshotService(outputChannel, storageRoot);
   }
 
   /**

@@ -612,6 +612,8 @@ export interface VibeReportConfig {
   /** 모노레포/서브폴더 분석 루트 (워크스페이스 루트 기준 상대 경로). 비어있으면 워크스페이스 루트 */
   analysisRoot: string;
   snapshotFile: string;
+  /** 스냅샷 상태 저장 위치 모드 (기본: workspaceFile) */
+  snapshotStorageMode: 'workspaceFile' | 'vscodeStorage';
   enableGitDiff: boolean;
   /** .gitignore를 존중하여 무시된 파일을 스캔에서 제외 */
   respectGitignore: boolean;

@@ -69,7 +69,7 @@ describe('SettingsViewProvider', () => {
     expect(html).toContain('<script nonce="nonce">');
 
     const digest = createHash('sha256').update(html).digest('hex');
-    expect(digest).toBe('934d333ec7076d78929d3a8c4b0619edddff13dafa52cd65644d500af941e56d');
+    expect(digest).toBe('db1aa96f1ea48719bc4740034ed203aced9b835b1473851fc67dca74343e1896');
   });
 
   it('getSetting posts settingsLoaded including analysisRoot and enableDirectAi', async () => {

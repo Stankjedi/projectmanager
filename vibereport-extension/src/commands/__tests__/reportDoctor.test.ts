@@ -10,6 +10,10 @@ vi.mock('vscode', () => ({
   },
   workspace: {
     openTextDocument: vi.fn(),
+    findFiles: vi.fn(),
+  },
+  commands: {
+    executeCommand: vi.fn(),
   },
   window: {
     showTextDocument: vi.fn(),
@@ -27,6 +31,9 @@ vi.mock('../../utils/index.js', () => ({
     analysisRoot: '',
     snapshotFile: '.vscode/vibereport-state.json',
     language: 'ko',
+    includeSensitiveFiles: false,
+    excludePatterns: [],
+    maxFilesToScan: 5000,
   })),
   selectWorkspaceRoot: vi.fn(),
   resolveAnalysisRoot: vi.fn((workspaceRoot: string) => workspaceRoot),
@@ -179,6 +186,7 @@ describe('ReportDoctorCommand', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(vscode.workspace.findFiles).mockResolvedValue([] as any);
   });
 
   afterEach(() => {
@@ -396,6 +404,159 @@ describe('ReportDoctorCommand', () => {
     expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
+  it('fixes docs when the user selects Fix Docs Versions', async () => {
+    const { selectWorkspaceRoot } = await import('../../utils/index.js');
+    vi.mocked(selectWorkspaceRoot).mockResolvedValue(rootPath);
+
+    const { ReportDoctorCommand } = await import('../reportDoctor.js');
+    const command = new ReportDoctorCommand(outputChannel);
+
+    const evalTemplate = createValidEvaluationTemplate();
+    const improvementTemplate = createValidImprovementTemplate();
+    const promptMarkdown = createValidPromptMarkdown();
+
+    (command as unknown as { reportService: unknown }).reportService = {
+      getReportPaths: vi.fn(() => ({
+        evaluation: paths.evaluation,
+        improvement: paths.improvement,
+        sessionHistory: path.join(rootPath, 'devplan', 'Session_History.md'),
+        prompt: path.join(rootPath, 'devplan', 'Prompt.md'),
+      })),
+      createEvaluationTemplate: vi.fn(() => evalTemplate),
+      createImprovementTemplate: vi.fn(() => improvementTemplate),
+    };
+
+    (command as unknown as { snapshotService: unknown }).snapshotService = {
+      loadState: vi.fn().mockResolvedValue(null),
+    };
+
+    const mismatchedDocs = {
+      changelog: '## [0.4.29] - 2025-12-20',
+      readme: [
+        'Current version: 0.4.28',
+        'Install vibereport-0.4.28.vsix',
+        'Download https://github.com/Stankjedi/projectmanager/releases/download/v0.4.28/vibereport-0.4.28.vsix',
+      ].join('\n'),
+    };
+
+    mockReadFileWithMap({
+      [paths.evaluation]: evalTemplate,
+      [paths.improvement]: improvementTemplate,
+      [paths.prompt]: promptMarkdown,
+      [docsPaths.packageJson]: matchingDocs.packageJson,
+      [docsPaths.changelog]: mismatchedDocs.changelog,
+      [docsPaths.readme]: mismatchedDocs.readme,
+    });
+
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+    vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+      'Fix Docs Versions' as unknown as vscode.MessageItem
+    );
+
+    await command.execute();
+
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      docsPaths.readme,
+      expect.stringContaining(`vibereport-${packageVersion}.vsix`),
+      'utf-8'
+    );
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      docsPaths.changelog,
+      expect.stringContaining(`## [${packageVersion}]`),
+      'utf-8'
+    );
+    expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+      'Report Doctor: fixed docs version sync (2 file(s) updated).'
+    );
+
+    expect(outputChannel.appendLine).toHaveBeenCalledWith(
+      expect.stringContaining('[ReportDoctor] Fixed docs versions:')
+    );
+  });
+
+  it('fixes docs + repairs reports when the user selects Fix All Safe Issues', async () => {
+    const { selectWorkspaceRoot } = await import('../../utils/index.js');
+    vi.mocked(selectWorkspaceRoot).mockResolvedValue(rootPath);
+
+    const { ReportDoctorCommand } = await import('../reportDoctor.js');
+    const command = new ReportDoctorCommand(outputChannel);
+
+    const evalTemplate = createValidEvaluationTemplate();
+    const improvementTemplate = createValidImprovementTemplate();
+    const promptMarkdown = createValidPromptMarkdown();
+
+    (command as unknown as { reportService: unknown }).reportService = {
+      getReportPaths: vi.fn(() => ({
+        evaluation: paths.evaluation,
+        improvement: paths.improvement,
+        sessionHistory: path.join(rootPath, 'devplan', 'Session_History.md'),
+        prompt: path.join(rootPath, 'devplan', 'Prompt.md'),
+      })),
+      createEvaluationTemplate: vi.fn(() => evalTemplate),
+      createImprovementTemplate: vi.fn(() => improvementTemplate),
+    };
+
+    (command as unknown as { snapshotService: unknown }).snapshotService = {
+      loadState: vi.fn().mockResolvedValue(null),
+    };
+
+    const fileMap: Record<string, string> = {
+      [paths.evaluation]: 'broken content',
+      [paths.improvement]: 'broken content',
+      [paths.prompt]: promptMarkdown,
+      [docsPaths.packageJson]: matchingDocs.packageJson,
+      [docsPaths.changelog]: '## [0.4.29] - 2025-12-20',
+      [docsPaths.readme]: 'Install vibereport-0.4.28.vsix',
+    };
+
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      const key = String(filePath);
+      if (Object.prototype.hasOwnProperty.call(fileMap, key)) {
+        return fileMap[key];
+      }
+      throw new Error('ENOENT');
+    });
+
+    vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+    vi.mocked(fs.writeFile).mockImplementation(async (filePath: unknown, data: unknown) => {
+      fileMap[String(filePath)] = String(data);
+      return undefined;
+    });
+
+    vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+      'Fix All Safe Issues' as unknown as vscode.MessageItem
+    );
+
+    await command.execute();
+
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      docsPaths.readme,
+      expect.stringContaining(`vibereport-${packageVersion}.vsix`),
+      'utf-8'
+    );
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      docsPaths.changelog,
+      expect.stringContaining(`## [${packageVersion}]`),
+      'utf-8'
+    );
+
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      paths.evaluation,
+      expect.stringContaining(MARKERS.TLDR_START),
+      'utf-8'
+    );
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      paths.improvement,
+      expect.stringContaining(MARKERS.OVERVIEW_START),
+      'utf-8'
+    );
+
+    expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Report Doctor: fixed all safe issues')
+    );
+  });
+
   it('opens docs when README version differs from package.json', async () => {
     const { selectWorkspaceRoot } = await import('../../utils/index.js');
     vi.mocked(selectWorkspaceRoot).mockResolvedValue(rootPath);
@@ -512,5 +673,70 @@ describe('ReportDoctorCommand', () => {
       expect.objectContaining({ fsPath: docsPaths.packageJson })
     );
     expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('warns when sensitive files are present and includeSensitiveFiles is true', async () => {
+    const { selectWorkspaceRoot, loadConfig } = await import('../../utils/index.js');
+    vi.mocked(selectWorkspaceRoot).mockResolvedValue(rootPath);
+    vi.mocked(loadConfig).mockReturnValue({
+      reportDirectory: 'devplan',
+      analysisRoot: '',
+      snapshotFile: '.vscode/vibereport-state.json',
+      language: 'ko',
+      includeSensitiveFiles: true,
+      excludePatterns: [],
+      maxFilesToScan: 5000,
+    } as any);
+
+    const { ReportDoctorCommand } = await import('../reportDoctor.js');
+    const command = new ReportDoctorCommand(outputChannel);
+
+    const evalTemplate = createValidEvaluationTemplate();
+    const improvementTemplate = createValidImprovementTemplate();
+    const promptMarkdown = createValidPromptMarkdown();
+
+    (command as unknown as { reportService: unknown }).reportService = {
+      getReportPaths: vi.fn(() => ({
+        evaluation: paths.evaluation,
+        improvement: paths.improvement,
+        sessionHistory: path.join(rootPath, 'devplan', 'Session_History.md'),
+        prompt: path.join(rootPath, 'devplan', 'Prompt.md'),
+      })),
+      createEvaluationTemplate: vi.fn(() => evalTemplate),
+      createImprovementTemplate: vi.fn(() => improvementTemplate),
+    };
+
+    (command as unknown as { snapshotService: unknown }).snapshotService = {
+      loadState: vi.fn().mockResolvedValue(null),
+    };
+
+    mockReadFileWithMap({
+      [paths.evaluation]: evalTemplate,
+      [paths.improvement]: improvementTemplate,
+      [paths.prompt]: promptMarkdown,
+      [docsPaths.packageJson]: matchingDocs.packageJson,
+      [docsPaths.changelog]: matchingDocs.changelog,
+      [docsPaths.readme]: matchingDocs.readme,
+    });
+
+    vi.mocked(vscode.workspace.findFiles).mockResolvedValue([
+      { fsPath: path.join(rootPath, 'vsctoken.txt') },
+    ] as any);
+
+    vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+      'Continue' as unknown as vscode.MessageItem
+    );
+
+    await command.execute();
+
+    expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Sensitive files were detected'),
+      { modal: true },
+      'Open Settings',
+      'Continue'
+    );
+    expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+      'Report Doctor: No marker/table issues found.'
+    );
   });
 });

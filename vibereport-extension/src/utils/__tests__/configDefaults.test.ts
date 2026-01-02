@@ -39,6 +39,7 @@ describe('config defaults', () => {
       ['vibereport.reportDirectory', DEFAULT_CONFIG.reportDirectory],
       ['vibereport.analysisRoot', DEFAULT_CONFIG.analysisRoot],
       ['vibereport.snapshotFile', DEFAULT_CONFIG.snapshotFile],
+      ['vibereport.snapshotStorageMode', DEFAULT_CONFIG.snapshotStorageMode],
       ['vibereport.enableGitDiff', DEFAULT_CONFIG.enableGitDiff],
       ['vibereport.respectGitignore', DEFAULT_CONFIG.respectGitignore],
       ['vibereport.includeSensitiveFiles', DEFAULT_CONFIG.includeSensitiveFiles],

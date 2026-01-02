@@ -59,6 +59,7 @@ describe('ReportService', () => {
 	    reportDirectory: 'devplan',
 	    analysisRoot: '',
 	    snapshotFile: '.vscode/vibereport-state.json',
+	    snapshotStorageMode: 'workspaceFile',
 	    enableGitDiff: true,
 	    respectGitignore: true,
 	    includeSensitiveFiles: false,

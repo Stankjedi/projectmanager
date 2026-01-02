@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=vibe-coding.vibereport">
-    <img src="https://img.shields.io/visual-studio-marketplace/v/vibe-coding.vibereport" alt="Version">
+  <a href="https://marketplace.visualstudio.com/items?itemName=Stankjedi.vibereport">
+    <img src="https://img.shields.io/visual-studio-marketplace/v/Stankjedi.vibereport" alt="Version">
   </a>
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
@@ -52,7 +52,7 @@
 
 ### From VSIX
 ```bash
-code --install-extension vibereport-extension/vibereport-0.4.32.vsix
+code --install-extension vibereport-extension/vibereport-0.4.35.vsix
 ```
 
 ### Development
@@ -218,7 +218,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.32.vsix 생성
+# vibereport-0.4.35.vsix 생성
 ```
 
 ## 📝 License
@@ -237,7 +237,7 @@ MIT
 
 - [GitHub Repository](https://github.com/Stankjedi/projectmanager)
 - [Issue Tracker](https://github.com/Stankjedi/projectmanager/issues)
-- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vibe-coding.vibereport)
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Stankjedi.vibereport)
 
 ---
 

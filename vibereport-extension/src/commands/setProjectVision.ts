@@ -19,9 +19,9 @@ export class SetProjectVisionCommand {
   private snapshotService: SnapshotService;
   private outputChannel: vscode.OutputChannel;
 
-  constructor(outputChannel: vscode.OutputChannel) {
+  constructor(outputChannel: vscode.OutputChannel, storageRoot?: string) {
     this.outputChannel = outputChannel;
-    this.snapshotService = new SnapshotService(outputChannel);
+    this.snapshotService = new SnapshotService(outputChannel, storageRoot);
   }
 
   /**
