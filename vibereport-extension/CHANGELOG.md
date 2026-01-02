@@ -4,13 +4,23 @@
 
 ---
 
-## [0.4.32] - 2025-12-23
+## [0.4.36] - 2026-01-02
+
+### 📦 배포
+
+- **마켓플레이스 배포**: VS Code Marketplace 및 Open VSX 동시 배포
+- **버전 동기화**: 문서 및 패키지 버전 일관성 유지
+
+---
+
+## [0.4.35] - 2026-01-02
 
 ### 🧼 리팩토링 / 코드 품질
 
 - **Activation Events 정리**: 불필요한 `onView:*`, `onCommand:*` activation events 제거 (VS Code 자동 생성 사용)
 - **문서 추가**: `TROUBLESHOOTING.md` (WSL/pnpm 문제 해결 가이드), `.gitattributes` (라인 엔딩 표준화)
 - **Report Doctor 경로 수정**: 문서 버전 동기화 검사 시 README.md 경로 수정
+
 
 ---
 
