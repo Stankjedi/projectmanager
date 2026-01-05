@@ -90,6 +90,7 @@ export class ReportDoctorCommand {
       packageJson: path.join(workspaceRoot, 'vibereport-extension', 'package.json'),
       changelog: path.join(workspaceRoot, 'vibereport-extension', 'CHANGELOG.md'),
       readme: path.join(workspaceRoot, 'README.md'),
+      extReadme: path.join(workspaceRoot, 'vibereport-extension', 'README.md'),
     };
 
     this.outputChannel.show(true);
@@ -189,10 +190,11 @@ export class ReportDoctorCommand {
       }
     }
 
-    const [packageResult, changelogResult, readmeResult] = await Promise.all([
+    const [packageResult, changelogResult, readmeResult, extReadmeResult] = await Promise.all([
       this.readFileBestEffort(docsPaths.packageJson),
       this.readFileBestEffort(docsPaths.changelog),
       this.readFileBestEffort(docsPaths.readme),
+      this.readFileBestEffort(docsPaths.extReadme),
     ]);
 
     let packageVersion = '';
@@ -210,12 +212,13 @@ export class ReportDoctorCommand {
     const docsIssues = validateDocsVersionSync({
       packageVersion,
       readmeContent: readmeResult.content,
+      extReadmeContent: extReadmeResult.content,
       changelogContent: changelogResult.content,
     });
 
     this.outputChannel.appendLine('');
     this.outputChannel.appendLine(
-      `- Docs: ${docsPaths.readme} | ${docsPaths.changelog} | ${docsPaths.packageJson}`
+      `- Docs: ${docsPaths.readme} | ${docsPaths.extReadme} | ${docsPaths.changelog} | ${docsPaths.packageJson}`
     );
     if (docsIssues.length === 0) {
       this.outputChannel.appendLine('  - OK: No issues found');
@@ -273,15 +276,15 @@ export class ReportDoctorCommand {
             error: new Error('package.json version is missing'),
           });
         } else {
-          const fixed = fixDocsVersionSync({
+          const fixedRoot = fixDocsVersionSync({
             packageVersion,
             readmeContent: readmeResult.content,
             changelogContent: changelogResult.content,
           });
 
           try {
-            if (fixed.changed.readme) {
-              await fs.writeFile(docsPaths.readme, fixed.readmeContent, 'utf-8');
+            if (fixedRoot.changed.readme) {
+              await fs.writeFile(docsPaths.readme, fixedRoot.readmeContent, 'utf-8');
               changedFiles.push(docsPaths.readme);
             }
           } catch (error) {
@@ -289,12 +292,35 @@ export class ReportDoctorCommand {
           }
 
           try {
-            if (fixed.changed.changelog) {
-              await fs.writeFile(docsPaths.changelog, fixed.changelogContent, 'utf-8');
+            if (fixedRoot.changed.changelog) {
+              await fs.writeFile(
+                docsPaths.changelog,
+                fixedRoot.changelogContent,
+                'utf-8'
+              );
               changedFiles.push(docsPaths.changelog);
             }
           } catch (error) {
             failures.push({ filePath: docsPaths.changelog, error });
+          }
+
+          const fixedExt = fixDocsVersionSync({
+            packageVersion,
+            readmeContent: extReadmeResult.content,
+            changelogContent: fixedRoot.changelogContent,
+          });
+
+          try {
+            if (fixedExt.changed.readme) {
+              await fs.writeFile(
+                docsPaths.extReadme,
+                fixedExt.readmeContent,
+                'utf-8'
+              );
+              changedFiles.push(docsPaths.extReadme);
+            }
+          } catch (error) {
+            failures.push({ filePath: docsPaths.extReadme, error });
           }
         }
       }
@@ -342,14 +368,16 @@ export class ReportDoctorCommand {
         })
       );
 
-      const [readmeAfter, changelogAfter] = await Promise.all([
+      const [readmeAfter, extReadmeAfter, changelogAfter] = await Promise.all([
         this.readFileBestEffort(docsPaths.readme),
+        this.readFileBestEffort(docsPaths.extReadme),
         this.readFileBestEffort(docsPaths.changelog),
       ]);
 
       const refreshedDocsIssues = validateDocsVersionSync({
         packageVersion,
         readmeContent: readmeAfter.content,
+        extReadmeContent: extReadmeAfter.content,
         changelogContent: changelogAfter.content,
       });
 
@@ -435,26 +463,37 @@ export class ReportDoctorCommand {
         return;
       }
 
-      const fixed = fixDocsVersionSync({
+      const fixedRoot = fixDocsVersionSync({
         packageVersion,
         readmeContent: readmeResult.content,
         changelogContent: changelogResult.content,
       });
 
       const changedFiles: string[] = [];
-      if (fixed.changed.readme) {
-        await fs.writeFile(docsPaths.readme, fixed.readmeContent, 'utf-8');
+      if (fixedRoot.changed.readme) {
+        await fs.writeFile(docsPaths.readme, fixedRoot.readmeContent, 'utf-8');
         changedFiles.push(docsPaths.readme);
       }
-      if (fixed.changed.changelog) {
-        await fs.writeFile(docsPaths.changelog, fixed.changelogContent, 'utf-8');
+      if (fixedRoot.changed.changelog) {
+        await fs.writeFile(docsPaths.changelog, fixedRoot.changelogContent, 'utf-8');
         changedFiles.push(docsPaths.changelog);
+      }
+
+      const fixedExt = fixDocsVersionSync({
+        packageVersion,
+        readmeContent: extReadmeResult.content,
+        changelogContent: fixedRoot.changelogContent,
+      });
+      if (fixedExt.changed.readme) {
+        await fs.writeFile(docsPaths.extReadme, fixedExt.readmeContent, 'utf-8');
+        changedFiles.push(docsPaths.extReadme);
       }
 
       const issuesAfter = validateDocsVersionSync({
         packageVersion,
-        readmeContent: fixed.readmeContent,
-        changelogContent: fixed.changelogContent,
+        readmeContent: fixedRoot.readmeContent,
+        extReadmeContent: fixedExt.readmeContent,
+        changelogContent: fixedRoot.changelogContent,
       });
 
       if (issuesAfter.length === 0) {
@@ -489,7 +528,12 @@ export class ReportDoctorCommand {
     }
 
     if (action === 'Open Docs') {
-      await this.openReports([docsPaths.readme, docsPaths.changelog, docsPaths.packageJson]);
+      await this.openReports([
+        docsPaths.readme,
+        docsPaths.extReadme,
+        docsPaths.changelog,
+        docsPaths.packageJson,
+      ]);
       return;
     }
 

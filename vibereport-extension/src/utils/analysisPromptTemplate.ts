@@ -7,6 +7,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type {
   ProjectSnapshot,
   SnapshotDiff,
@@ -14,6 +15,22 @@ import type {
   VibeReportConfig,
   ProjectVision,
 } from '../models/types.js';
+
+function isSensitivePath(filePath: string): boolean {
+  const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+  const baseName = path.posix.basename(normalized);
+
+  if (baseName === 'vsctoken.txt') return true;
+  if (baseName.startsWith('.env')) return true;
+
+  // Heuristic token match (intentionally conservative for safety).
+  if (normalized.includes('token')) return true;
+  if (normalized.includes('secret')) return true;
+  if (normalized.includes('credential')) return true;
+  if (normalized.includes('key')) return true;
+
+  return false;
+}
 
 /**
  * 분석 프롬프트 생성
@@ -44,22 +61,66 @@ export function buildAnalysisPrompt(
   lines.push('---');
   lines.push('');
 
+  // ===== 0. Pre-flight Recon =====
+  lines.push('## 0. Pre-flight Recon (Mandatory)');
+  lines.push('');
+  lines.push('Before starting TODO-1, perform a quick repository recon so your evaluation and improvements are grounded in evidence:');
+  lines.push('');
+  lines.push('- Read `package.json` (scripts, entry points).');
+  lines.push('- Read `README.md` (user scenarios, how to run/build/test).');
+  lines.push('- Identify the main entry points (e.g., VS Code extension activation/commands, CLI entry, server entry).');
+  lines.push('- Search for red flags: `TODO`, `FIXME`, `any`, `ts-ignore`, `eslint-disable`.');
+  lines.push('- If the environment allows, run existing scripts from `package.json`:');
+  lines.push('  - `pnpm run test` / `pnpm run build` / `pnpm run lint` (only if present).');
+  lines.push('');
+  lines.push('Use your recon findings as **Evidence** in improvement items (at least 1 per item: file path + observation).');
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
   // ===== 1. Global Language Rules =====
   lines.push('## 1. Global Language Rules (Mandatory)');
   lines.push('');
   lines.push('- `Project_Evaluation_Report.md`:');
   lines.push('  - Write **all content in Korean** (evaluation report in professional, concise Korean).');
+  lines.push('  - Exception: allowed tokens listed in **1.X Language Exceptions** may remain English and must NOT be translated.');
   lines.push('');
   lines.push('- `Project_Improvement_Exploration_Report.md`:');
   lines.push('  - Write **all content in Korean** (improvement / exploration report in professional, concise Korean).');
+  lines.push('  - Exception: allowed tokens listed in **1.X Language Exceptions** may remain English and must NOT be translated.');
   lines.push('');
   lines.push('- `Prompt.md`:');
-  lines.push('  - Write **all content in English only**.');
-  lines.push('  - **Do not** include any Korean text (한글) in this file (titles, descriptions, tables, comments, all must be English).');
+  lines.push('  - Write **all content in English**.');
+  lines.push('  - Validation rule: **no Hangul characters** allowed (regex: `[가-힣]`).');
+  lines.push('  - **Do not** include any Korean text (한글) in this file (titles, descriptions, tables, comments).');
   lines.push('');
   lines.push('- Do **not** mix languages inside a single file.');
   lines.push('');
   lines.push('If `Prompt.md` contains any Korean, it is invalid and must be fixed.');
+  lines.push('');
+
+  lines.push('### 1.X Language Exceptions (Applies to Korean-only files)');
+  lines.push('');
+  lines.push('Even in Korean-only files, the following tokens are allowed and MUST NOT be translated:');
+  lines.push('- File paths, folder names, package names');
+  lines.push('- IDs (e.g., `test-commands-001`)');
+  lines.push('- Enum-like values / fixed tokens:');
+  lines.push('  - `Origin`: `test-failure` / `build-error` / `static-analysis` / `manual-idea`');
+  lines.push('  - `Risk level`: `low` / `medium` / `high` / `critical`');
+  lines.push('  - `Complexity`: `Low` / `Medium` / `High`');
+  lines.push('  - Related evaluation category keys: `testCoverage`, `codeQuality`, `performance`, `productionReadiness`, etc.');
+  lines.push('- Code blocks, CLI commands');
+  lines.push('- Mermaid keywords (e.g., `flowchart`, `sequenceDiagram`, `subgraph`, `TB`, `LR`)');
+  lines.push('');
+  lines.push('For Mermaid diagrams: keywords remain as-is; node labels/descriptions must be Korean.');
+  lines.push('');
+
+  lines.push('### 1.Y Security / Sensitive Files (Mandatory)');
+  lines.push('');
+  lines.push('Do not open or copy secrets (tokens/keys/credentials).');
+  lines.push('Treat the following as sensitive and **never include contents** in any report:');
+  lines.push('- `vsctoken.txt`, `.env*`, `*token*`, `*secret*`, `*key*`, `*credential*`');
+  lines.push('You may mention existence, but do NOT paste file contents or secret values.');
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -73,10 +134,20 @@ export function buildAnalysisPrompt(
   lines.push('All TODO lists must be completed.');
   lines.push('Dont stop until TODO-10 is completed.');
   lines.push('');
+
+  lines.push('### 2.X Improvement IDs – Single Source of Truth (SSOT)');
+  lines.push('');
+  lines.push('All improvement IDs must be consistent across all three files:');
+  lines.push('- If an improvement ID appears in the Evaluation report (Risk Summary / Score↔Improvement Mapping), the **same ID** MUST exist as an item in the Improvement report.');
+  lines.push('- Every pending improvement item ID in the Improvement report MUST appear as a prompt in `Prompt.md`.');
+  lines.push('- Never rename, translate, or “pretty print” IDs. IDs are canonical tokens.');
+  lines.push('Practical rule: decide your improvement IDs early (before writing any tables that reference IDs) and reuse them unchanged.');
+  lines.push('');
+
   lines.push('- `[ ] TODO-1` – Evaluation Report Part 1 – Project overview section (Korean)');
   lines.push('- `[ ] TODO-2` – Evaluation Report Part 2 – Global score table (Korean)');
   lines.push('- `[ ] TODO-3` – Evaluation Report Part 3 – Detailed per-feature evaluation (Korean)');
-  lines.push('- `[ ] TODO-4` – Evaluation Report Part 4 – Current status summary (Korean)');
+  lines.push('- `[ ] TODO-4` – Evaluation Report Part 4 – TL;DR + Risk Summary + Score↔Improvement Mapping + Trend + Current State Summary (Korean)');
   lines.push('- `[ ] TODO-5` – Improvement Report Part 1 – Overall improvement summary (Korean)');
   lines.push('- `[ ] TODO-6` – Improvement Report Part 2 – P1/P2 improvement items (Korean)');
   lines.push('- `[ ] TODO-7` – Improvement Report Part 3 – P3 and OPT items (Korean)');
@@ -134,7 +205,19 @@ export function buildAnalysisPrompt(
   lines.push('- Select 3–5 lines of unique existing context (including the markers) as `oldString`.');
   lines.push('- Replace only the intended section between markers with your new content.');
   lines.push('');
-  lines.push('### 3.3 Recommended Partitioning per File');
+  lines.push('### 3.3 Recovery Rules');
+  lines.push('');
+  lines.push('If you cannot find a marker block (missing or unexpected format):');
+  lines.push('1. Find the closest relevant section header in the file.');
+  lines.push('2. Insert the missing marker block first.');
+  lines.push('3. Then fill the content inside that marker block.');
+  lines.push('');
+  lines.push('If `replace_string_in_file` fails due to mismatch:');
+  lines.push('- Open/read the file to copy the exact surrounding lines.');
+  lines.push('- Retry with a longer, more unique `oldString` context (still including the markers).');
+  lines.push('- Avoid blind retry loops.');
+  lines.push('');
+  lines.push('### 3.4 Recommended Partitioning per File');
   lines.push('');
   lines.push('- Evaluation report (`Project_Evaluation_Report.md`) – about 4 parts:');
   lines.push('  - Part 1 – Project overview.');
@@ -183,14 +266,30 @@ export function buildAnalysisPrompt(
 
   // 새 파일 목록
   if (!isFirstRun && !diff.isInitial && diff.newFiles.length > 0) {
-    lines.push('Recently added files (you may consider them in the evaluation and improvement proposals):');
-    diff.newFiles.slice(0, 10).forEach(f => {
-      lines.push(`- \`${f}\``);
-    });
-    if (diff.newFiles.length > 10) {
-      lines.push(`- ... and ${diff.newFiles.length - 10} more`);
+    const safeNewFiles = diff.newFiles.filter(f => !isSensitivePath(f));
+    const sensitiveNewFiles = diff.newFiles.filter(isSensitivePath);
+
+    if (safeNewFiles.length > 0) {
+      lines.push('Recently added files (review them if relevant; do NOT open sensitive files):');
+      safeNewFiles.slice(0, 10).forEach(f => {
+        lines.push(`- \`${f}\``);
+      });
+      if (safeNewFiles.length > 10) {
+        lines.push(`- ... and ${safeNewFiles.length - 10} more`);
+      }
+      lines.push('');
     }
-    lines.push('');
+
+    if (sensitiveNewFiles.length > 0) {
+      lines.push('Sensitive files detected (do not open or copy contents):');
+      sensitiveNewFiles.slice(0, 10).forEach(f => {
+        lines.push(`- \`${f}\` (sensitive)`);
+      });
+      if (sensitiveNewFiles.length > 10) {
+        lines.push(`- ... and ${sensitiveNewFiles.length - 10} more sensitive file(s)`);
+      }
+      lines.push('');
+    }
   }
 
   // 삭제된 파일
@@ -204,8 +303,15 @@ export function buildAnalysisPrompt(
 
   lines.push('### TODO/FIXME Findings (Auto Scan)');
   lines.push('');
-  if (!snapshot.todoFixmeFindings || snapshot.todoFixmeFindings.length === 0) {
+  const allFindings = snapshot.todoFixmeFindings ?? [];
+  const visibleFindings = allFindings.filter(f => !isSensitivePath(f.file));
+  const redactedFindingsCount = allFindings.length - visibleFindings.length;
+
+  if (visibleFindings.length === 0) {
     lines.push('- None detected.');
+    if (redactedFindingsCount > 0) {
+      lines.push(`- Note: ${redactedFindingsCount} finding(s) in sensitive files were redacted.`);
+    }
     lines.push('');
   } else {
     const sanitize = (value: string) =>
@@ -213,12 +319,16 @@ export function buildAnalysisPrompt(
 
     lines.push('| File | Line | Tag | Text |');
     lines.push('| --- | ---: | --- | --- |');
-    snapshot.todoFixmeFindings.slice(0, 20).forEach(finding => {
+    visibleFindings.slice(0, 20).forEach(finding => {
       const text = sanitize(finding.text);
       lines.push(`| \`${finding.file}\` | ${finding.line} | ${finding.tag} | ${text} |`);
     });
-    if (snapshot.todoFixmeFindings.length > 20) {
-      lines.push(`| ... | ... | ... | ... and ${snapshot.todoFixmeFindings.length - 20} more |`);
+    if (visibleFindings.length > 20) {
+      lines.push(`| ... | ... | ... | ... and ${visibleFindings.length - 20} more |`);
+    }
+    if (redactedFindingsCount > 0) {
+      lines.push('');
+      lines.push(`Note: ${redactedFindingsCount} finding(s) in sensitive files were redacted.`);
     }
     lines.push('');
   }
@@ -261,6 +371,7 @@ function buildEvaluationReportSection(evaluationPath: string, projectVision?: Pr
   lines.push('');
   lines.push('**Language:**');
   lines.push('- Write everything in Korean (titles, paragraphs, table headers, table contents).');
+  lines.push('- Exception: tokens listed in `1.X Language Exceptions` may remain English (IDs, file paths, enums, code, Mermaid keywords).');
   lines.push('- Use a clear, professional, and business-oriented tone.');
   lines.push('');
   lines.push('### 5.1 Required Sections');
@@ -449,6 +560,7 @@ function buildImprovementReportSection(improvementPath: string): string {
   lines.push('');
   lines.push('**Language:**');
   lines.push('- Write everything in Korean.');
+  lines.push('- Exception: tokens listed in `1.X Language Exceptions` may remain English (IDs, file paths, enums, code, Mermaid keywords).');
   lines.push('- Use concise, structured, and actionable language.');
   lines.push('');
   lines.push('### 6.1 Core Principle – Only Pending Items');
@@ -528,6 +640,7 @@ function buildImprovementReportSection(improvementPath: string): string {
   lines.push('| **카테고리** | 🧪 테스트 / 🔒 보안 / 🧹 코드 품질 / ⚙️ 성능 / 📦 배포 / 기타 |');
   lines.push('| **복잡도** | Low / Medium / High |');
   lines.push('| **대상 파일** | 하나 이상의 실제 파일 경로 |');
+  lines.push('| **Evidence** | `파일경로:관찰내용` (함수명/에러메시지/주석 등) 최소 1개 |');
   lines.push('| **Origin** | test-failure / build-error / static-analysis / manual-idea |');
   lines.push('| **리스크 레벨** | low / medium / high / critical |');
   lines.push('| **관련 평가 카테고리** | 예: testCoverage, codeQuality, performance, productionReadiness |');
@@ -612,7 +725,8 @@ function buildPromptFileSection(promptPath: string): string {
   lines.push(`**Path:** \`${promptPath}\``);
   lines.push('');
   lines.push('**Language:**');
-  lines.push('- Every character in this file must be **English** (no Korean).');
+  lines.push('- Write all content in English.');
+  lines.push('- Validation rule: **no Hangul characters** allowed (regex: `[가-힣]`).');
   lines.push('- Titles, descriptions, tables, comments, and any other content must be English.');
   lines.push('');
   lines.push('### 7.1 Source of Truth');

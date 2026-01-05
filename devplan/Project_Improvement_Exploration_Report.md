@@ -13,10 +13,10 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (Vibe Coding Report VS Code 확장) |
-| **버전** | v0.4.35 |
+| **버전** | v0.4.38 (`vibereport-extension/package.json`) |
 | **분석 기준일** | 2026-01-02 |
-| **로컬 검증(본 환경)** | 2026-01-02 기준 `pnpm -C vibereport-extension run compile`/`lint`/`test:run`/`test:coverage` 통과 |
-| **테스트/커버리지** | CI에서 `test:run`/`test:coverage` 실행. (최근 산출물 기준 statements 86.75% / branches 71.11% / functions 85.44% / lines 88.41%) |
+| **로컬 검증(본 환경)** | `pnpm -C vibereport-extension run compile` ✅ / `pnpm -C vibereport-extension run lint` ✅ / `pnpm -C vibereport-extension run test:run` ✅ / `pnpm -C vibereport-extension run doctor:check` ✅ |
+| **테스트/커버리지** | CI: `.github/workflows/ci.yml`에서 `compile`/`lint`/`bundle`/`test:run`/`test:coverage` 실행 |
 | **발행자** | Stankjedi |
 <!-- AUTO-OVERVIEW-END -->
 
@@ -28,17 +28,19 @@
 > 이 섹션은 개선 항목이 어떤 근거로 도출되었는지(신뢰 가능한 출처/과정)를 요약합니다.
 
 ### 1. 데이터 수집
-- 로컬 실행: `pnpm -C vibereport-extension run compile`/`lint`/`test:run`/`test:coverage` 통과.
-- CI 설정 점검: `.github/workflows/ci.yml`(compile/lint/test/coverage 실행) 확인.
-- 커버리지 산출물 확인: `vibereport-extension/coverage/`(html/json) 기반으로 현재 커버리지 수준 확인.
-- 설정 점검: `.vscode/settings.json`(snapshotFile/excludePatterns/language 등) 확인.
-- 리포지토리 스캔(현황): 워크스페이스 루트에 `vsctoken.txt` 존재(민감 파일 가능성), 문서 내 마켓플레이스 링크/배지/설치 예시 드리프트 가능 지점 확인.
+- 스크립트/엔트리포인트 점검: `vibereport-extension/package.json`의 `scripts` 및 `contributes.commands`/`main` 확인.
+- 로컬 실행(2026-01-02): `pnpm -C vibereport-extension run compile` ✅ / `pnpm -C vibereport-extension run lint` ✅ / `pnpm -C vibereport-extension run test:run` ✅ / `pnpm -C vibereport-extension run doctor:check` ✅.
+- CI 설정 점검: `.github/workflows/ci.yml`에서 `compile`/`lint`/`bundle`/`test:run`/`test:coverage` 실행.
+- 레드 플래그 스캔: `any`(`vibereport-extension/src/scripts/doctorCli.ts`), `TODO/FIXME`(템플릿/테스트 중심) 확인. (`@ts-ignore`, `eslint-disable`는 미발견)
+- 민감 파일 존재 여부: 워크스페이스 루트에 `vsctoken.txt`가 존재할 수 있으나, 내용은 미열람(민감 정보 보호 원칙).
 
 ### 2. 정적/구조 분석
-- 보안/프라이버시: 민감 파일(토큰/키/.env 등)이 워크스페이스에 존재할 수 있으며, 스캔/프리뷰/공유 단계에서 노출 위험이 커질 수 있습니다(닥터 기반 점검/차단 필요).
-- 운영 자동화: 닥터 기능이 유용하지만, 안전한 조치를 “묶어서 일괄 실행”하지 못하면 운영 실수 가능성이 증가할 수 있습니다.
-- 문서 정합성: 버전/VSIX/릴리즈 URL 드리프트는 테스트로 차단되지만, 마켓플레이스 링크/배지 정합성은 별도 검증이 없으면 재발 여지가 있습니다.
-- 유지보수성: `src/utils/markdownUtils.ts` 등 대형 유틸 파일은 변경 영향이 커져 장기 유지보수 비용이 증가할 수 있습니다.
+- 번들 내보내기 개인정보: `vibereport-extension/src/commands/exportReportBundle.ts`가 `metadata.json`에 `workspaceRoot`(절대 경로)를 저장 → 공유 시 개인정보 노출 가능(`security-export-bundle-redaction-001`).
+- 프리뷰 추출 견고성: `shareReport.ts`/`exportReportBundle.ts`가 특정 헤더 텍스트에 의존한 정규식으로 TL;DR/점수표를 추출 → 언어/포맷 변화에 취약(`quality-share-preview-marker-extraction-001`).
+- 프리뷰 언어 일관성: 프리뷰 템플릿이 한국어/`ko-KR`에 고정되어 설정(`vibereport.language`)과 불일치 가능(`feat-share-preview-i18n-001`).
+- TODO/FIXME 민감 문자열: `improvementFormatting.ts`에서 findings 텍스트를 그대로 출력 → 토큰/키 형태 우발 노출 가능(`security-todo-fixme-findings-redaction-001`).
+- 성능: `todoFixmeScanner.ts`는 `stat` 병렬화는 있으나 콘텐츠 읽기는 순차 처리(`opt-todo-scan-parallel-001`).
+- 레포 위생: `tmp_lines.txt`가 루트에 남아 있으며 `.gitignore`에 제외 규칙이 없음(`repo-ignore-artifacts-001`).
 
 ### 3. 개선 후보 정제
 - 각 항목에 `Origin`(test-failure/build-error/static-analysis/manual-idea), `리스크 레벨`, `관련 평가 카테고리`를 부여했습니다.
@@ -55,22 +57,22 @@
 
 | 우선순위 | 대기(미적용) | 주요 내용 |
 |:---:|:---:|:---|
-| 🔴 **긴급 (P1)** | 1 | 민감 파일(토큰/키/.env 등) 노출 위험을 닥터에서 사전 차단/가이드. |
-| 🟡 **중요 (P2)** | 2 | 문서 정합성(특히 마켓플레이스/줄바꿈 보존) 회귀를 테스트로 고정. |
-| 🟢 **개선 (P3)** | 2 | 닥터 운영 자동화(안전 항목 묶음 실행) 및 스냅샷 저장 모드 옵션화. |
-| ⚙️ **최적화 (OPT)** | 1 | 대형 유틸 모듈화로 유지보수성/변경 영향 최소화. |
-| **총계** | **6** | **모든 항목은 현재 대기 중입니다(미적용 항목만 유지).** |
+| 🔴 **긴급 (P1)** | 1 | 번들/공유 산출물 개인정보·경로 레드액션 및 안전 기본값 정립 |
+| 🟡 **중요 (P2)** | 3 | 프리뷰 추출 로직 견고화(마커 기반), TODO/FIXME 텍스트 레드액션, 레포 산출물 파일 정리 |
+| 🟢 **개선 (P3)** | 1 | Share Report/번들 프리뷰 i18n(언어/날짜) 지원 |
+| ⚙️ **최적화 (OPT)** | 1 | TODO/FIXME 스캔 콘텐츠 읽기 병렬화(동시성 제한) |
+| **총계** | **6** | **현재 대기 중인 항목만 유지합니다(완료 히스토리는 제외).** |
 
 ### 2. 전체 개선 항목 리스트
 
 | # | 항목명 | 우선순위 | 카테고리 | ID |
 |:---:|:---|:---:|:---|:---|
-| 1 | 리포트 닥터: 민감 파일 점검/차단 강화 | P1 | 🔒 보안/🧰 운영 | `sec-sensitive-files-001` |
-| 2 | docsConsistency: 마켓플레이스 링크/배지 정합성 검증 추가 | P2 | 🧪 테스트/📚 문서 | `test-docs-marketplace-001` |
-| 3 | 닥터 문서 자동 수정: 줄바꿈(LF/CRLF) 보존 테스트 추가 | P2 | 🧪 테스트/🧰 운영 | `test-doctor-docs-fix-newlines-001` |
-| 4 | 리포트 닥터: 안전 항목 묶음 실행 액션 추가 | P3 | ✨ 기능 추가/🧰 운영 | `feat-doctor-fix-all-001` |
-| 5 | 스냅샷 저장 모드 옵션화(리포지토리 외 저장 지원) | P3 | ✨ 기능 추가/📦 운영 | `feat-snapshot-storage-mode-001` |
-| 6 | markdownUtils 모듈화(유지보수성/변경 영향 최소화) | OPT | 🚀 최적화/🧹 코드 품질 | `opt-markdown-utils-modularize-001` |
+| 1 | 번들 내보내기 개인정보/경로 레드액션 강화(기본값 안전화) | P1 | 🔒 보안 | `security-export-bundle-redaction-001` |
+| 2 | Share Report/번들 프리뷰 추출 로직 마커 기반 리팩토링(중복 제거) | P2 | 🧹 코드 품질/🧪 테스트 | `quality-share-preview-marker-extraction-001` |
+| 3 | TODO/FIXME 발견 텍스트 민감 문자열 레드액션 | P2 | 🔒 보안/🧹 코드 품질 | `security-todo-fixme-findings-redaction-001` |
+| 4 | 레포 산출물 파일 정리 및 `.gitignore` 반영(`tmp_lines.txt`) | P2 | 🧹 유지보수 | `repo-ignore-artifacts-001` |
+| 5 | Share Report/번들 프리뷰 i18n(언어/날짜 로케일) 지원 | P3 | ✨ 기능 추가/🧰 UX | `feat-share-preview-i18n-001` |
+| 6 | TODO/FIXME 스캔 콘텐츠 읽기 병렬화(동시성 제한) | OPT | ⚙️ 성능/🚀 코드 최적화 | `opt-todo-scan-parallel-001` |
 <!-- AUTO-SUMMARY-END -->
 
 ---
@@ -82,84 +84,170 @@
 <!-- AUTO-IMPROVEMENT-LIST-START -->
 ### 🔴 중요 (P1)
 
-#### [P1-1] 리포트 닥터: 민감 파일(토큰/키/.env) 점검 및 안전 조치 강화
+#### [P1-1] 번들 내보내기 개인정보/경로 레드액션 강화(기본값 안전화)
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `sec-sensitive-files-001` |
+| **ID** | `security-export-bundle-redaction-001` |
 | **카테고리** | 🔒 보안 |
-| **복잡도** | 중간 |
-| **대상 파일** | `vibereport-extension/src/commands/reportDoctor.ts`, `vibereport-extension/src/utils/reportDoctorUtils.ts`, `vibereport-extension/src/services/workspaceScanner/fileCollector.ts` |
-| **Origin** | `static-analysis` |
-| **리스크 레벨** | `high` |
-| **관련 평가 카테고리** | `security`, `productionReadiness` |
+| **복잡도** | Medium |
+| **대상 파일** | `vibereport-extension/src/commands/exportReportBundle.ts`, `vibereport-extension/src/utils/redactionUtils.ts`, `vibereport-extension/package.json`, `vibereport-extension/src/commands/__tests__/exportReportBundle.test.ts` |
+| **Evidence** | `vibereport-extension/src/commands/exportReportBundle.ts: metadata.json에 workspaceRoot(절대 경로)를 저장`<br/>`vibereport-extension/src/commands/exportReportBundle.ts: Share_Preview.md만 redaction 옵션 적용, 나머지 마크다운/metadata는 원본 그대로 저장` |
+| **Origin** | static-analysis |
+| **리스크 레벨** | high |
+| **관련 평가 카테고리** | security, productionReadiness |
 
-- **현재 상태:** 워크스페이스 루트에 `vsctoken.txt` 등 민감 파일 가능성이 있는 파일이 존재할 수 있으며, 운영 방식(프리뷰 공유/번들 내보내기 등)에 따라 노출 리스크가 발생할 수 있습니다.
-- **문제점:** 민감 파일 존재/설정 상태를 닥터가 명시적으로 진단하지 않으면, 사용자의 실수(공유/내보내기)로 이어질 수 있습니다.
-- **영향:** 보안 사고(토큰 유출), 신뢰도 하락, 긴급 롤백 및 운영 비용 증가.
-- **원인:** 민감 파일 감지/안전 조치가 닥터 워크플로우에 통합되어 있지 않음.
-- **개선 내용:** 닥터에 민감 파일 진단을 추가하고 (1) 설정 점검(`includeSensitiveFiles`) (2) 제외 패턴/가이드 제공 (3) 실행 전 재확인 등 안전 조치를 제공합니다.
-- **기대 효과:** 실수 기반 유출을 사전에 차단하고, 운영 안정성과 보안 수준을 높입니다.
+**현재 상태:**
+- 번들 내보내기는 공유/아카이브에 유용하지만, 산출물 중 일부(특히 `metadata.json`)에 환경 정보(절대 경로)가 포함될 수 있습니다.
 
-**✅ 완료 기준:**
-- [ ] 주요 코드 구현 완료(닥터 진단/조치)
-- [ ] 관련 테스트 추가/수정 및 통과
-- [ ] 빌드 및 린트 에러 없음
-- [ ] 문서 또는 주석 보완 (필요시)
+**문제점 (Problem):**
+- “공유용 산출물”의 기본값이 안전하지 않을 수 있어, 사용자가 번들을 그대로 공유할 때 개인정보(로컬 경로) 노출 위험이 존재합니다.
+
+**영향 (Impact):**
+- 개인정보 노출, 보안 정책 위반, 사용자 신뢰 저하(공유/아카이브 기능 사용 위축).
+
+**원인 (Cause):**
+- redaction 정책이 Share_Preview에만 적용되고, 번들 전체 산출물 및 `metadata.json`에 대한 정책/테스트가 부족합니다.
+
+**개선 내용 (Proposed Solution):**
+- 번들 내보내기 경로에서 redaction 정책을 “옵션”이 아니라 “안전 기본값”으로 정립합니다.
+  - `metadata.json`의 `workspaceRoot`는 제거/마스킹(또는 최소 정보로 치환)합니다.
+  - (선택) 번들에 포함되는 마크다운 파일도 command URI/절대 경로를 마스킹한 “redacted 버전”을 함께 제공하거나, export 옵션으로 선택 가능하게 합니다.
+  - 테스트로 번들 산출물에 절대 경로/command URI가 남지 않음을 검증합니다.
+
+**기대 효과:**
+- 사용자의 실수(무심코 공유)로 인한 노출 가능성을 낮추고, “안전한 공유”를 기본 UX로 제공합니다.
+
+**✅ 완료 기준(Definition of Done):**
+- [ ] 번들 내보내기 시 redaction 정책이 `metadata.json` 및 산출물에 일관되게 적용됨
+- [ ] 관련 단위 테스트 추가/수정 및 통과
+- [ ] `pnpm -C vibereport-extension run compile` 통과
+- [ ] `pnpm -C vibereport-extension run lint` 통과
+- [ ] `pnpm -C vibereport-extension run test:run` 통과
 
 ---
 
 ### 🟡 중요 (P2)
 
-#### [P2-1] docsConsistency: 마켓플레이스 링크/배지 정합성 테스트 추가
+#### [P2-1] Share Report/번들 프리뷰 추출 로직 마커 기반 리팩토링(중복 제거)
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `test-docs-marketplace-001` |
-| **카테고리** | 🧪 테스트 |
-| **복잡도** | 낮음 |
-| **대상 파일** | `vibereport-extension/src/docsConsistency.test.ts`, `README.md` |
-| **Origin** | `static-analysis` |
-| **리스크 레벨** | `medium` |
-| **관련 평가 카테고리** | `documentation`, `productionReadiness`, `testCoverage` |
+| **ID** | `quality-share-preview-marker-extraction-001` |
+| **카테고리** | 🧹 코드 품질 / 🧪 테스트 |
+| **복잡도** | Medium |
+| **대상 파일** | `vibereport-extension/src/commands/shareReport.ts`, `vibereport-extension/src/commands/exportReportBundle.ts`, `vibereport-extension/src/utils/markerUtils.ts`, `vibereport-extension/src/commands/__tests__/shareReportPreview.test.ts`, `vibereport-extension/src/commands/__tests__/exportReportBundle.test.ts` |
+| **Evidence** | `vibereport-extension/src/commands/shareReport.ts: AUTO-SCORE-START 섹션을 '### 점수-등급 기준표' 헤더로 매칭해 추출(포맷/언어 변경에 취약)`<br/>`vibereport-extension/src/commands/exportReportBundle.ts: 유사한 프리뷰 생성 로직이 중복되어 유지보수 비용 증가` |
+| **Origin** | static-analysis |
+| **리스크 레벨** | medium |
+| **관련 평가 카테고리** | productionReadiness, maintainability, documentation |
 
-- **현재 상태:** docsConsistency는 버전/VSIX/릴리즈 URL 드리프트는 잡지만, 마켓플레이스 링크/배지(`itemName`) 정합성은 테스트로 고정되어 있지 않습니다.
-- **문제점:** 마켓플레이스 링크/배지 드리프트는 사용자 설치/업데이트 동선을 혼란스럽게 만들고 문서 신뢰도를 떨어뜨립니다.
-- **영향:** 사용자 혼선 및 지원 비용 증가, 배포물 신뢰도 저하.
-- **원인:** `publisher.name` 기반 정합성 검증이 테스트 범위에 포함되지 않음.
-- **개선 내용:** `package.json`의 `publisher`/`name`을 단일 소스로 하여 루트 `README.md`의 마켓플레이스 URL/배지 내 `itemName`이 일치하는지 검증을 추가합니다.
-- **기대 효과:** 문서 드리프트를 CI에서 조기에 차단하고 릴리즈 품질을 안정화합니다.
+**현재 상태:**
+- Share Report/번들 프리뷰는 평가 보고서에서 TL;DR/점수표를 추출해 요약을 생성합니다.
 
-**✅ 완료 기준:**
-- [ ] docsConsistency에 마켓플레이스 `itemName` 검증 추가
-- [ ] `pnpm -C vibereport-extension run test:run` 통과
+**문제점 (Problem):**
+- 추출 로직이 특정 헤더 텍스트(한국어)에 의존하여, 보고서 포맷/언어가 바뀌면 프리뷰가 깨질 수 있습니다.
+- Share/Export 경로에 유사한 프리뷰 생성 코드가 중복되어 변경 누락 위험이 있습니다.
+
+**영향 (Impact):**
+- 공유 프리뷰 신뢰성 저하(빈 점수표/요약), 유지보수 비용 증가, 다국어 지원 시 회귀 위험 확대.
+
+**원인 (Cause):**
+- 마커 기반 추출 유틸이 있음에도, 프리뷰 추출이 정규식+헤더 의존 형태로 구현되어 있습니다.
+
+**개선 내용 (Proposed Solution):**
+- TL;DR/점수표는 헤더 문자열이 아니라 마커(`<!-- AUTO-TLDR-START -->`, `<!-- AUTO-SCORE-START -->`) 기반으로 추출하도록 리팩토링합니다.
+- Share Report/번들 내보내기의 프리뷰 생성 템플릿을 단일 함수로 통합하고, 테스트로 포맷/언어 변화에 대한 회귀를 방지합니다.
+
+**기대 효과:**
+- 프리뷰 생성이 보고서 언어/형식 변화에 견고해지고, 중복 제거로 유지보수성이 개선됩니다.
+
+**✅ 완료 기준(Definition of Done):**
+- [ ] 마커 기반 추출로 프리뷰 생성이 동작(언어/헤더 변경에 독립적)
+- [ ] Share/Export 프리뷰 생성 로직 중복 제거
+- [ ] 관련 단위 테스트 추가/수정 및 통과
+- [ ] `pnpm -C vibereport-extension run compile` 통과
 - [ ] `pnpm -C vibereport-extension run lint` 통과
+- [ ] `pnpm -C vibereport-extension run test:run` 통과
 
 ---
 
-#### [P2-2] 닥터 문서 자동 수정: 줄바꿈(LF/CRLF) 보존 회귀 테스트 추가
+#### [P2-2] TODO/FIXME 발견 텍스트 민감 문자열 레드액션
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `test-doctor-docs-fix-newlines-001` |
-| **카테고리** | 🧪 테스트 |
-| **복잡도** | 중간 |
-| **대상 파일** | `vibereport-extension/src/utils/reportDoctorUtils.ts`, `vibereport-extension/src/utils/__tests__/reportDoctorUtils.test.ts` |
-| **Origin** | `static-analysis` |
-| **리스크 레벨** | `medium` |
-| **관련 평가 카테고리** | `productionReadiness`, `documentation`, `testCoverage` |
+| **ID** | `security-todo-fixme-findings-redaction-001` |
+| **카테고리** | 🔒 보안 / 🧹 코드 품질 |
+| **복잡도** | Medium |
+| **대상 파일** | `vibereport-extension/src/services/workspaceScanner/todoFixmeScanner.ts`, `vibereport-extension/src/services/reportService/improvementFormatting.ts`, `vibereport-extension/src/services/__tests__/todoFixmeScanner.test.ts` |
+| **Evidence** | `vibereport-extension/src/services/workspaceScanner/todoFixmeScanner.ts: TODO/FIXME 라인에서 텍스트를 추출해 findings.text로 저장`<br/>`vibereport-extension/src/services/reportService/improvementFormatting.ts: findings.text를 그대로 테이블에 출력(레드액션 없음)` |
+| **Origin** | static-analysis |
+| **리스크 레벨** | medium |
+| **관련 평가 카테고리** | security, productionReadiness |
 
-- **현재 상태:** 닥터의 문서 자동 수정 로직은 줄바꿈(LF/CRLF) 보존을 시도하지만, 이를 강제하는 회귀 테스트가 부족합니다.
-- **문제점:** 줄바꿈 보존이 깨지면 불필요한 디프가 발생하고 리뷰/병합 비용이 증가하며, 자동 수정 기능 신뢰도가 하락할 수 있습니다.
-- **영향:** 운영 비용 증가(불필요 디프), 자동 수정 기능 사용 기피.
-- **원인:** CRLF/LF 픽스처 기반 테스트 부재.
-- **개선 내용:** CRLF/LF 픽스처로 `fixDocsVersionSync()` 동작을 검증하고, “변경은 필요한 문자열만” 발생하는지 테스트로 고정합니다.
-- **기대 효과:** Windows/WSL/CI 환경에서 안정적으로 문서 자동 수정을 운영할 수 있습니다.
+**현재 상태:**
+- TODO/FIXME 스캔은 개발 편의성에 유용하지만, 발견 텍스트가 그대로 보고서에 포함됩니다.
 
-**✅ 완료 기준:**
-- [ ] 줄바꿈 보존(CRLF/LF) 회귀 테스트 추가
-- [ ] `pnpm -C vibereport-extension run test:run` 통과
+**문제점 (Problem):**
+- 비민감 파일 경로라도 TODO/FIXME 코멘트에 토큰/키가 섞여 있을 경우, 보고서/공유 산출물로 확산될 수 있습니다.
+
+**영향 (Impact):**
+- 우발적 민감 정보 노출 가능성 증가, 공유 기능 사용 부담 증가.
+
+**원인 (Cause):**
+- findings 텍스트에 대한 “민감 문자열 레드액션” 정책이 존재하지 않습니다.
+
+**개선 내용 (Proposed Solution):**
+- findings 텍스트에 대해 토큰/키 형태 패턴을 마스킹(예: `sk-...`, `ghp_...`, `AKIA...` 등)하고, 마스킹 정책/테스트를 추가합니다.
+- (권장) redaction은 공유 프리뷰뿐 아니라, 보고서 생성 파이프라인에서도 방어적으로 적용합니다.
+
+**기대 효과:**
+- TODO/FIXME 기능을 유지하면서도, 우발적 노출 가능성을 낮춥니다.
+
+**✅ 완료 기준(Definition of Done):**
+- [ ] TODO/FIXME findings 텍스트 레드액션 규칙 추가
+- [ ] 관련 테스트 추가/수정 및 통과
+- [ ] `pnpm -C vibereport-extension run compile` 통과
 - [ ] `pnpm -C vibereport-extension run lint` 통과
+- [ ] `pnpm -C vibereport-extension run test:run` 통과
+
+---
+
+#### [P2-3] 레포 산출물 파일 정리 및 `.gitignore` 반영(`tmp_lines.txt`)
+
+| 항목 | 내용 |
+|------|------|
+| **ID** | `repo-ignore-artifacts-001` |
+| **카테고리** | 🧹 유지보수 |
+| **복잡도** | Low |
+| **대상 파일** | `.gitignore`, `tmp_lines.txt` |
+| **Evidence** | `.gitignore: vsctoken/state는 제외하지만 tmp_lines.txt는 제외 규칙이 없음`<br/>`tmp_lines.txt: 레포 루트에 잔존하며 코드에서 참조되지 않음` |
+| **Origin** | manual-idea |
+| **리스크 레벨** | low |
+| **관련 평가 카테고리** | maintainability, codeQuality |
+
+**현재 상태:**
+- 레포 루트에 `tmp_lines.txt` 같은 임시 산출물 파일이 남아 있습니다.
+
+**문제점 (Problem):**
+- 스캔/리포트 근거 데이터에 불필요한 노이즈를 추가하고, 레포 상태를 혼동시키는 원인이 됩니다.
+
+**영향 (Impact):**
+- 유지보수 비용 증가, 분석 결과 신뢰도 저하(“무엇이 산출물인지” 혼동).
+
+**원인 (Cause):**
+- 산출물 파일 정리/ignore 규칙이 일관되게 관리되지 않았습니다.
+
+**개선 내용 (Proposed Solution):**
+- `tmp_lines.txt`를 제거하거나 `.gitignore`에 추가하여 레포에 남지 않도록 합니다.
+- (선택) 보고서 생성 파이프라인이 임시 파일을 남기지 않도록 점검합니다.
+
+**기대 효과:**
+- 레포 위생 개선, 스캔/분석 노이즈 감소.
+
+**✅ 완료 기준(Definition of Done):**
+- [ ] `tmp_lines.txt` 정리(삭제 또는 ignore)
+- [ ] `.gitignore` 반영 및 로컬 확인
 <!-- AUTO-IMPROVEMENT-LIST-END -->
 
 ---
@@ -169,38 +257,37 @@
 <!-- AUTO-OPTIMIZATION-START -->
 ### 🔎 OPT 일반 분석
 
-- **중복 코드 및 유틸 함수로 추출 가능한 부분:** 마크다운 파싱/템플릿 조립/링크화 등 범용 로직은 모듈로 분리하면 변경 영향이 줄어듭니다.
-- **타입 안정성 강화 필요 구간 (`any` 남용 등):** 테스트/Mock에서 `as any`가 늘어나면 회귀 시 신호가 약해질 수 있어, 핵심 경로부터 점진적으로 타입을 강화하는 편이 안전합니다.
-- **가독성을 해치는 복잡한 함수/파일:** `src/utils/markdownUtils.ts`처럼 파일이 커지면 변경 비용/리스크가 증가하므로 기능 단위 모듈화가 유리합니다.
-- **에러 처리 로직 표준화 여지:** 자동 수정/파일 쓰기 실패 시 사용자 메시지+로그가 분산되기 쉬우므로, 표준화된 오류 요약(원인/복구 경로) 템플릿이 있으면 운영이 쉬워집니다.
-- **성능 관점:** 대형 워크스페이스에서 스캔/후처리 비용이 커질 수 있어, 캐시 키/무효화 기준을 지속 관찰하며 최적화 지점을 찾는 것이 좋습니다.
+- **중복/재사용 기회:** 스캔/리포트 갱신/마커 조작 로직은 캐시·유틸로 재사용되나, 성능 측정 지점(타이밍 로그) 표준화가 있으면 최적화 근거가 더 명확해집니다.
+- **타입 안정성:** 프로덕션 코드에서는 `any` 사용을 최소화하고, 오류 처리에서 `unknown` + 타입 가드로 안전성을 높이는 방식이 유리합니다.
+- **I/O 성능:** 대형 워크스페이스에서 반복 I/O(특히 후보 파일 콘텐츠 read) 구간이 병목이 될 수 있어 동시성 제한을 둔 병렬화가 효과적입니다.
+- **에러 처리 표준화:** 닥터/스캐너/번들에서 “사용자 메시지 + 로그 + 복구 힌트” 형식을 통일하면 운영 효율이 향상됩니다.
 
 ### 🚀 코드 최적화 (OPT-1)
 
-#### [OPT-1] markdownUtils 모듈화(유지보수성/변경 영향 최소화)
+#### [OPT-1] TODO/FIXME 스캔 I/O 병렬화(동시성 제한)
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `opt-markdown-utils-modularize-001` |
-| **카테고리** | 🚀 코드 최적화 / 🧹 코드 품질 |
-| **영향 범위** | 품질 |
-| **대상 파일** | `vibereport-extension/src/utils/markdownUtils.ts` |
+| **ID** | `opt-todo-scan-parallel-001` |
+| **카테고리** | ⚙️ 성능 튜닝 / 🚀 코드 최적화 |
+| **영향 범위** | 성능 |
+| **대상 파일** | `vibereport-extension/src/services/workspaceScanner/todoFixmeScanner.ts` |
 
 **현재 상태:**
-- `src/utils/markdownUtils.ts`는 기능 범위가 넓고 파일 규모가 커서, 작은 변경도 영향 범위가 커질 수 있습니다.
-- 결과적으로 PR 리뷰 비용이 증가하고, 회귀 발생 시 원인 추적이 어려워질 수 있습니다.
+- 후보 파일(최대 300개)에 대해 `fs.stat`은 병렬 처리(동시성 제한)가 적용되어 있으나,
+- 콘텐츠 읽기(`readFile`)는 후보 순서대로 순차 처리되어 I/O 지연이 누적될 수 있습니다.
 
 **최적화 내용:**
-- 기존 외부 API(함수 시그니처/동작)를 유지한 채로, 내부 구현을 기능 단위로 분리합니다(예: 파싱/정규화/링크화/JSON 펜스 추출 등).
-- “한 번에 대규모 이동”이 아니라, 안전한 단위(순수 함수/테스트로 보호된 함수)부터 단계적으로 추출합니다.
-- 추출 후에는 re-export로 호환성을 유지하고, 호출부의 import 정리 및 테스트 통과로 안정성을 확인합니다.
+- 콘텐츠 읽기를 “동시성 제한(예: 8~16)”을 둔 병렬 처리로 전환하되, 결과는 후보 파일 순서를 유지한 채로 합쳐서(결정적 결과) 기존 동작과 동일한 출력이 나오도록 합니다.
+- 캐시 키/무효화 로직과 maxFindings/maxFileBytes 등의 제한은 유지합니다.
+- 성능 회귀 방지를 위해 단위 테스트(동일 입력 → 동일 출력)와 간단 측정 지표를 추가합니다.
 
 **예상 효과:**
-- 변경 영향 최소화(작은 PR 단위로 분리 가능), 가독성/테스트 용이성 향상, 회귀 원인 추적 비용 감소.
+- 대형 워크스페이스에서 TODO/FIXME 스캔 단계의 체감 시간이 감소하고, 보고서 업데이트 전체 지연이 완화됩니다(특히 I/O 대기 구간).
 
 **측정 지표:**
 - (필수) `pnpm -C vibereport-extension run compile`/`lint`/`test:run` 통과
-- (권장) 리팩토링 후 파일 규모 감소 및 모듈 단위 테스트 보강
+- (권장) 동일 파일 목록에서 스캔 단계 실행 시간(예: p95) 감소 확인
 <!-- AUTO-OPTIMIZATION-END -->
 
 ---
@@ -210,72 +297,37 @@
 <!-- AUTO-FEATURE-LIST-START -->
 ### 🟢 개선 (P3)
 
-#### [P3-1] 리포트 닥터: 안전 항목 묶음 실행 액션 추가
+#### [P3-1] Share Report/번들 프리뷰 i18n(언어/날짜 로케일) 지원
 
 | 항목 | 내용 |
 |------|------|
-| **ID** | `feat-doctor-fix-all-001` |
-| **카테고리** | ✨ 기능 추가 |
-| **복잡도** | 중간 |
-| **대상 파일** | `vibereport-extension/src/commands/reportDoctor.ts`, `vibereport-extension/src/utils/reportDoctorUtils.ts`, `vibereport-extension/src/commands/__tests__/reportDoctor.test.ts` |
-| **Origin** | `manual-idea` |
-| **리스크 레벨** | `medium` |
-| **관련 평가 카테고리** | `productionReadiness`, `usability`, `maintainability` |
+| **ID** | `feat-share-preview-i18n-001` |
+| **카테고리** | ✨ 기능 추가 / 🧰 UX |
+| **복잡도** | Low |
+| **대상 파일** | `vibereport-extension/src/commands/shareReport.ts`, `vibereport-extension/src/commands/exportReportBundle.ts`, `vibereport-extension/package.json`, `vibereport-extension/src/commands/__tests__/shareReportPreview.test.ts`, `vibereport-extension/src/commands/__tests__/exportReportBundle.test.ts` |
+| **Evidence** | `vibereport-extension/src/commands/shareReport.ts: 프리뷰 문구/날짜가 ko-KR + 한국어 템플릿에 고정`<br/>`vibereport-extension/package.json: vibereport.language(ko/en) 설정 존재` |
+| **Origin** | manual-idea |
+| **리스크 레벨** | low |
+| **관련 평가 카테고리** | documentation, productionReadiness |
 
 **기능 목적:**
-- 닥터에서 감지된 “안전하게 자동 수정 가능한” 이슈들을 한 번에 적용하여 운영 속도와 안정성을 높입니다.
+- 보고서 언어 설정(`vibereport.language`)에 맞춰 Share Report/번들 프리뷰의 제목·라벨·날짜 로케일을 일관되게 제공합니다.
 
 **현재 상태:**
-- 이슈별 액션이 늘어날수록 사용자가 선택/순서를 판단해야 하며, 운영 실수 가능성이 증가할 수 있습니다.
+- 프리뷰는 한국어 문구와 `ko-KR` 날짜 포맷을 고정으로 사용하여, 영어 보고서/영어 사용자 환경에서 일관성이 떨어질 수 있습니다.
 
 **제안 구현 전략:**
-- 닥터 이슈를 “안전 자동 수정 가능” / “수동 조치 필요”로 분류합니다.
-- 안전 자동 수정 가능 항목만 묶어서 실행하는 `Fix All Safe Issues` 액션을 제공합니다.
-- 실행 후 `validateReportMarkdown()`/정합성 검사들을 재실행하여 결과를 요약(성공/실패/남은 이슈)합니다.
-- 실패 시 부분 적용 상태를 명확히 알리고, 추가 조치(열기/가이드)를 제공합니다.
+- (1) config.language에 따라 프리뷰 템플릿 문자열(헤더/라벨)과 날짜 로케일을 분기합니다.
+- (2) P2 항목(`quality-share-preview-marker-extraction-001`)과 결합하여 TL;DR/점수표 추출이 언어에 독립적으로 동작하도록 합니다.
+- (3) 테스트에서 `language='en'`일 때 영문 헤더가 포함되는지, `language='ko'`일 때 기존 출력이 유지되는지 확인합니다.
 
 **기대 효과:**
-- 반복적인 운영 작업 시간을 단축하고, “한 번에 안전하게 복구”하는 사용 경험을 제공하여 실수를 줄입니다.
+- 공유 프리뷰 UX 일관성 개선, 다국어 사용자 대상 신뢰도 향상.
 
 **✅ 완료 기준:**
-- [ ] 닥터에 `Fix All Safe Issues` 액션이 추가됨
-- [ ] 실행 후 재검증 결과가 사용자 메시지 및 출력 채널(`OutputChannel`)에 요약됨
+- [ ] `vibereport.language`에 따라 프리뷰 문구/날짜가 일관되게 생성됨
 - [ ] 관련 테스트 추가/수정 및 통과
-- [ ] 빌드 및 린트 에러 없음
-
----
-
-#### [P3-2] 스냅샷 저장 모드 옵션화(리포지토리 외 저장 지원)
-
-| 항목 | 내용 |
-|------|------|
-| **ID** | `feat-snapshot-storage-mode-001` |
-| **카테고리** | ✨ 기능 추가 |
-| **복잡도** | 높음 |
-| **대상 파일** | `vibereport-extension/src/utils/configUtils.ts`, `vibereport-extension/src/services/snapshotService.ts`, `vibereport-extension/src/extension.ts` |
-| **Origin** | `manual-idea` |
-| **리스크 레벨** | `medium` |
-| **관련 평가 카테고리** | `productionReadiness`, `security`, `usability` |
-
-**기능 목적:**
-- 스냅샷 상태 파일을 리포지토리 경로(.vscode)뿐 아니라 VS Code 확장 저장소(워크스페이스/글로벌 스토리지)에도 저장할 수 있게 하여 운영 노이즈/실수 커밋 위험을 줄입니다.
-
-**현재 상태:**
-- 스냅샷 파일 경로가 워크스페이스 파일로 설정되면(예: `.vscode/vibereport-state.json`), 팀 환경에서 디프 노이즈/공유 리스크가 발생할 수 있습니다.
-
-**제안 구현 전략:**
-- `snapshotStorageMode`(예: `workspaceFile`/`vscodeStorage`) 설정을 추가하고 기본값은 현행 동작을 유지합니다.
-- `vscodeStorage` 모드에서는 `ExtensionContext`의 저장소 경로에 상태를 저장/로드합니다(워크스페이스별 분리).
-- 마이그레이션: 기존 파일이 존재하면 1회 가져오기 옵션을 제공하고, 이후에는 선택된 모드에 따라 저장 위치를 결정합니다.
-
-**기대 효과:**
-- 리포지토리 노이즈 감소, 실수 커밋/공유 위험 감소, 팀 운영 안정성 향상.
-
-**✅ 완료 기준:**
-- [ ] 저장 모드 설정 추가 및 동작 구현(기본값은 하위 호환)
-- [ ] 마이그레이션/폴백 동선 정의
-- [ ] 관련 테스트 추가/수정 및 통과
-- [ ] 빌드 및 린트 에러 없음
+- [ ] `pnpm -C vibereport-extension run test:run` 통과
 <!-- AUTO-FEATURE-LIST-END -->
 
 ---

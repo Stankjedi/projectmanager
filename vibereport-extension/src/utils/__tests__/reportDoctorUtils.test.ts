@@ -442,6 +442,36 @@ describe('reportDoctorUtils', () => {
     expect(fixed.changelogContent).not.toContain('## [0.0.1]');
   });
 
+  it('fixDocsVersionSync updates extension README badge/VSIX/release URL while preserving CRLF newlines', () => {
+    const readmeContent = [
+      '<img src="https://img.shields.io/badge/version-0.0.1-brightgreen" alt="Current Version">',
+      'Install vibereport-0.0.1.vsix',
+      'Download https://github.com/Stankjedi/projectmanager/releases/download/v0.0.1/vibereport-0.0.1.vsix',
+    ].join('\r\n');
+
+    const changelogContent = [
+      '## [0.0.1] - 2026-01-01',
+      '',
+      '- Initial release',
+    ].join('\r\n');
+
+    const fixed = fixDocsVersionSync({
+      packageVersion: '9.9.9',
+      readmeContent,
+      changelogContent,
+    });
+
+    expect(fixed.readmeContent).not.toMatch(/[^\r]\n/);
+    expect(fixed.changelogContent).not.toMatch(/[^\r]\n/);
+
+    expect(fixed.readmeContent).toContain('img.shields.io/badge/version-9.9.9-brightgreen');
+    expect(fixed.readmeContent).toContain('vibereport-9.9.9.vsix');
+    expect(fixed.readmeContent).toContain(
+      'releases/download/v9.9.9/vibereport-9.9.9.vsix'
+    );
+    expect(fixed.readmeContent).not.toContain('0.0.1');
+  });
+
   it('fixDocsVersionSync is a no-op when docs already match', () => {
     const readmeContent = [
       'Current version: 9.9.9',

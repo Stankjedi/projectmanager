@@ -13,6 +13,30 @@ type TodoFixmeScanCache = {
   aggregated: TodoFixmeFinding[];
 };
 
+async function mapWithConcurrencyLimit<TInput, TOutput>(args: {
+  items: TInput[];
+  concurrency: number;
+  map: (item: TInput, index: number) => Promise<TOutput>;
+}): Promise<TOutput[]> {
+  const { items, concurrency, map } = args;
+  if (items.length === 0) return [];
+
+  const workers = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<TOutput>(items.length);
+  let nextIndex = 0;
+
+  const runWorker = async () => {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= items.length) break;
+      results[index] = await map(items[index], index);
+    }
+  };
+
+  await Promise.all(Array.from({ length: workers }, () => runWorker()));
+  return results;
+}
+
 function hashCandidateSignatures(items: Array<{ file: string; signature: FileSignature }>): string {
   const payload = items.map(({ file, signature }) => `${file}|${signature.mtimeMs}|${signature.size}`).join('\n');
   return createHash('sha1').update(payload).digest('hex');
@@ -89,22 +113,25 @@ export async function scanTodoFixmeFindings(
     candidates.push(relativePath);
   }
 
-  const candidateSignatures: Array<{ file: string; signature: FileSignature }> = [];
-  for (const relativePath of candidates) {
-    const fullPath = path.join(rootPath, relativePath);
-    try {
-      const stat = await fs.stat(fullPath);
-      candidateSignatures.push({
-        file: relativePath,
-        signature: { mtimeMs: stat.mtimeMs, size: stat.size },
-      });
-    } catch {
-      candidateSignatures.push({
-        file: relativePath,
-        signature: { mtimeMs: -1, size: -1 },
-      });
-    }
-  }
+  const candidateSignatures = await mapWithConcurrencyLimit({
+    items: candidates,
+    concurrency: 16,
+    map: async (relativePath) => {
+      const fullPath = path.join(rootPath, relativePath);
+      try {
+        const stat = await fs.stat(fullPath);
+        return {
+          file: relativePath,
+          signature: { mtimeMs: stat.mtimeMs, size: stat.size },
+        };
+      } catch {
+        return {
+          file: relativePath,
+          signature: { mtimeMs: -1, size: -1 },
+        };
+      }
+    },
+  });
 
   const candidatesSignature = hashCandidateSignatures(candidateSignatures);
   if (cached && cached.candidatesSignature === candidatesSignature) {

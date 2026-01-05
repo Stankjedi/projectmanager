@@ -52,7 +52,7 @@
 
 ### From VSIX
 ```bash
-code --install-extension vibereport-extension/vibereport-0.4.35.vsix
+code --install-extension vibereport-extension/vibereport-0.4.39.vsix
 ```
 
 ### Development
@@ -185,7 +185,7 @@ pnpm run docs
 ### Prerequisites
 - Node.js 18+
 - pnpm
-- VS Code 1.100+
+- VS Code 1.90.0+
 
 ### WSL (Windows Subsystem for Linux)
 - **권장 위치**: `/mnt/c` 대신 WSL 파일시스템(예: `~/dev/projectmanager`)에 저장/작업
@@ -218,7 +218,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.35.vsix 생성
+# vibereport-0.4.39.vsix 생성
 ```
 
 ## 📝 License

@@ -2,7 +2,7 @@
   "name": "vibereport",
   "displayName": "Vibe Coding Report",
   "description": "AI 기반 프로젝트 평가 및 개선 보고서 자동 생성 도구",
-  "version": "0.4.36",
+  "version": "0.4.39",
   "publisher": "Stankjedi",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -159,6 +159,12 @@
         "title": "Report Doctor: Validate/Repair Reports",
         "category": "VibeCoding",
         "icon": "$(tools)"
+      },
+      {
+        "command": "vibereport.antigravity.toggleAutoAccept",
+        "title": "Antigravity: Toggle Auto-Accept",
+        "category": "Antigravity",
+        "icon": "$(check-all)"
       }
     ],
     "configuration": {
@@ -369,6 +375,11 @@
           "default": 1500,
           "minimum": 0,
           "description": "자동 업데이트 실행 디바운스 시간(ms). 변경이 잠잠해진 뒤 이 시간 후 업데이트가 실행됩니다."
+        },
+        "antigravity-auto-accept.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "반중력 IDE에서 승인(accept)이 필요할 때 자동으로 accept 명령을 실행합니다."
         }
       }
     },
@@ -477,14 +488,16 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile && pnpm run bundle",
-    "compile": "tsc -p ./",
+    "compile": "node scripts/runTsc.js -p ./",
     "bundle": "node scripts/bundle.js",
-    "watch": "tsc -watch -p ./",
+    "watch": "node scripts/runTsc.js -watch -p ./",
     "pretest": "pnpm run compile",
     "lint": "eslint src --ext ts",
     "test": "node scripts/preflightTestEnv.js && vitest",
     "test:run": "node scripts/preflightTestEnv.js && vitest run",
     "test:coverage": "node scripts/preflightTestEnv.js && vitest run --coverage",
+    "doctor:check": "pnpm run compile && node out/scripts/doctorCli.js check",
+    "doctor:fix": "pnpm run compile && node out/scripts/doctorCli.js fix",
     "docs": "typedoc --out docs src/",
     "package": "vsce package --no-dependencies",
     "publish": "vsce publish --no-dependencies"

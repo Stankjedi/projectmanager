@@ -170,12 +170,14 @@ describe('ReportDoctorCommand', () => {
     packageJson: path.join(rootPath, 'vibereport-extension', 'package.json'),
     changelog: path.join(rootPath, 'vibereport-extension', 'CHANGELOG.md'),
     readme: path.join(rootPath, 'README.md'),
+    extReadme: path.join(rootPath, 'vibereport-extension', 'README.md'),
   };
   const packageVersion = '0.4.30';
   const matchingDocs = {
     packageJson: JSON.stringify({ version: packageVersion }),
     changelog: `## [${packageVersion}] - 2025-12-23`,
     readme: `Install vibereport-${packageVersion}.vsix`,
+    extReadme: `Install vibereport-${packageVersion}.vsix`,
   };
 
   const outputChannel = {
@@ -226,6 +228,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: matchingDocs.changelog,
       [docsPaths.readme]: matchingDocs.readme,
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     await command.execute();
@@ -269,6 +272,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: matchingDocs.changelog,
       [docsPaths.readme]: matchingDocs.readme,
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
@@ -314,6 +318,7 @@ describe('ReportDoctorCommand', () => {
       if (key === docsPaths.packageJson) return matchingDocs.packageJson;
       if (key === docsPaths.changelog) return matchingDocs.changelog;
       if (key === docsPaths.readme) return matchingDocs.readme;
+      if (key === docsPaths.extReadme) return matchingDocs.extReadme;
       throw new Error('ENOENT');
     });
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
@@ -378,6 +383,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: '## [0.4.29] - 2025-12-20',
       [docsPaths.readme]: 'Install vibereport-0.4.28.vsix',
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
@@ -388,17 +394,21 @@ describe('ReportDoctorCommand', () => {
 
     await command.execute();
 
-    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(3);
+    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(4);
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ fsPath: docsPaths.readme })
     );
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ fsPath: docsPaths.changelog })
+      expect.objectContaining({ fsPath: docsPaths.extReadme })
     );
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       3,
+      expect.objectContaining({ fsPath: docsPaths.changelog })
+    );
+    expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
+      4,
       expect.objectContaining({ fsPath: docsPaths.packageJson })
     );
     expect(fs.writeFile).not.toHaveBeenCalled();
@@ -446,6 +456,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: mismatchedDocs.changelog,
       [docsPaths.readme]: mismatchedDocs.readme,
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     vi.mocked(fs.writeFile).mockResolvedValue(undefined);
@@ -472,6 +483,76 @@ describe('ReportDoctorCommand', () => {
 
     expect(outputChannel.appendLine).toHaveBeenCalledWith(
       expect.stringContaining('[ReportDoctor] Fixed docs versions:')
+    );
+  });
+
+  it('writes extension README when only extension docs are mismatched and the user selects Fix Docs Versions', async () => {
+    const { selectWorkspaceRoot } = await import('../../utils/index.js');
+    vi.mocked(selectWorkspaceRoot).mockResolvedValue(rootPath);
+
+    const { ReportDoctorCommand } = await import('../reportDoctor.js');
+    const command = new ReportDoctorCommand(outputChannel);
+
+    const evalTemplate = createValidEvaluationTemplate();
+    const improvementTemplate = createValidImprovementTemplate();
+    const promptMarkdown = createValidPromptMarkdown();
+
+    (command as unknown as { reportService: unknown }).reportService = {
+      getReportPaths: vi.fn(() => ({
+        evaluation: paths.evaluation,
+        improvement: paths.improvement,
+        sessionHistory: path.join(rootPath, 'devplan', 'Session_History.md'),
+        prompt: path.join(rootPath, 'devplan', 'Prompt.md'),
+      })),
+      createEvaluationTemplate: vi.fn(() => evalTemplate),
+      createImprovementTemplate: vi.fn(() => improvementTemplate),
+    };
+
+    (command as unknown as { snapshotService: unknown }).snapshotService = {
+      loadState: vi.fn().mockResolvedValue(null),
+    };
+
+    const mismatchedExtReadme = [
+      'Current version: 0.4.28',
+      '<img src="https://img.shields.io/badge/version-0.4.28-brightgreen" alt="Current Version">',
+      'Install vibereport-0.4.28.vsix',
+      'Download https://github.com/Stankjedi/projectmanager/releases/download/v0.4.28/vibereport-0.4.28.vsix',
+    ].join('\n');
+
+    mockReadFileWithMap({
+      [paths.evaluation]: evalTemplate,
+      [paths.improvement]: improvementTemplate,
+      [paths.prompt]: promptMarkdown,
+      [docsPaths.packageJson]: matchingDocs.packageJson,
+      [docsPaths.changelog]: matchingDocs.changelog,
+      [docsPaths.readme]: matchingDocs.readme,
+      [docsPaths.extReadme]: mismatchedExtReadme,
+    });
+
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+    vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+      'Fix Docs Versions' as unknown as vscode.MessageItem
+    );
+
+    await command.execute();
+
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      docsPaths.extReadme,
+      expect.stringContaining(`vibereport-${packageVersion}.vsix`),
+      'utf-8'
+    );
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      docsPaths.extReadme,
+      expect.stringContaining(
+        `img.shields.io/badge/version-${packageVersion}-brightgreen`
+      ),
+      'utf-8'
+    );
+
+    expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+      'Report Doctor: fixed docs version sync (1 file(s) updated).'
     );
   });
 
@@ -508,6 +589,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: '## [0.4.29] - 2025-12-20',
       [docsPaths.readme]: 'Install vibereport-0.4.28.vsix',
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     };
 
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
@@ -590,6 +672,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: matchingDocs.changelog,
       [docsPaths.readme]: 'Install vibereport-0.4.28.vsix',
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
@@ -600,17 +683,21 @@ describe('ReportDoctorCommand', () => {
 
     await command.execute();
 
-    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(3);
+    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(4);
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ fsPath: docsPaths.readme })
     );
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ fsPath: docsPaths.changelog })
+      expect.objectContaining({ fsPath: docsPaths.extReadme })
     );
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       3,
+      expect.objectContaining({ fsPath: docsPaths.changelog })
+    );
+    expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
+      4,
       expect.objectContaining({ fsPath: docsPaths.packageJson })
     );
     expect(fs.writeFile).not.toHaveBeenCalled();
@@ -649,6 +736,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: '## [0.4.29] - 2025-12-20',
       [docsPaths.readme]: matchingDocs.readme,
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
@@ -659,17 +747,21 @@ describe('ReportDoctorCommand', () => {
 
     await command.execute();
 
-    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(3);
+    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(4);
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ fsPath: docsPaths.readme })
     );
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ fsPath: docsPaths.changelog })
+      expect.objectContaining({ fsPath: docsPaths.extReadme })
     );
     expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
       3,
+      expect.objectContaining({ fsPath: docsPaths.changelog })
+    );
+    expect(vscode.workspace.openTextDocument).toHaveBeenNthCalledWith(
+      4,
       expect.objectContaining({ fsPath: docsPaths.packageJson })
     );
     expect(fs.writeFile).not.toHaveBeenCalled();
@@ -717,6 +809,7 @@ describe('ReportDoctorCommand', () => {
       [docsPaths.packageJson]: matchingDocs.packageJson,
       [docsPaths.changelog]: matchingDocs.changelog,
       [docsPaths.readme]: matchingDocs.readme,
+      [docsPaths.extReadme]: matchingDocs.extReadme,
     });
 
     vi.mocked(vscode.workspace.findFiles).mockResolvedValue([

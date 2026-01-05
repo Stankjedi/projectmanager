@@ -15,14 +15,14 @@
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
-  <img src="https://img.shields.io/badge/version-0.4.35-brightgreen" alt="Current Version">
+  <img src="https://img.shields.io/badge/version-0.4.39-brightgreen" alt="Current Version">
 </p>
 
 ---
 
 바이브 코딩(AI 페어 프로그래밍)을 통해 프로그램을 제작할 때, 프로젝트 상태를 분석하고 AI 에이전트에게 전달할 개선 프롬프트를 자동으로 생성하는 확장 프로그램입니다.
 
-> **🚀 v0.4.35 안내**: 설치/릴리즈 예시 및 문서 버전 정합성을 최신 버전에 맞춰 유지합니다(CHANGELOG/README/테스트로 드리프트 조기 탐지).
+> **🚀 v0.4.39 안내**: 설치/릴리즈 예시 및 문서 버전 정합성을 최신 버전에 맞춰 유지합니다(CHANGELOG/README/테스트로 드리프트 조기 탐지).
 
 ## ✨ Features
 
@@ -84,20 +84,20 @@ GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니�
 #### 방법 2: 명령줄에서 설치
 ```bash
 # VSIX 파일 다운로드 후
-code --install-extension vibereport-0.4.35.vsix
+code --install-extension vibereport-0.4.39.vsix
 ```
 
 #### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
 ```powershell
 # GitHub에서 직접 다운로드 (PowerShell)
-Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.35/vibereport-0.4.35.vsix" -OutFile "vibereport-0.4.35.vsix"
-code --install-extension vibereport-0.4.35.vsix
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.39/vibereport-0.4.39.vsix" -OutFile "vibereport-0.4.39.vsix"
+code --install-extension vibereport-0.4.39.vsix
 ```
 
 ```bash
 # Linux/Mac
-curl -L -o vibereport-0.4.35.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.35/vibereport-0.4.35.vsix
-code --install-extension vibereport-0.4.35.vsix
+curl -L -o vibereport-0.4.39.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.39/vibereport-0.4.39.vsix
+code --install-extension vibereport-0.4.39.vsix
 ```
 
 ### Development (개발자용)
@@ -236,7 +236,7 @@ pnpm run docs
 ### Prerequisites
 - Node.js 18+
 - pnpm
-- VS Code 1.100+
+- VS Code 1.90.0+
 
 ### WSL (Windows Subsystem for Linux)
 - **권장 위치**: `/mnt/c` 대신 WSL 파일시스템(예: `~/dev/projectmanager`)에 저장/작업
@@ -252,7 +252,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.35.vsix 생성
+# vibereport-0.4.39.vsix 생성
 ```
 
 ## 📝 Changelog

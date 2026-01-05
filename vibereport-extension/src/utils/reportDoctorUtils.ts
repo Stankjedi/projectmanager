@@ -199,6 +199,7 @@ export function findSensitiveFiles(fileList: string[]): string[] {
 export function validateDocsVersionSync(args: {
   packageVersion: string;
   readmeContent: string;
+  extReadmeContent?: string;
   changelogContent: string;
 }): ReportDoctorIssue[] {
   const issues: ReportDoctorIssue[] = [];
@@ -227,19 +228,103 @@ export function validateDocsVersionSync(args: {
     });
   }
 
-  const readmeMatch = args.readmeContent.match(/(\d+\.\d+\.\d+)/);
-  if (!readmeMatch) {
+  issues.push(
+    ...validateReadmeVersionSync({
+      fileLabel: 'README.md',
+      content: args.readmeContent,
+      packageVersion: args.packageVersion,
+      checkBadge: false,
+    })
+  );
+
+  if (typeof args.extReadmeContent === 'string') {
+    issues.push(
+      ...validateReadmeVersionSync({
+        fileLabel: 'vibereport-extension/README.md',
+        content: args.extReadmeContent,
+        packageVersion: args.packageVersion,
+        checkBadge: true,
+      })
+    );
+  }
+
+  return issues;
+}
+
+function validateReadmeVersionSync(args: {
+  fileLabel: string;
+  content: string;
+  packageVersion: string;
+  checkBadge: boolean;
+}): ReportDoctorIssue[] {
+  const issues: ReportDoctorIssue[] = [];
+
+  const versionMatch = args.content.match(/(\d+\.\d+\.\d+)/);
+  if (!versionMatch) {
     issues.push({
       code: 'DOCS_VERSION_MISMATCH',
       sectionId: 'docs',
-      message: 'README.md is missing a version string like "x.y.z".',
+      message: `${args.fileLabel} is missing a version string like "x.y.z".`,
     });
-  } else if (readmeMatch[1] !== args.packageVersion) {
+  } else if (versionMatch[1] !== args.packageVersion) {
     issues.push({
       code: 'DOCS_VERSION_MISMATCH',
       sectionId: 'docs',
-      message: `README.md version (${readmeMatch[1]}) does not match package.json (${args.packageVersion}).`,
+      message: `${args.fileLabel} version (${versionMatch[1]}) does not match package.json (${args.packageVersion}).`,
     });
+  }
+
+  const vsixVersions = Array.from(
+    new Set(
+      Array.from(
+        args.content.matchAll(/vibereport-(\d+\.\d+\.\d+)\.vsix/g),
+        match => match[1]
+      )
+    )
+  );
+  const vsixDrift = vsixVersions.filter(v => v !== args.packageVersion);
+  if (vsixDrift.length > 0) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: `${args.fileLabel} VSIX example version drift: found ${vsixDrift.join(', ')} (expected ${args.packageVersion}).`,
+    });
+  }
+
+  const releaseUrlRegex =
+    /releases\/download\/v(\d+\.\d+\.\d+)\/vibereport-(\d+\.\d+\.\d+)\.vsix/g;
+  const releaseMismatches: string[] = [];
+  for (const match of args.content.matchAll(releaseUrlRegex)) {
+    const urlVersion = match[1];
+    const fileVersion = match[2];
+    if (urlVersion !== args.packageVersion || fileVersion !== args.packageVersion) {
+      releaseMismatches.push(
+        `v${urlVersion}/vibereport-${fileVersion}.vsix (expected v${args.packageVersion}/vibereport-${args.packageVersion}.vsix)`
+      );
+    }
+  }
+  if (releaseMismatches.length > 0) {
+    issues.push({
+      code: 'DOCS_VERSION_MISMATCH',
+      sectionId: 'docs',
+      message: `${args.fileLabel} release URL drift: ${releaseMismatches[0]}${releaseMismatches.length > 1 ? ` (+${releaseMismatches.length - 1} more)` : ''}.`,
+    });
+  }
+
+  if (args.checkBadge) {
+    const badgeMatch = args.content.match(
+      /img\.shields\.io\/badge\/version-(\d+\.\d+\.\d+)-brightgreen/i
+    );
+    if (badgeMatch) {
+      const badgeVersion = badgeMatch[1];
+      if (badgeVersion !== args.packageVersion) {
+        issues.push({
+          code: 'DOCS_VERSION_MISMATCH',
+          sectionId: 'docs',
+          message: `${args.fileLabel} version badge (${badgeVersion}) does not match package.json (${args.packageVersion}).`,
+        });
+      }
+    }
   }
 
   return issues;
@@ -275,6 +360,12 @@ export function fixDocsVersionSync(args: {
   fixedReadme = fixedReadme.replace(
     /releases\/download\/v(\d+\.\d+\.\d+)\/vibereport-(\d+\.\d+\.\d+)\.vsix/g,
     `releases/download/v${args.packageVersion}/vibereport-${args.packageVersion}.vsix`
+  );
+
+  fixedReadme = fixedReadme.replace(
+    /(img\.shields\.io\/badge\/version-)(\d+\.\d+\.\d+)(-brightgreen)/gi,
+    (_match, prefix: string, _version: string, suffix: string) =>
+      `${prefix}${args.packageVersion}${suffix}`
   );
 
   const finalReadme =

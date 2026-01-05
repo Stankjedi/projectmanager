@@ -11,6 +11,7 @@ import * as fs from 'fs/promises';
 import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import { redactForSharing } from '../utils/redactionUtils.js';
 import { extractScoreTable } from './shareReportPreview.js';
+import { SnapshotService } from '../services/snapshotService.js';
 
 type ExportMetadata = {
   version: string;
@@ -23,9 +24,11 @@ type ExportMetadata = {
 
 export class ExportReportBundleCommand {
   private outputChannel: vscode.OutputChannel;
+  private storageRoot: string;
 
-  constructor(outputChannel: vscode.OutputChannel) {
+  constructor(outputChannel: vscode.OutputChannel, storageRoot: string) {
     this.outputChannel = outputChannel;
+    this.storageRoot = storageRoot;
   }
 
   async execute(): Promise<void> {
@@ -75,6 +78,16 @@ export class ExportReportBundleCommand {
     const promptPath = path.join(reportDir, 'Prompt.md');
 
     try {
+      const snapshotService = new SnapshotService(this.outputChannel, this.storageRoot);
+      const state = await snapshotService.loadState(rootPath, config);
+      const evaluationHistory = (state?.evaluationHistory ?? []).slice(-5).map(entry => ({
+        version: entry.version,
+        evaluatedAt: entry.evaluatedAt,
+        totalScore: entry.totalScore,
+        grade: entry.grade,
+        ...(entry.scoresByCategory ? { scoresByCategory: entry.scoresByCategory } : {}),
+      }));
+
       const [evalContent, improvementContent, promptContent] = await Promise.all([
         fs.readFile(evalPath, 'utf-8'),
         fs.readFile(improvementPath, 'utf-8'),
@@ -119,6 +132,10 @@ export class ExportReportBundleCommand {
         ),
         writeTextFile(path.join(bundleDir, 'Prompt.md'), promptContent),
         writeTextFile(path.join(bundleDir, 'Share_Preview.md'), preview),
+        writeTextFile(
+          path.join(bundleDir, 'evaluation-history.json'),
+          JSON.stringify(evaluationHistory, null, 2)
+        ),
         writeTextFile(path.join(bundleDir, 'metadata.json'), JSON.stringify(metadata, null, 2)),
       ]);
 
@@ -228,4 +245,3 @@ async function writeTextFile(filePath: string, content: string): Promise<void> {
   const uri = vscode.Uri.file(filePath);
   await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf-8'));
 }
-

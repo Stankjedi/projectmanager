@@ -186,6 +186,7 @@ describe('WorkspaceScanner', () => {
 
     it('supports monorepo src structure and detects nested entrypoints', async () => {
       const mockFiles = [
+        { fsPath: '/mock/project/src/extension.ts' },
         { fsPath: '/mock/project/vibereport-extension/src/extension.ts' },
         { fsPath: '/mock/project/vibereport-extension/src/commands/index.ts' },
         { fsPath: '/mock/project/devplan/Prompt.md' },
@@ -198,6 +199,7 @@ describe('WorkspaceScanner', () => {
       expect(result.structureDiagram).toContain('기능 그룹 요약');
       expect(result.structureDiagram).toContain('commands');
       expect(result.structureDiagram).toContain('`vibereport-extension/src/extension.ts`');
+      expect(result.importantFiles).toEqual(['src/extension.ts', 'vibereport-extension/src/extension.ts']);
     });
 
     it('should handle empty workspace', async () => {

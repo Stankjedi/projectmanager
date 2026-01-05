@@ -361,8 +361,10 @@ export class WorkspaceScanner {
    */
   private identifyImportantFiles(files: string[], rootPath: string): string[] {
     const important: string[] = [];
+    const seen = new Set<string>();
 
     const patterns = [
+      /^(?:.+\/)?src\/extension\.(ts|js)$/,
       /^src\/(main|index|app)\.(ts|tsx|js|jsx)$/,
       /^src\/lib\.(rs)$/,
       /^src\/(main|lib)\.(rs)$/,
@@ -378,14 +380,19 @@ export class WorkspaceScanner {
     for (const file of files) {
       for (const pattern of patterns) {
         if (pattern.test(file)) {
-          important.push(file);
+          if (!seen.has(file)) {
+            seen.add(file);
+            important.push(file);
+          }
           break;
         }
       }
+
+      if (important.length >= 20) break;
     }
 
     // 최대 20개로 제한
-    return important.slice(0, 20);
+    return important;
   }
 
   /**

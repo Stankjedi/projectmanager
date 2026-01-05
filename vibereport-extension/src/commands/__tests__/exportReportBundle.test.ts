@@ -102,6 +102,30 @@ describe('ExportReportBundleCommand', () => {
 
     vi.mocked(fs.readFile).mockImplementation((filePath: any) => {
       const p = String(filePath);
+      if (p.endsWith('.vscode/vibereport-state.json')) {
+        return Promise.resolve(
+          JSON.stringify(
+            {
+              lastSnapshot: null,
+              sessions: [],
+              appliedImprovements: [],
+              lastUpdated: '2025-01-01T00:00:00.000Z',
+              version: 1,
+              evaluationHistory: [
+                {
+                  version: '0.4.28',
+                  evaluatedAt: '2025-01-01T00:00:00.000Z',
+                  totalScore: 90,
+                  grade: 'A-',
+                  scoresByCategory: { codeQuality: 85 },
+                },
+              ],
+            },
+            null,
+            2
+          )
+        );
+      }
       if (p.endsWith('Project_Evaluation_Report.md')) return Promise.resolve(evalContent);
       if (p.endsWith('Project_Improvement_Exploration_Report.md')) return Promise.resolve('# improvement');
       if (p.endsWith('Prompt.md')) return Promise.resolve('# prompt');
@@ -109,7 +133,7 @@ describe('ExportReportBundleCommand', () => {
     });
 
     const { ExportReportBundleCommand } = await import('../exportReportBundle.js');
-    const cmd = new ExportReportBundleCommand(mockOutputChannel);
+    const cmd = new ExportReportBundleCommand(mockOutputChannel, '/storage');
 
     await cmd.execute();
 
@@ -121,7 +145,7 @@ describe('ExportReportBundleCommand', () => {
     const expectedDir = `/exports/vibereport-bundle-${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}-${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`;
     expect(createdUri.fsPath).toBe(expectedDir);
 
-    expect(mockWriteFile).toHaveBeenCalledTimes(5);
+    expect(mockWriteFile).toHaveBeenCalledTimes(6);
 
     const shareCall = mockWriteFile.mock.calls.find(call =>
       String((call[0] as any)?.fsPath).endsWith('Share_Preview.md')
@@ -140,6 +164,14 @@ describe('ExportReportBundleCommand', () => {
     expect(metadata.timestamp).toBe(now.toISOString());
     expect(metadata.redactionEnabled).toBe(true);
 
+    const historyCall = mockWriteFile.mock.calls.find(call =>
+      String((call[0] as any)?.fsPath).endsWith('evaluation-history.json')
+    );
+    expect(historyCall).toBeDefined();
+    const historyText = Buffer.from(historyCall?.[1] as Uint8Array).toString('utf-8');
+    const history = JSON.parse(historyText) as Array<{ version: string; totalScore: number; grade: string }>;
+    expect(history).toEqual([{ version: '0.4.28', evaluatedAt: '2025-01-01T00:00:00.000Z', totalScore: 90, grade: 'A-', scoresByCategory: { codeQuality: 85 } }]);
+
     expect(mockShowInformationMessage).toHaveBeenCalledTimes(1);
 
     vi.useRealTimers();
@@ -154,7 +186,7 @@ describe('ExportReportBundleCommand', () => {
     vi.mocked(fs.readFile).mockRejectedValue(new Error('ENOENT'));
 
     const { ExportReportBundleCommand } = await import('../exportReportBundle.js');
-    const cmd = new ExportReportBundleCommand(mockOutputChannel);
+    const cmd = new ExportReportBundleCommand(mockOutputChannel, '/storage');
 
     await cmd.execute();
 

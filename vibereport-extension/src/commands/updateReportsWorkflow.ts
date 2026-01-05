@@ -1,7 +1,9 @@
 import type {
   AppliedImprovement,
+  AIResponseMetadata,
   EvaluationHistoryEntry,
   EvaluationCategory,
+  ProjectEvaluationScores,
   ProjectSnapshot,
   SessionRecord,
   SnapshotDiff,
@@ -514,6 +516,14 @@ async function saveSessionRecord(args: {
     },
   };
 
+  const paths = deps.reportService.getReportPaths(rootPath, config);
+  sessionRecord.aiMetadata = await computeSessionAiMetadataBestEffort({
+    evaluationPath: paths.evaluation,
+    improvementPath: paths.improvement,
+    deps,
+    cancellationToken,
+  });
+
   let updatedState = deps.snapshotService.updateSnapshot(state, snapshot);
   updatedState = deps.snapshotService.addSession(updatedState, sessionRecord);
 
@@ -559,7 +569,6 @@ async function saveSessionRecord(args: {
   // AUTO-TREND 섹션의 표 데이터 행만 최신 히스토리로 갱신합니다.
   try {
     throwIfCancelled(cancellationToken, '평가 추이 업데이트');
-    const paths = deps.reportService.getReportPaths(rootPath, config);
     const evaluationReportContent = await deps.fs.readFile(
       paths.evaluation,
       'utf-8'
@@ -759,4 +768,187 @@ async function saveSessionRecord(args: {
   }
 
   return updatedState;
+}
+
+const IMPROVEMENT_ID_REGEX = /\b[a-z][a-z0-9-]*-\d{3}\b/g;
+
+async function computeSessionAiMetadataBestEffort(args: {
+  evaluationPath: string;
+  improvementPath: string;
+  deps: UpdateReportsWorkflowDeps;
+  cancellationToken?: CancellationTokenLike;
+}): Promise<AIResponseMetadata> {
+  const { evaluationPath, improvementPath, deps, cancellationToken } = args;
+
+  let evaluationContent: string | null = null;
+  let improvementContent: string | null = null;
+
+  try {
+    throwIfCancelled(cancellationToken, 'AI 메타데이터 수집');
+    const [evaluationResult, improvementResult] = await Promise.allSettled([
+      deps.fs.readFile(evaluationPath, 'utf-8'),
+      deps.fs.readFile(improvementPath, 'utf-8'),
+    ]);
+
+    evaluationContent = evaluationResult.status === 'fulfilled' ? evaluationResult.value : null;
+    improvementContent = improvementResult.status === 'fulfilled' ? improvementResult.value : null;
+  } catch (error) {
+    deps.log(`AI 메타데이터 파일 읽기 실패 (계속 진행): ${error}`);
+  }
+
+  const overallScore =
+    evaluationContent ? extractOverallScoreFromEvaluationReport(evaluationContent) : undefined;
+  const evaluationScores =
+    evaluationContent ? extractEvaluationScoresFromEvaluationReport(evaluationContent) : undefined;
+  const risksIdentified =
+    evaluationContent ? extractRisksIdentifiedFromEvaluationReport(evaluationContent) : 0;
+
+  const { improvementsProposed, priorityItems } = improvementContent
+    ? extractImprovementMetadataFromReport(improvementContent)
+    : { improvementsProposed: 0, priorityItems: undefined };
+
+  return {
+    risksIdentified,
+    improvementsProposed,
+    overallScore,
+    evaluationScores,
+    priorityItems,
+  };
+}
+
+function extractOverallScoreFromEvaluationReport(content: string): number | undefined {
+  const tldrBlock = extractBetweenMarkersLines(
+    content,
+    '<!-- AUTO-TLDR-START -->',
+    '<!-- AUTO-TLDR-END -->'
+  );
+  if (!tldrBlock) return undefined;
+
+  const scoreMatch = tldrBlock.match(/(\d+(?:\.\d+)?)\s*\/\s*100/);
+  if (!scoreMatch) return undefined;
+
+  const score = Number.parseFloat(scoreMatch[1]);
+  return Number.isFinite(score) ? score : undefined;
+}
+
+function extractEvaluationScoresFromEvaluationReport(content: string): ProjectEvaluationScores | undefined {
+  const scoreBlock = extractBetweenMarkersLines(
+    content,
+    '<!-- AUTO-SCORE-START -->',
+    '<!-- AUTO-SCORE-END -->'
+  );
+
+  if (!scoreBlock) return undefined;
+  return parseScoresFromAIResponse(scoreBlock) ?? undefined;
+}
+
+function parseMarkdownTableCells(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|')) return null;
+  if (!trimmed.includes('|')) return null;
+
+  const withoutEdges = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+  const cells = withoutEdges.split('|').map(c => c.trim());
+  return cells.length > 0 ? cells : null;
+}
+
+function isMarkdownTableSeparatorRow(cells: string[]): boolean {
+  if (cells.length === 0) return false;
+  return cells.every(cell => /^:?-+:?$/.test(cell));
+}
+
+function extractRisksIdentifiedFromEvaluationReport(content: string): number {
+  const riskBlock = extractBetweenMarkersLines(
+    content,
+    '<!-- AUTO-RISK-SUMMARY-START -->',
+    '<!-- AUTO-RISK-SUMMARY-END -->'
+  );
+  if (!riskBlock) return 0;
+
+  let count = 0;
+  for (const line of riskBlock.split('\n')) {
+    const cells = parseMarkdownTableCells(line);
+    if (!cells || cells.length < 3) continue;
+    if (isMarkdownTableSeparatorRow(cells)) continue;
+
+    const firstCell = (cells[0] ?? '').toLowerCase();
+    if (firstCell.includes('리스크') || firstCell.includes('risk')) continue;
+
+    const meaningful = cells.some(cell => cell && cell !== '-');
+    if (!meaningful) continue;
+
+    count++;
+  }
+
+  return count;
+}
+
+function extractImprovementMetadataFromReport(content: string): {
+  improvementsProposed: number;
+  priorityItems?: string[];
+} {
+  const ids = new Set<string>();
+  for (const match of content.matchAll(IMPROVEMENT_ID_REGEX)) {
+    ids.add(match[0]);
+  }
+
+  const priorityItems = extractPriorityItemsFromImprovementReport(content);
+
+  return {
+    improvementsProposed: ids.size,
+    priorityItems,
+  };
+}
+
+function extractPriorityItemsFromImprovementReport(content: string): string[] | undefined {
+  const blocks = [
+    extractBetweenMarkersLines(
+      content,
+      '<!-- AUTO-IMPROVEMENT-LIST-START -->',
+      '<!-- AUTO-IMPROVEMENT-LIST-END -->'
+    ),
+    extractBetweenMarkersLines(
+      content,
+      '<!-- AUTO-FEATURE-LIST-START -->',
+      '<!-- AUTO-FEATURE-LIST-END -->'
+    ),
+    extractBetweenMarkersLines(
+      content,
+      '<!-- AUTO-OPTIMIZATION-START -->',
+      '<!-- AUTO-OPTIMIZATION-END -->'
+    ),
+  ];
+
+  const rawTitles: string[] = [];
+  for (const block of blocks) {
+    if (!block) continue;
+    rawTitles.push(...extractImprovementItemTitles(block));
+    if (rawTitles.length >= 3) break;
+  }
+
+  const titles: string[] = [];
+  const seen = new Set<string>();
+  for (const title of rawTitles) {
+    const normalized = title.trim();
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    titles.push(normalized);
+    if (titles.length >= 3) break;
+  }
+
+  return titles.length > 0 ? titles : undefined;
+}
+
+function extractImprovementItemTitles(content: string): string[] {
+  const titles: string[] = [];
+
+  for (const line of content.split('\n')) {
+    const match = line.match(/^####\s+\[[^\]]+\]\s+(.+?)\s*$/);
+    if (!match) continue;
+    titles.push(match[1]);
+  }
+
+  return titles;
 }

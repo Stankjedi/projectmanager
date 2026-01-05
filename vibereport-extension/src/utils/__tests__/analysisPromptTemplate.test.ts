@@ -134,6 +134,70 @@ describe('analysisPromptTemplate', () => {
     expect(idx8).toBeGreaterThan(idx7);
   });
 
+  it('adds recon, language exceptions, security rules, SSOT, and improved TODO-4 wording', () => {
+    const prompt = buildAnalysisPrompt(
+      snapshot,
+      baseDiff,
+      [],
+      true,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('## 0. Pre-flight Recon (Mandatory)');
+    expect(prompt).toContain('### 1.X Language Exceptions (Applies to Korean-only files)');
+    expect(prompt).toContain('### 1.Y Security / Sensitive Files (Mandatory)');
+    expect(prompt).toContain('### 2.X Improvement IDs – Single Source of Truth (SSOT)');
+    expect(prompt).toContain(
+      'TODO-4` – Evaluation Report Part 4 – TL;DR + Risk Summary + Score↔Improvement Mapping + Trend + Current State Summary'
+    );
+  });
+
+  it('marks sensitive newly added files separately', () => {
+    const diff: SnapshotDiff = {
+      ...baseDiff,
+      isInitial: false,
+      newFiles: ['vsctoken.txt', 'src/new-safe.ts'],
+    };
+
+    const prompt = buildAnalysisPrompt(
+      snapshot,
+      diff,
+      [],
+      false,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('Recently added files (review them if relevant; do NOT open sensitive files):');
+    expect(prompt).toContain('`src/new-safe.ts`');
+    expect(prompt).toContain('Sensitive files detected (do not open or copy contents):');
+    expect(prompt).toContain('`vsctoken.txt` (sensitive)');
+  });
+
+  it('redacts TODO/FIXME findings from sensitive files', () => {
+    const snapshotWithFindings: ProjectSnapshot = {
+      ...snapshot,
+      todoFixmeFindings: [
+        { file: 'src/todo.ts', line: 12, tag: 'TODO', text: 'add validation' },
+        { file: 'vsctoken.txt', line: 1, tag: 'TODO', text: 'super-secret-token=DO_NOT_LEAK' },
+      ],
+    };
+
+    const prompt = buildAnalysisPrompt(
+      snapshotWithFindings,
+      baseDiff,
+      [],
+      true,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('| `src/todo.ts` | 12 | TODO | add validation |');
+    expect(prompt).not.toContain('DO_NOT_LEAK');
+    expect(prompt).toContain('Note: 1 finding(s) in sensitive files were redacted.');
+  });
+
   it('renders TODO/FIXME findings when available', () => {
     const snapshotWithFindings: ProjectSnapshot = {
       ...snapshot,

@@ -22,6 +22,7 @@ import { CleanHistoryCommand } from './commands/cleanHistory.js';
 import { OpenReportPreviewCommand } from './commands/openReportPreview.js';
 import { AutoUpdateReportsManager, type AutoUpdateStatus } from './services/realtimeWatcherService.js';
 import { ReportService } from './services/index.js';
+import { AntigravityAutoAcceptService } from './services/antigravityAutoAcceptService.js';
 import { PreviewStyleService } from './services/previewStyleService.js';
 import { HistoryViewProvider } from './views/HistoryViewProvider.js';
 import { SummaryViewProvider } from './views/SummaryViewProvider.js';
@@ -64,6 +65,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(outputChannel);
 
   logActivationHeader(outputChannel);
+
+  const antigravityAutoAcceptService = new AntigravityAutoAcceptService(outputChannel);
+  await antigravityAutoAcceptService.initialize();
+  context.subscriptions.push(antigravityAutoAcceptService);
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'vibereport.antigravity.toggleAutoAccept',
+      async () => {
+        await antigravityAutoAcceptService.toggleEnabled();
+      }
+    )
+  );
 
   const storageRoot = context.globalStorageUri.fsPath;
   const commands = createCommandInstances(context, outputChannel, storageRoot);
@@ -131,7 +144,7 @@ function createCommandInstances(
     setAnalysisRootWizardCommand: new SetAnalysisRootWizardCommand(channel),
     generatePromptCommand: new GeneratePromptCommand(channel),
     shareReportCommand: new ShareReportCommand(channel),
-    exportReportBundleCommand: new ExportReportBundleCommand(channel),
+    exportReportBundleCommand: new ExportReportBundleCommand(channel, storageRoot),
     reportDoctorCommand: new ReportDoctorCommand(channel, storageRoot),
     openTroubleshootingCommand: new OpenTroubleshootingCommand(
       channel,

@@ -6,62 +6,54 @@
 > 3. **No placeholders:** Write complete, working code and tests. Do not leave TODO stubs or omitted logic.
 > 4. **Verify every prompt:** Run the verification commands before marking a prompt done.
 > 5. **Report completion:** After each prompt, report touched files, verification results, and the next prompt ID.
-> 6. **English-only content** for this file (no Korean characters).
+> 6. **English-only content** for this file (no Hangul characters).
 
 ## Execution Checklist
 
 | # | Prompt ID | Title | Priority | Status |
 |:---:|:---|:---|:---:|:---:|
-| 1 | PROMPT-001 | Add sensitive files guard to Report Doctor (`sec-sensitive-files-001`) | P1 | ⬜ Pending |
-| 2 | PROMPT-002 | Add marketplace itemName checks to docsConsistency (`test-docs-marketplace-001`) | P2 | ⬜ Pending |
-| 3 | PROMPT-003 | Add newline preservation tests for docs auto-fix (`test-doctor-docs-fix-newlines-001`) | P2 | ⬜ Pending |
-| 4 | PROMPT-004 | Add "Fix All Safe Issues" action to Report Doctor (`feat-doctor-fix-all-001`) | P3 | ⬜ Pending |
-| 5 | PROMPT-005 | Add snapshot storage mode option (`feat-snapshot-storage-mode-001`) | P3 | ⬜ Pending |
-| 6 | OPT-1 | Modularize markdown markers/constants (`opt-markdown-utils-modularize-001`) | OPT | ⬜ Pending |
+| 1 | PROMPT-001 | Make export bundle safe by default (`security-export-bundle-redaction-001`) | P1 | ⬜ Pending |
+| 2 | PROMPT-002 | Use marker-based extraction for share preview (`quality-share-preview-marker-extraction-001`) | P2 | ⬜ Pending |
+| 3 | PROMPT-003 | Redact secret-like patterns in TODO/FIXME findings (`security-todo-fixme-findings-redaction-001`) | P2 | ⬜ Pending |
+| 4 | PROMPT-004 | Remove or ignore repo artifact file (`repo-ignore-artifacts-001`) | P2 | ⬜ Pending |
+| 5 | PROMPT-005 | Localize share preview language + date (`feat-share-preview-i18n-001`) | P3 | ⬜ Pending |
+| 6 | OPT-1 | Parallelize TODO/FIXME content reads (`opt-todo-scan-parallel-001`) | OPT | ⬜ Pending |
 
 > **Total: 6 prompts | Completed: 0 | Remaining: 6**
 
 ---
 
-## Priority 1 (Critical)
+## Priority P1
 
-### [PROMPT-001] Add sensitive files guard to Report Doctor
+### [PROMPT-001] Make export bundle safe by default (redaction + metadata sanitization)
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-002].
 - Status: P1 (Pending)
-- Linked Improvement ID: `sec-sensitive-files-001`
+- Linked Improvement ID: `security-export-bundle-redaction-001`
 
 **Task:**
-Prevent accidental secret leakage by adding a Report Doctor check for sensitive files (tokens/keys/.env) and providing safe, actionable guidance before users share/export reports.
+Harden `ExportReportBundleCommand` so exported bundles are share-safe by default: avoid leaking absolute paths / command URIs in bundle outputs when redaction is enabled (default), and sanitize `metadata.json` to avoid embedding local absolute paths.
 
 **Target files:**
-- `vibereport-extension/src/commands/reportDoctor.ts`
-- `vibereport-extension/src/utils/reportDoctorUtils.ts`
-- `vibereport-extension/src/services/workspaceScanner/fileCollector.ts`
-- New: `vibereport-extension/src/utils/sensitiveFilesUtils.ts`
-- Tests: `vibereport-extension/src/utils/__tests__/sensitiveFilesUtils.test.ts`, `vibereport-extension/src/commands/__tests__/reportDoctor.test.ts`
+- `vibereport-extension/src/commands/exportReportBundle.ts`
+- `vibereport-extension/src/utils/redactionUtils.ts`
+- (Optional) `vibereport-extension/package.json` (only if you add a new setting)
+- Tests: `vibereport-extension/src/commands/__tests__/exportReportBundle.test.ts`
 
 **Steps:**
-1. Create a shared sensitive-path detector:
-   - Add `vibereport-extension/src/utils/sensitiveFilesUtils.ts` exporting `isSensitivePath(relativePath: string): boolean`.
-   - Move the current sensitive-path logic from `vibereport-extension/src/services/workspaceScanner/fileCollector.ts` into that function (keep `.env.example` as an allowed exception).
-2. Wire the scanner to the shared detector:
-   - In `vibereport-extension/src/services/workspaceScanner/fileCollector.ts`, replace the local `isSensitivePath` implementation with an import from `../../utils/sensitiveFilesUtils.js`.
-3. Add a Doctor issue type and detection helper:
-   - In `vibereport-extension/src/utils/reportDoctorUtils.ts`, extend `ReportDoctorIssueCode` with `SENSITIVE_FILES_PRESENT`.
-   - Export `findSensitiveFiles(fileList: string[]): string[]` that returns at most 20 repo-relative paths and uses `isSensitivePath`.
-4. Integrate the check into the Report Doctor command:
-   - In `vibereport-extension/src/commands/reportDoctor.ts`, collect a file list for the selected analysis root (use `vscode.workspace.findFiles('**/*', excludePattern, config.maxFilesToScan)` and convert to repo-relative POSIX paths).
-   - Call `findSensitiveFiles(...)`.
-   - If any are found:
-     - Always log a summary in the OutputChannel (count + first N paths).
-     - If `config.includeSensitiveFiles === true`, show a warning modal that encourages disabling the setting before proceeding. Offer actions: `Open Settings` and `Continue`.
-     - If `config.includeSensitiveFiles === false`, show an information message only (do not block).
-   - Do not read file contents; only operate on paths.
-5. Add tests:
-   - Add `vibereport-extension/src/utils/__tests__/sensitiveFilesUtils.test.ts` covering `.env`, `.env.local`, `.env.example`, `vsctoken.txt`, `api_token.json`, `private.pem`, `id_rsa.key`, and a non-sensitive file like `README.md`.
-   - In `vibereport-extension/src/commands/__tests__/reportDoctor.test.ts`, mock `vscode.workspace.findFiles` to return a token-like file and assert the warning path is triggered when `includeSensitiveFiles=true`.
+1. Define a "share-safe export" policy:
+   - When `vibereport.sharePreviewRedactionEnabled` is `true`, treat the bundle as safe-to-share:
+     - Redact exported markdown files (`Project_Evaluation_Report.md`, `Project_Improvement_Exploration_Report.md`, `Prompt.md`, `Share_Preview.md`) using `redactForSharing(...)`.
+     - Sanitize bundle metadata so it does not contain local absolute paths.
+   - When the setting is `false`, export raw content (current behavior).
+2. Sanitize `metadata.json`:
+   - Do not write `workspaceRoot` as an absolute path when redaction is enabled.
+   - Replace it with `workspaceName` (e.g., `path.basename(workspaceRoot)`) or a fixed placeholder.
+   - Keep the JSON schema stable and backward compatible.
+3. Update tests:
+   - With redaction enabled, assert exported bundle outputs do **not** contain absolute path patterns (for example `/Users/`, `C:\\`, `/mnt/`) and do **not** contain `command:` URIs.
+   - Keep existing assertions for `evaluation-history.json` and the `redactionEnabled` flag.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -73,115 +65,36 @@ Prevent accidental secret leakage by adding a Report Doctor check for sensitive 
 
 ---
 
-## Priority 2 (High)
+## Priority P2
 
-### [PROMPT-002] Add marketplace itemName checks to docsConsistency
+### [PROMPT-002] Use marker-based extraction for share preview (remove header dependency)
 
 **Directives:**
 - Execute this prompt now, then proceed to [PROMPT-003].
 - Status: P2 (Pending)
-- Linked Improvement ID: `test-docs-marketplace-001`
+- Linked Improvement ID: `quality-share-preview-marker-extraction-001`
 
 **Task:**
-Strengthen docs consistency tests by validating that all VS Code Marketplace links/badges in README files use the current `publisher.name` (itemName) from `vibereport-extension/package.json`.
+Refactor Share Report and Export Bundle preview generation so TL;DR and score extraction is marker-based (not dependent on Korean section headers), and eliminate duplicated preview-building logic.
 
 **Target files:**
-- `vibereport-extension/package.json` (source of truth)
-- `vibereport-extension/src/docsConsistency.test.ts`
-- `README.md`
-- (Optional input) `vibereport-extension/README.md`
+- `vibereport-extension/src/commands/shareReport.ts`
+- `vibereport-extension/src/commands/exportReportBundle.ts`
+- (Optional) `vibereport-extension/src/commands/shareReportPreview.ts` (shared helpers)
+- Tests: `vibereport-extension/src/commands/__tests__/shareReportPreview.test.ts`, `vibereport-extension/src/commands/__tests__/exportReportBundle.test.ts`
 
 **Steps:**
-1. In `docsConsistency.test.ts`, read `publisher` and `name` from `vibereport-extension/package.json` and compute `expectedMarketplaceItemName = \`\${publisher}.\${name}\``.
-2. In `README.md`, extract every marketplace itemName and assert they all match:
-   - Marketplace URL regex: `/marketplace\\.visualstudio\\.com\\/items\\?itemName=([\\w.-]+)/g`
-   - Marketplace badge regex: `/img\\.shields\\.io\\/visual-studio-marketplace\\/(?:v|d)\\/([\\w.-]+)/g`
-   - Assert at least one match exists across URLs+badges, and every distinct match equals `expectedMarketplaceItemName`.
-3. Make failure messages actionable:
-   - Include the expected itemName and the mismatched distinct values found.
-4. Keep the existing docsConsistency checks unchanged.
-
-**Verification:**
-- `pnpm -C vibereport-extension run test:run`
-- `pnpm -C vibereport-extension run lint`
-
-**After Completion:**
-- Proceed directly to [PROMPT-003].
-
----
-
-### [PROMPT-003] Add newline preservation tests for docs auto-fix
-
-**Directives:**
-- Execute this prompt now, then proceed to [PROMPT-004].
-- Status: P2 (Pending)
-- Linked Improvement ID: `test-doctor-docs-fix-newlines-001`
-
-**Task:**
-Add regression tests ensuring `fixDocsVersionSync()` preserves the original newline style (LF/CRLF) while updating only the intended version strings.
-
-**Target files:**
-- `vibereport-extension/src/utils/reportDoctorUtils.ts`
-- `vibereport-extension/src/utils/__tests__/reportDoctorUtils.test.ts`
-
-**Steps:**
-1. In `reportDoctorUtils.test.ts`, import `fixDocsVersionSync` from `../reportDoctorUtils.js`.
-2. Add a CRLF-focused test:
-   - Create `readmeContent` with `\\r\\n` newlines containing:
-     - a version like `0.0.1`
-     - a VSIX example `vibereport-0.0.1.vsix`
-     - a versioned release URL `releases/download/v0.0.1/vibereport-0.0.1.vsix`
-   - Create `changelogContent` with `\\r\\n` newlines containing a top header like `## [0.0.1]`.
-   - Run `fixDocsVersionSync({ packageVersion: '9.9.9', readmeContent, changelogContent })`.
-   - Assert:
-     - Both outputs still use CRLF only (no lone `\\n`): they must not match `/[^\\r]\\n/`.
-     - All updated versions equal `9.9.9` (README first version occurrence, VSIX examples, release URL, CHANGELOG top header).
-3. Add a no-op test:
-   - Provide inputs already matching `packageVersion: '9.9.9'`.
-   - Assert `changed.readme === false`, `changed.changelog === false`, and contents are unchanged.
-
-**Verification:**
-- `pnpm -C vibereport-extension run test:run`
-- `pnpm -C vibereport-extension run lint`
-
-**After Completion:**
-- Proceed directly to [PROMPT-004].
-
----
-
-## Priority 3 (Feature)
-
-### [PROMPT-004] Add "Fix All Safe Issues" action to Report Doctor
-
-**Directives:**
-- Execute this prompt now, then proceed to [PROMPT-005].
-- Status: P3 (Pending)
-- Linked Improvement ID: `feat-doctor-fix-all-001`
-
-**Task:**
-Add a single "Fix All Safe Issues" action to Report Doctor that runs all safe, automated fixes (report marker repair + docs version sync) and then re-validates.
-
-**Target files:**
-- `vibereport-extension/src/commands/reportDoctor.ts`
-- `vibereport-extension/src/utils/reportDoctorUtils.ts`
-- Tests: `vibereport-extension/src/commands/__tests__/reportDoctor.test.ts`
-
-**Steps:**
-1. In `reportDoctor.ts`, include a new modal action `Fix All Safe Issues` whenever there is at least one safe-fixable issue:
-   - Safe-fixable = (a) docs version sync issues detected by `validateDocsVersionSync()` and/or (b) marker/table issues in evaluation/improvement reports that `repairReportMarkdown()` can repair.
-2. Implement the action handler:
-   - If docs issues exist and `packageVersion` is available, run the existing docs fix (`fixDocsVersionSync`) and write back `README.md` + `CHANGELOG.md` when changed.
-   - For each report target:
-     - If `target.type` is `evaluation` or `improvement` and `issues.length > 0`, run `repairReportMarkdown({ content, template, type })`.
-     - Write the repaired content only when `changed === true` and `issuesAfter.length === 0`.
-     - Continue even if one file cannot be repaired, but log details.
-   - Re-run validation by re-reading targets/docs and re-running `validateReportMarkdown` + `validateDocsVersionSync`.
-   - Show an information message if no issues remain; otherwise show a warning and log remaining issues.
-3. Keep Prompt.md behavior unchanged: it should still not be auto-repaired, but the summary must mention if prompt issues remain.
-4. Add tests:
-   - Arrange a workspace with docs mismatch and repairable report marker issues.
-   - Mock `showWarningMessage` to resolve to `Fix All Safe Issues`.
-   - Assert `fs.writeFile` is called for docs and evaluation/improvement, and that `showInformationMessage` reports a successful fix.
+1. Replace score extraction with marker-based extraction:
+   - Extract the score section using `<!-- AUTO-SCORE-START -->` and `<!-- AUTO-SCORE-END -->`.
+   - Pass the extracted section to `extractScoreTable(...)`.
+   - Do not rely on the `###` header text.
+2. Ensure TL;DR extraction remains marker-based:
+   - Prefer `<!-- AUTO-TLDR-START -->` and `<!-- AUTO-TLDR-END -->` (or keep `TLDR-START/END`), but do not rely on language-specific headings.
+3. Deduplicate preview markdown generation:
+   - Extract the common "share preview markdown" builder into a shared helper (for example in `shareReportPreview.ts`) and reuse it from both commands.
+4. Update tests:
+   - Update fixtures to include `<!-- AUTO-SCORE-END -->` and remove any dependency on a language-specific score header line.
+   - Add at least one case where the score section has no trailing header line, and extraction still works.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -189,44 +102,105 @@ Add a single "Fix All Safe Issues" action to Report Doctor that runs all safe, a
 - `pnpm -C vibereport-extension run test:run`
 
 **After Completion:**
+- Proceed directly to [PROMPT-003].
+
+---
+
+### [PROMPT-003] Redact secret-like patterns in TODO/FIXME findings
+
+**Directives:**
+- Execute this prompt now, then proceed to [PROMPT-004].
+- Status: P2 (Pending)
+- Linked Improvement ID: `security-todo-fixme-findings-redaction-001`
+
+**Task:**
+Prevent accidental leakage of secrets via TODO/FIXME findings by redacting secret-like patterns (tokens/keys) before findings are written into markdown reports.
+
+**Target files:**
+- `vibereport-extension/src/services/workspaceScanner/todoFixmeScanner.ts`
+- `vibereport-extension/src/services/reportService/improvementFormatting.ts`
+- Tests: `vibereport-extension/src/services/__tests__/todoFixmeScanner.test.ts`
+- (Optional) `vibereport-extension/src/utils/redactionUtils.ts` (shared redaction patterns)
+
+**Steps:**
+1. Define a small, conservative redaction function for findings text:
+   - Mask common token/key prefixes (examples: `ghp_`, `sk-`, `AKIA...`, `AIza...`) and long high-entropy strings.
+   - Keep it conservative to avoid excessive false positives in normal TODO text.
+2. Apply redaction:
+   - Apply when building findings (preferred) or right before rendering the findings table in `formatTodoFixmeFindingsSection(...)`.
+   - Ensure the redacted output still respects existing truncation limits and table escaping.
+3. Tests:
+   - Add a test with a TODO line containing a token-like string and assert it is masked in output.
+   - Add a negative test where normal text remains unchanged.
+
+**Verification:**
+- `pnpm -C vibereport-extension run compile`
+- `pnpm -C vibereport-extension run lint`
+- `pnpm -C vibereport-extension run test:run`
+
+**After Completion:**
+- Proceed directly to [PROMPT-004].
+
+---
+
+### [PROMPT-004] Remove or ignore repo artifact file
+
+**Directives:**
+- Execute this prompt now, then proceed to [PROMPT-005].
+- Status: P2 (Pending)
+- Linked Improvement ID: `repo-ignore-artifacts-001`
+
+**Task:**
+Clean up repository artifacts so report scanning and repo hygiene are consistent: ensure `tmp_lines.txt` is not tracked and is ignored going forward.
+
+**Target files:**
+- `.gitignore`
+- `tmp_lines.txt` (if present in the repository)
+
+**Steps:**
+1. Confirm `tmp_lines.txt` is not referenced by the codebase (keep evidence in the PR description, not in the repo).
+2. Add `tmp_lines.txt` to `.gitignore`.
+3. If `tmp_lines.txt` is tracked in git, remove it from the repository (keep it locally only if you need it).
+4. Ensure report scanning does not treat it as a meaningful source file (optional: add it to default exclude patterns if necessary).
+
+**Verification:**
+- `git status -sb`
+- `pnpm -C vibereport-extension run test:run`
+
+**After Completion:**
 - Proceed directly to [PROMPT-005].
 
 ---
 
-### [PROMPT-005] Add snapshot storage mode option
+## Priority P3
+
+### [PROMPT-005] Localize share preview language + date (config.language)
 
 **Directives:**
 - Execute this prompt now, then proceed to [OPT-1].
 - Status: P3 (Pending)
-- Linked Improvement ID: `feat-snapshot-storage-mode-001`
+- Linked Improvement ID: `feat-share-preview-i18n-001`
 
 **Task:**
-Add an option to store vibereport snapshot state outside of the workspace folder to reduce repo noise and accidental commits.
+Make share preview output consistent with the configured report language: the Share Report preview and the Export Bundle `Share_Preview.md` should render headings/labels and the date locale based on `vibereport.language` (`ko` or `en`).
 
 **Target files:**
-- `vibereport-extension/src/models/types.ts`
-- `vibereport-extension/src/utils/configUtils.ts`
-- `vibereport-extension/src/services/snapshotService.ts`
-- `vibereport-extension/src/extension.ts`
-- Call sites: `vibereport-extension/src/commands/updateReports.ts`, `vibereport-extension/src/commands/reportDoctor.ts`, `vibereport-extension/src/views/HistoryViewProvider.ts`, `vibereport-extension/src/views/SummaryViewProvider.ts`, `vibereport-extension/src/commands/cleanHistory.ts`, `vibereport-extension/src/commands/setProjectVision.ts`
-- Tests: update impacted tests (snapshotService + command mocks)
+- `vibereport-extension/src/commands/shareReport.ts`
+- `vibereport-extension/src/commands/exportReportBundle.ts`
+- Tests: `vibereport-extension/src/commands/__tests__/shareReportPreview.test.ts`, `vibereport-extension/src/commands/__tests__/exportReportBundle.test.ts`
 
 **Steps:**
-1. Add a new config field:
-   - In `VibeReportConfig`, add `snapshotStorageMode: 'workspaceFile' | 'vscodeStorage'`.
-   - In `DEFAULT_CONFIG` and `loadConfig()`, set/read `snapshotStorageMode` (default: `workspaceFile`).
-2. Extend `SnapshotService` to support vscode storage:
-   - Add constructor param `storageRoot?: string` and store it.
-   - Update `getStatePath()`:
-     - If `snapshotStorageMode === 'workspaceFile'`, keep existing behavior (`path.join(rootPath, config.snapshotFile)`).
-     - If `snapshotStorageMode === 'vscodeStorage'` and `storageRoot` is set, write state under a per-workspace subdir (use a stable hash of `rootPath`), e.g. `<storageRoot>/vibereport/<hash>/vibereport-state.json`.
-3. Wire `storageRoot` from extension activation:
-   - Pass `context.globalStorageUri.fsPath` into every `SnapshotService` instantiation path (commands and views) so vscode storage mode can work.
-4. Update tests:
-   - Fix config mocks to include `snapshotStorageMode`.
-   - Add at least one `snapshotService` unit test that uses `snapshotStorageMode: 'vscodeStorage'` and asserts the computed path is under the provided `storageRoot`.
-5. Ensure backwards compatibility:
-   - Default behavior remains unchanged unless the new setting is enabled.
+1. Load the configured language:
+   - Use `loadConfig()` (or VS Code config) to read `language` (`ko` or `en`).
+2. Localize preview headings/labels:
+   - For `en`, ensure the preview headings/labels are English (for example: "Summary (TL;DR)", "Detailed Scores", "More Details").
+   - For `ko`, preserve the existing Korean output (do not break existing behavior).
+3. Localize the date:
+   - Use a locale appropriate for the configured language (for example: `en-US` vs `ko-KR`).
+   - Keep tests deterministic using fake timers.
+4. Tests:
+   - Extend `shareReportPreview.test.ts` to cover both `language: 'en'` and `language: 'ko'` (mock config accordingly).
+   - Extend `exportReportBundle.test.ts` to assert the generated `Share_Preview.md` is localized when `language` is `en`.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -240,30 +214,31 @@ Add an option to store vibereport snapshot state outside of the workspace folder
 
 ## Optimization (OPT)
 
-### [OPT-1] Modularize markdown markers/constants
+### [OPT-1] Parallelize TODO/FIXME scan with a concurrency limit
 
 **Directives:**
 - Execute this prompt now, then proceed to Final Completion.
 - Status: OPT (Pending)
-- Linked Improvement ID: `opt-markdown-utils-modularize-001`
+- Linked Improvement ID: `opt-todo-scan-parallel-001`
 
 **Task:**
-Reduce coupling to the large `markdownUtils.ts` module by extracting `MARKERS` into a dedicated module and re-exporting for backwards compatibility.
+Speed up TODO/FIXME scanning by parallelizing content reads with a concurrency limit, while preserving the current cache behavior and deterministic result ordering.
 
 **Target files:**
-- New: `vibereport-extension/src/utils/markdownMarkers.ts`
-- `vibereport-extension/src/utils/markdownUtils.ts`
-- `vibereport-extension/src/utils/reportDoctorUtils.ts`
-- Tests updated as needed
+- `vibereport-extension/src/services/workspaceScanner/todoFixmeScanner.ts`
+- Tests: `vibereport-extension/src/services/__tests__/todoFixmeScanner.test.ts`
 
 **Steps:**
-1. Create `vibereport-extension/src/utils/markdownMarkers.ts` and move the `MARKERS` constant definition into it (export it as `export const MARKERS = { ... } as const;`).
-2. In `vibereport-extension/src/utils/markdownUtils.ts`:
-   - Remove the in-file `MARKERS` constant definition.
-   - Add `import { MARKERS } from './markdownMarkers.js';` for internal use.
-   - Add `export { MARKERS } from './markdownMarkers.js';` to keep existing imports working.
-3. In `vibereport-extension/src/utils/reportDoctorUtils.ts`, import `MARKERS` from `./markdownMarkers.js` (do not import it from `./markdownUtils.js`).
-4. Run the test suite and ensure no imports break.
+1. Reuse the existing concurrency helper and keep the current `fs.stat` parallelization as-is.
+2. Parallelize content reads:
+   - Build a list of candidate files that need reading (not cached for the current signature, under size limits).
+   - Read file contents with a concurrency limit (e.g., 8-16) and extract findings.
+3. Preserve behavior:
+   - Preserve deterministic ordering by merging findings in the original candidate order after parallel reads finish.
+   - Preserve size limits, max findings, cache keys, and caching semantics.
+4. Tests:
+   - Ensure existing tests still pass.
+   - Add at least one assertion that output ordering is stable and unaffected by concurrency.
 
 **Verification:**
 - `pnpm -C vibereport-extension run compile`
@@ -282,7 +257,7 @@ Reduce coupling to the large `markdownUtils.ts` module by extracting `MARKERS` i
    - `pnpm -C vibereport-extension run compile`
    - `pnpm -C vibereport-extension run lint`
    - `pnpm -C vibereport-extension run test:run`
-   - `pnpm -C vibereport-extension run test:coverage`
-2. Ensure that `devplan/Prompt.md` contains no Korean characters.
+   - `pnpm -C vibereport-extension run bundle`
+2. Confirm `devplan/Prompt.md` contains no Hangul characters.
 3. Print the final success message:
    `ALL PROMPTS COMPLETED. All pending improvement and optimization items from the latest report have been applied.`

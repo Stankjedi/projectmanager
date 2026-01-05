@@ -287,6 +287,7 @@ describe('extension', () => {
     const registered = calls.map(args => args[0]);
 
     const expected = [
+      'vibereport.antigravity.toggleAutoAccept',
       'vibereport.updateReports',
       'vibereport.updateReportsAll',
       'vibereport.exportSettings',
