@@ -1,5 +1,6 @@
 import type { TodoFixmeFinding } from '../../models/types.js';
 import { linkifyCodeReferences } from '../reportLinkify.js';
+import { redactSecretLikePatterns } from '../../utils/redactionUtils.js';
 
 export function formatImprovementList(
   items: Array<{
@@ -118,7 +119,7 @@ export function formatTodoFixmeFindingsSection(findings: TodoFixmeFinding[], lan
       '| 파일 | 라인 | 태그 | 내용 |',
       '|------|------|------|------|',
       ...shown.map((finding) => {
-        return `| ${escapeTableCell(finding.file)} | ${finding.line} | ${finding.tag} | ${escapeTableCell(finding.text)} |`;
+        return `| ${escapeTableCell(finding.file)} | ${finding.line} | ${finding.tag} | ${escapeTableCell(redactSecretLikePatterns(finding.text))} |`;
       }),
     ];
 
@@ -141,7 +142,7 @@ export function formatTodoFixmeFindingsSection(findings: TodoFixmeFinding[], lan
     '| File | Line | Tag | Text |',
     '|------|------|-----|------|',
     ...shown.map((finding) => {
-      return `| ${escapeTableCell(finding.file)} | ${finding.line} | ${finding.tag} | ${escapeTableCell(finding.text)} |`;
+      return `| ${escapeTableCell(finding.file)} | ${finding.line} | ${finding.tag} | ${escapeTableCell(redactSecretLikePatterns(finding.text))} |`;
     }),
   ];
 
@@ -151,4 +152,3 @@ export function formatTodoFixmeFindingsSection(findings: TodoFixmeFinding[], lan
 
   return lines.join('\n');
 }
-

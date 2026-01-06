@@ -240,6 +240,17 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
     <input type="number" class="setting-input number-input" id="autoUpdateDebounceMs" value="1500" min="0" max="60000" disabled>
   </div>
 
+  <!-- Antigravity 설정 -->
+  <div class="section-title">🛰️ Antigravity</div>
+
+  <div class="setting-group">
+    <label class="setting-checkbox">
+      <input type="checkbox" id="antigravityAutoAcceptEnabled">
+      <span>승인 자동 수락 (Auto-Accept)</span>
+    </label>
+    <div class="setting-description">반중력 IDE에서 승인(accept)이 필요할 때 자동으로 승인 명령을 실행합니다 (기본값: 비활성화)</div>
+  </div>
+
   <!-- 프리뷰 설정 -->
   <div class="section-title">🎨 프리뷰 설정</div>
 
@@ -346,6 +357,7 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
       preferredMarkdownViewer: 'mermaid',
       enableAutoUpdateReports: false,
       autoUpdateDebounceMs: 1500,
+      antigravityAutoAcceptEnabled: false,
     };
   
     // 요소 참조
@@ -364,6 +376,7 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
       defaultQualityFocus: document.getElementById('defaultQualityFocus'),
       enableAutoUpdateReports: document.getElementById('enableAutoUpdateReports'),
       autoUpdateDebounceMs: document.getElementById('autoUpdateDebounceMs'),
+      antigravityAutoAcceptEnabled: document.getElementById('antigravityAutoAcceptEnabled'),
       previewEnabled: document.getElementById('previewEnabled'),
       preferredMarkdownViewer: document.getElementById('preferredMarkdownViewer'),
       previewBackgroundColor: document.getElementById('previewBackgroundColor'),
@@ -391,6 +404,7 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
       elements.defaultQualityFocus.value = settings.defaultQualityFocus ?? DEFAULTS.defaultQualityFocus;
       elements.enableAutoUpdateReports.checked = settings.enableAutoUpdateReports ?? UI_DEFAULTS.enableAutoUpdateReports;
       elements.autoUpdateDebounceMs.value = String(settings.autoUpdateDebounceMs ?? UI_DEFAULTS.autoUpdateDebounceMs);
+      elements.antigravityAutoAcceptEnabled.checked = settings.antigravityAutoAcceptEnabled ?? UI_DEFAULTS.antigravityAutoAcceptEnabled;
       elements.previewEnabled.checked = settings.previewEnabled ?? UI_DEFAULTS.previewEnabled;
       elements.preferredMarkdownViewer.value = settings.preferredMarkdownViewer ?? UI_DEFAULTS.preferredMarkdownViewer;
       elements.previewBackgroundColor.value = settings.previewBackgroundColor ?? UI_DEFAULTS.previewBackgroundColor;
@@ -421,6 +435,7 @@ export function buildSettingsHtml(args: { nonce: string; cspSource: string }): s
         defaultQualityFocus: elements.defaultQualityFocus.value,
         enableAutoUpdateReports: elements.enableAutoUpdateReports.checked,
         autoUpdateDebounceMs: resolvedDebounceMs,
+        antigravityAutoAcceptEnabled: elements.antigravityAutoAcceptEnabled.checked,
         previewEnabled: elements.previewEnabled.checked,
         preferredMarkdownViewer: elements.preferredMarkdownViewer.value,
         previewBackgroundColor: elements.previewBackgroundColor.value,

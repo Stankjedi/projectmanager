@@ -69,7 +69,7 @@ describe('SettingsViewProvider', () => {
     expect(html).toContain('<script nonce="nonce">');
 
     const digest = createHash('sha256').update(html).digest('hex');
-    expect(digest).toBe('db1aa96f1ea48719bc4740034ed203aced9b835b1473851fc67dca74343e1896');
+    expect(digest).toBe('0d7ea5fa6c7adfb71ebdcd8d61c2ec0d315533a9e440db94dbb87b1e67cc8477');
   });
 
   it('getSetting posts settingsLoaded including analysisRoot and enableDirectAi', async () => {
@@ -332,6 +332,38 @@ describe('SettingsViewProvider', () => {
 
     expect(mockShowErrorMessage).toHaveBeenCalledWith(
       expect.stringContaining('설정 값이 올바르지 않습니다 (language)')
+    );
+    expect(mockConfigUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid path values: reportDirectory blocks path traversal', async () => {
+    const { SettingsViewProvider } = await import('../SettingsViewProvider.js');
+    const provider = new SettingsViewProvider(mockExtensionUri, mockOutput);
+
+    let onMessage: ((message: any) => Promise<void>) | undefined;
+    const webviewView = {
+      webview: {
+        options: {},
+        html: '',
+        cspSource: 'csp',
+        postMessage: vi.fn().mockResolvedValue(undefined),
+        onDidReceiveMessage: vi.fn((handler: any) => {
+          onMessage = handler;
+        }),
+      },
+    } as any;
+
+    provider.resolveWebviewView(webviewView, {} as any, { isCancellationRequested: false } as any);
+
+    await onMessage?.({
+      command: 'updateSettings',
+      settings: {
+        reportDirectory: '../outside',
+      },
+    });
+
+    expect(mockShowErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('설정 값이 올바르지 않습니다 (reportDirectory)')
     );
     expect(mockConfigUpdate).not.toHaveBeenCalled();
   });

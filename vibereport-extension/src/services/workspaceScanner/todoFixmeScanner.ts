@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { TodoFixmeFinding, TodoFixmeTag } from '../../models/types.js';
 import { LANGUAGE_EXTENSIONS } from '../../models/types.js';
+import { redactSecretLikePatterns } from '../../utils/redactionUtils.js';
 import { createCacheKey, getCachedValue, setCachedValue } from '../snapshotCache.js';
 
 type FileSignature = { mtimeMs: number; size: number };
@@ -66,6 +67,7 @@ function extractTodoFixmeFindingsFromContent(
     text = text.replace(/^[:\s-]+/, '').trim();
     if (!text) text = line.trim();
     text = text.replace(/\s+/g, ' ').trim();
+    text = redactSecretLikePatterns(text);
     if (text.length > 200) text = `${text.slice(0, 200)}...`;
 
     findings.push({
@@ -141,6 +143,44 @@ export async function scanTodoFixmeFindings(
   const byFile: Record<string, CachedFileFindings> = { ...(cached?.byFile ?? {}) };
   const aggregated: TodoFixmeFinding[] = [];
 
+  const filesToRead = candidateSignatures.filter(({ file: relativePath, signature }) => {
+    if (signature.size < 0 || signature.mtimeMs < 0) return false;
+    if (signature.size > maxFileBytes) return false;
+
+    const cachedFile = byFile[relativePath];
+    if (
+      cachedFile &&
+      cachedFile.signature.mtimeMs === signature.mtimeMs &&
+      cachedFile.signature.size === signature.size
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const freshlyRead = await mapWithConcurrencyLimit({
+    items: filesToRead,
+    concurrency: 12,
+    map: async ({ file: relativePath, signature }) => {
+      const fullPath = path.join(rootPath, relativePath);
+      try {
+        const content = await fs.readFile(fullPath, 'utf-8');
+        return {
+          file: relativePath,
+          signature,
+          findings: extractTodoFixmeFindingsFromContent(relativePath, content, tagRegex, maxFindings),
+        };
+      } catch {
+        return { file: relativePath, signature, findings: [] };
+      }
+    },
+  });
+
+  for (const { file: relativePath, signature, findings } of freshlyRead) {
+    byFile[relativePath] = { signature, findings };
+  }
+
   for (const { file: relativePath, signature } of candidateSignatures) {
     if (aggregated.length >= maxFindings) break;
 
@@ -166,14 +206,7 @@ export async function scanTodoFixmeFindings(
     ) {
       fileFindings = cachedFile.findings;
     } else {
-      const fullPath = path.join(rootPath, relativePath);
-      try {
-        const content = await fs.readFile(fullPath, 'utf-8');
-        fileFindings = extractTodoFixmeFindingsFromContent(relativePath, content, tagRegex, maxFindings);
-      } catch {
-        fileFindings = [];
-      }
-
+      fileFindings = [];
       byFile[relativePath] = { signature, findings: fileFindings };
     }
 

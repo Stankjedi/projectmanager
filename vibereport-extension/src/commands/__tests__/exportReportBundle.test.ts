@@ -62,7 +62,7 @@ describe('ExportReportBundleCommand', () => {
     vi.resetModules();
   });
 
-  it('writes bundle files and applies redaction to share preview when enabled', async () => {
+  it('writes bundle files and applies redaction to all bundle outputs when enabled', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-02T03:04:05.000Z'));
 
@@ -71,6 +71,7 @@ describe('ExportReportBundleCommand', () => {
       reportDirectory: 'devplan',
       analysisRoot: '',
       snapshotFile: '.vscode/vibereport-state.json',
+      language: 'en',
     } as unknown);
     mockResolveAnalysisRoot.mockImplementation((root: string) => root);
 
@@ -86,19 +87,30 @@ describe('ExportReportBundleCommand', () => {
     });
 
     const evalContent = [
-      '**현재 버전** | 0.4.28 |',
-      '**총점 평균** | **83** | 🔵 B |',
+      '[OpenRef](command:vibereport.openFunctionInFile?foo=bar)',
       '',
       '<!-- TLDR-START -->',
+      '| Item | Value |',
+      '|------|------|',
+      '| **Current Version** | 0.4.28 |',
       '| **Top Risk** | C:\\\\secret\\\\file.ts |',
       '<!-- TLDR-END -->',
       '',
       '<!-- AUTO-SCORE-START -->',
-      '| 항목 | 점수 |',
-      '| --- | --- |',
-      '| 코드 품질 | 80 |',
-      '### 점수-등급 기준표',
+      '| Category | Score | Grade |',
+      '| --- | --- | --- |',
+      '| Code Quality | 80 | 🔵 B |',
+      '| **Total Average** | **83** | 🔵 B |',
+      '<!-- AUTO-SCORE-END -->',
     ].join('\n');
+
+    const improvementContent = [
+      '# improvement',
+      'Absolute path: /Users/alice/secret.txt',
+      'Raw command: command:vibereport.openFunctionInFile?x=1',
+    ].join('\n');
+
+    const promptContent = ['# prompt', 'Path: /mnt/c/Users/john/secret.txt'].join('\n');
 
     vi.mocked(fs.readFile).mockImplementation((filePath: any) => {
       const p = String(filePath);
@@ -127,8 +139,8 @@ describe('ExportReportBundleCommand', () => {
         );
       }
       if (p.endsWith('Project_Evaluation_Report.md')) return Promise.resolve(evalContent);
-      if (p.endsWith('Project_Improvement_Exploration_Report.md')) return Promise.resolve('# improvement');
-      if (p.endsWith('Prompt.md')) return Promise.resolve('# prompt');
+      if (p.endsWith('Project_Improvement_Exploration_Report.md')) return Promise.resolve(improvementContent);
+      if (p.endsWith('Prompt.md')) return Promise.resolve(promptContent);
       return Promise.reject(new Error(`unexpected readFile path: ${p}`));
     });
 
@@ -147,28 +159,48 @@ describe('ExportReportBundleCommand', () => {
 
     expect(mockWriteFile).toHaveBeenCalledTimes(6);
 
-    const shareCall = mockWriteFile.mock.calls.find(call =>
-      String((call[0] as any)?.fsPath).endsWith('Share_Preview.md')
-    );
-    expect(shareCall).toBeDefined();
-    const shareText = Buffer.from(shareCall?.[1] as Uint8Array).toString('utf-8');
+    const getWrittenText = (suffix: string): string => {
+      const call = mockWriteFile.mock.calls.find(c => String((c[0] as any)?.fsPath).endsWith(suffix));
+      expect(call, `Expected writeFile call for ${suffix}`).toBeDefined();
+      return Buffer.from(call?.[1] as Uint8Array).toString('utf-8');
+    };
+
+    const shareText = getWrittenText('Share_Preview.md');
     expect(shareText).toContain('[REDACTED_PATH]');
     expect(shareText).not.toContain('C:\\\\secret\\\\file.ts');
+    expect(shareText).not.toContain('](command:');
+    expect(shareText).not.toContain('command:vibereport');
+    expect(shareText).toContain('Summary (TL;DR)');
+    expect(shareText).toContain('Generated on');
+    expect(shareText).toContain('> 📦 Version: 0.4.28');
+    expect(shareText).toContain('> 🏆 Overall score: **83 (🔵 B)**');
+    expect(shareText).not.toContain('점');
+    expect(shareText).not.toMatch(/[가-힣]/);
 
-    const metadataCall = mockWriteFile.mock.calls.find(call =>
-      String((call[0] as any)?.fsPath).endsWith('metadata.json')
-    );
-    expect(metadataCall).toBeDefined();
-    const metadataText = Buffer.from(metadataCall?.[1] as Uint8Array).toString('utf-8');
-    const metadata = JSON.parse(metadataText) as { timestamp: string; redactionEnabled: boolean };
+    const evaluationText = getWrittenText('Project_Evaluation_Report.md');
+    expect(evaluationText).toContain('[REDACTED_PATH]');
+    expect(evaluationText).not.toContain('C:\\\\secret\\\\file.ts');
+    expect(evaluationText).not.toContain('](command:');
+    expect(evaluationText).not.toContain('command:vibereport');
+
+    const improvementText = getWrittenText('Project_Improvement_Exploration_Report.md');
+    expect(improvementText).toContain('[REDACTED_PATH]');
+    expect(improvementText).toContain('[REDACTED_COMMAND]');
+    expect(improvementText).not.toContain('/Users/alice/secret.txt');
+    expect(improvementText).not.toContain('](command:');
+    expect(improvementText).not.toContain('command:vibereport');
+
+    const promptText = getWrittenText('Prompt.md');
+    expect(promptText).toContain('[REDACTED_PATH]');
+    expect(promptText).not.toContain('/mnt/c/Users/john/secret.txt');
+
+    const metadataText = getWrittenText('metadata.json');
+    const metadata = JSON.parse(metadataText) as { timestamp: string; redactionEnabled: boolean; workspaceRoot?: string };
     expect(metadata.timestamp).toBe(now.toISOString());
     expect(metadata.redactionEnabled).toBe(true);
+    expect(metadata.workspaceRoot).toBe('workspace');
 
-    const historyCall = mockWriteFile.mock.calls.find(call =>
-      String((call[0] as any)?.fsPath).endsWith('evaluation-history.json')
-    );
-    expect(historyCall).toBeDefined();
-    const historyText = Buffer.from(historyCall?.[1] as Uint8Array).toString('utf-8');
+    const historyText = getWrittenText('evaluation-history.json');
     const history = JSON.parse(historyText) as Array<{ version: string; totalScore: number; grade: string }>;
     expect(history).toEqual([{ version: '0.4.28', evaluatedAt: '2025-01-01T00:00:00.000Z', totalScore: 90, grade: 'A-', scoresByCategory: { codeQuality: 85 } }]);
 

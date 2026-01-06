@@ -18,6 +18,8 @@ import type {
   VibeReportConfig,
 } from '../models/types.js';
 import { STATE_VERSION } from '../models/types.js';
+import { DEFAULT_CONFIG } from '../utils/configUtils.js';
+import { resolveWorkspaceSubpathPortable } from '../utils/workspaceSubpathUtils.js';
 
 export class SnapshotService {
   private outputChannel: vscode.OutputChannel;
@@ -48,7 +50,22 @@ export class SnapshotService {
       );
     }
 
-    return path.join(rootPath, config.snapshotFile);
+    const trimmed = typeof config.snapshotFile === 'string' ? config.snapshotFile.trim() : '';
+    const candidate = trimmed || DEFAULT_CONFIG.snapshotFile;
+
+    const resolved = resolveWorkspaceSubpathPortable(rootPath, candidate, path);
+    if (resolved.ok) {
+      return resolved.resolved;
+    }
+
+    this.log(
+      `보안 정책: snapshotFile 값이 유효하지 않아 기본값으로 대체합니다 (value=${JSON.stringify(config.snapshotFile)})`
+    );
+
+    const fallbackResolved = resolveWorkspaceSubpathPortable(rootPath, DEFAULT_CONFIG.snapshotFile, path);
+    return fallbackResolved.ok
+      ? fallbackResolved.resolved
+      : path.join(rootPath, DEFAULT_CONFIG.snapshotFile);
   }
 
   /**

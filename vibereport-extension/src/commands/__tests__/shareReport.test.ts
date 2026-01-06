@@ -82,7 +82,7 @@ describe('ShareReportCommand', () => {
       '| 항목 | 점수 |',
       '| --- | --- |',
       '| 코드 품질 | 80 |',
-      '### 점수-등급 기준표',
+      '<!-- AUTO-SCORE-END -->',
     ].join('\n');
 
     vi.mocked(fs.readFile).mockResolvedValue(evalContent);

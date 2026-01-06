@@ -76,5 +76,64 @@ describe('scanTodoFixmeFindings (incremental cache)', () => {
     expect(aFinding?.tag).toBe('TODO');
     expect(bFinding?.tag).toBe('FIXME');
   });
-});
 
+  it('preserves deterministic output ordering even when reads resolve out of order', async () => {
+    vi.mocked(fs.stat).mockResolvedValue({ size: 10, mtimeMs: 1 } as any);
+
+    let resolveA: ((value: string) => void) | undefined;
+    let resolveB: ((value: string) => void) | undefined;
+
+    const aPromise = new Promise<string>((resolve) => {
+      resolveA = resolve;
+    });
+    const bPromise = new Promise<string>((resolve) => {
+      resolveB = resolve;
+    });
+
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+      const p = String(filePath);
+      if (p.endsWith('src/a.ts')) return aPromise as any;
+      if (p.endsWith('src/b.ts')) return bPromise as any;
+      throw new Error(`unexpected readFile path: ${p}`);
+    });
+
+    const scanPromise = scanTodoFixmeFindings(rootPath, ['src/a.ts', 'src/b.ts']);
+
+    resolveB?.('const b = 1; // TODO: b');
+    resolveA?.('const a = 1; // TODO: a');
+
+    const findings = await scanPromise;
+    expect(findings.map(f => f.file)).toEqual(['src/a.ts', 'src/b.ts']);
+  });
+
+  it('redacts secret-like patterns in findings text', async () => {
+    vi.mocked(fs.stat).mockResolvedValue({ size: 200, mtimeMs: 1 } as any);
+
+    const ghToken = 'ghp_0123456789abcdefghijklmnopqrstuvwxyzABCD';
+    const openAiToken = 'sk-0123456789ABCDEFGHIJKLMNopqrstuv';
+
+    vi.mocked(fs.readFile).mockResolvedValue(
+      `// TODO: rotate token ${ghToken} and ${openAiToken}` as any
+    );
+
+    const files = ['src/todo.ts'];
+    const findings = await scanTodoFixmeFindings(rootPath, files);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.text).toContain('ghp_[REDACTED_SECRET]');
+    expect(findings[0]?.text).toContain('sk-[REDACTED_SECRET]');
+    expect(findings[0]?.text).not.toContain(ghToken);
+    expect(findings[0]?.text).not.toContain(openAiToken);
+  });
+
+  it('does not change normal TODO text', async () => {
+    vi.mocked(fs.stat).mockResolvedValue({ size: 200, mtimeMs: 1 } as any);
+    vi.mocked(fs.readFile).mockResolvedValue('// TODO: refactor this logic' as any);
+
+    const findings = await scanTodoFixmeFindings(rootPath, ['src/todo.ts']);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.text).toContain('refactor this logic');
+    expect(findings[0]?.text).not.toContain('[REDACTED_SECRET]');
+  });
+});

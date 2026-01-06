@@ -10,9 +10,11 @@ import * as path from 'path';
 import type { VibeReportConfig, ProjectType, QualityFocus } from '../models/types.js';
 import { resolveAnalysisRootPortable } from './analysisRootUtils.js';
 import { normalizeExcludePatterns } from './excludePatternUtils.js';
+import { validateWorkspaceRelativeSubpathInput } from './workspaceSubpathUtils.js';
 
 // Cache last selected workspace root for multi-root UX.
 let lastSelectedWorkspaceRoot: string | null = null;
+const warnedInvalidSubpathSettings = new Set<'reportDirectory' | 'snapshotFile'>();
 
 /**
  * Get last selected workspace root (in-memory for current session)
@@ -71,6 +73,29 @@ export const DEFAULT_CONFIG: Readonly<VibeReportConfig> = {
 export function loadConfig(): VibeReportConfig {
   const config = vscode.workspace.getConfiguration('vibereport');
 
+  const sanitizeWorkspaceSubpathSetting = (
+    key: 'reportDirectory' | 'snapshotFile',
+    value: string,
+    fallback: string
+  ): string => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    const candidate = trimmed || fallback;
+    const validation = validateWorkspaceRelativeSubpathInput(candidate);
+
+    if (validation.ok) {
+      return candidate;
+    }
+
+    if (!warnedInvalidSubpathSettings.has(key)) {
+      warnedInvalidSubpathSettings.add(key);
+      vscode.window.showErrorMessage(
+        `보안 정책: vibereport.${key} 설정이 유효하지 않습니다 (절대 경로 및 \"..\" 금지). 기본값(\"${fallback}\")으로 대체합니다.`
+      );
+    }
+
+    return fallback;
+  };
+
   const excludePatternsIncludeDefaults = config.get<boolean>(
     'excludePatternsIncludeDefaults',
     DEFAULT_CONFIG.excludePatternsIncludeDefaults
@@ -79,11 +104,22 @@ export function loadConfig(): VibeReportConfig {
   const excludePatterns = excludePatternsIncludeDefaults
     ? normalizeExcludePatterns([...DEFAULT_CONFIG.excludePatterns, ...userExcludePatterns])
     : normalizeExcludePatterns(userExcludePatterns);
+
+  const reportDirectory = sanitizeWorkspaceSubpathSetting(
+    'reportDirectory',
+    config.get<string>('reportDirectory', DEFAULT_CONFIG.reportDirectory),
+    DEFAULT_CONFIG.reportDirectory
+  );
+  const snapshotFile = sanitizeWorkspaceSubpathSetting(
+    'snapshotFile',
+    config.get<string>('snapshotFile', DEFAULT_CONFIG.snapshotFile),
+    DEFAULT_CONFIG.snapshotFile
+  );
   
   return {
-    reportDirectory: config.get<string>('reportDirectory', DEFAULT_CONFIG.reportDirectory),
+    reportDirectory,
     analysisRoot: config.get<string>('analysisRoot', DEFAULT_CONFIG.analysisRoot),
-    snapshotFile: config.get<string>('snapshotFile', DEFAULT_CONFIG.snapshotFile),
+    snapshotFile,
     snapshotStorageMode: config.get<'workspaceFile' | 'vscodeStorage'>('snapshotStorageMode', DEFAULT_CONFIG.snapshotStorageMode),
     enableGitDiff: config.get<boolean>('enableGitDiff', DEFAULT_CONFIG.enableGitDiff),
     respectGitignore: config.get<boolean>('respectGitignore', DEFAULT_CONFIG.respectGitignore),

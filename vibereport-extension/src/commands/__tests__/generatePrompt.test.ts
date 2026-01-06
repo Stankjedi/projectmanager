@@ -391,6 +391,150 @@ Should not be selectable.
       expect(written).toContain('\n\n---\n\n');
     });
 
+    it('copies all pending prompts in numeric order (done excluded, in-progress included)', async () => {
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      const mockPromptMd = `
+## 📋 Execution Checklist
+
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-001 | Done Prompt | P2 | ✅ Done |
+| 2 | PROMPT-010 | Ten | P2 | ⬜ Pending |
+| 3 | PROMPT-002 | Two | P2 | 🟡 In Progress |
+
+### [PROMPT-010] Ten
+
+Ten content
+
+### [PROMPT-002] Two
+
+Two content
+
+### [PROMPT-001] Done Prompt
+
+Done content
+`;
+
+      const fs = await import('fs/promises');
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValue(undefined);
+
+      vi.mocked(vscode.window.showQuickPick).mockImplementation(async (items: any) => {
+        const action = items.find((item: any) =>
+          typeof item.label === 'string' && item.label.includes('Copy all pending prompts (in order)')
+        );
+        expect(action).toBeDefined();
+        return [action] as any;
+      });
+
+      const { GeneratePromptCommand } = await import('../generatePrompt.js');
+      const command = new GeneratePromptCommand(mockOutputChannel);
+
+      await command.execute();
+
+      expect(vscode.env.clipboard.writeText).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(vscode.env.clipboard.writeText).mock.calls[0][0] as string;
+
+      expect(written).toContain('### [PROMPT-002]');
+      expect(written).toContain('### [PROMPT-010]');
+      expect(written).not.toContain('### [PROMPT-001]');
+      expect(written.indexOf('PROMPT-002')).toBeLessThan(written.indexOf('PROMPT-010'));
+      expect(written).toContain('\n\n---\n\n');
+    });
+
+    it('copies all pending prompts + OPT items with correct ordering', async () => {
+      vi.mocked(vscode.workspace).workspaceFolders = [
+        { uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 } as vscode.WorkspaceFolder,
+      ];
+
+      const mockPromptMd = `
+## 📋 Execution Checklist
+
+| # | Prompt ID | Title | Priority | Status |
+|:---:|:---|:---|:---:|:---:|
+| 1 | PROMPT-002 | Two | P2 | 🟡 In Progress |
+| 2 | PROMPT-001 | One | P1 | ⬜ Pending |
+| 3 | PROMPT-003 | Done Prompt | P2 | ✅ Done |
+| 4 | OPT-2 | Second opt | OPT | ⬜ Pending |
+| 5 | OPT-1 | First opt | OPT | 🟡 In Progress |
+| 6 | OPT-3 | Done opt | OPT | ✅ Done |
+
+### [PROMPT-002] Two
+
+Two content
+
+### [PROMPT-001] One
+
+One content
+
+## 🔧 Optimization Items (OPT)
+
+### [OPT-2] Second opt
+
+| Field | Value |
+|:---|:---|
+| **Category** | Performance |
+| **Target Files** | src/b.ts |
+
+### [OPT-1] First opt
+
+| Field | Value |
+|:---|:---|
+| **Category** | Performance |
+| **Target Files** | src/a.ts |
+
+### [OPT-3] Done opt
+
+| Field | Value |
+|:---|:---|
+| **Category** | Performance |
+| **Target Files** | src/c.ts |
+
+## ✅ Final Completion
+`;
+
+      const fs = await import('fs/promises');
+      vi.mocked(fs.readFile).mockResolvedValue(mockPromptMd);
+      vi.mocked(vscode.window.showInformationMessage).mockResolvedValue(undefined);
+
+      vi.mocked(vscode.window.showQuickPick).mockImplementation(async (items: any) => {
+        const action = items.find((item: any) =>
+          typeof item.label === 'string' && item.label.includes('Copy all pending prompts + OPT items (in order)')
+        );
+        expect(action).toBeDefined();
+        return [action] as any;
+      });
+
+      const { GeneratePromptCommand } = await import('../generatePrompt.js');
+      const command = new GeneratePromptCommand(mockOutputChannel);
+
+      await command.execute();
+
+      expect(vscode.env.clipboard.writeText).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(vscode.env.clipboard.writeText).mock.calls[0][0] as string;
+
+      expect(written).toContain('### [PROMPT-001]');
+      expect(written).toContain('### [PROMPT-002]');
+      expect(written).toContain('### [OPT-1]');
+      expect(written).toContain('### [OPT-2]');
+      expect(written).not.toContain('### [PROMPT-003]');
+      expect(written).not.toContain('### [OPT-3]');
+
+      const idxPrompt1 = written.indexOf('### [PROMPT-001]');
+      const idxPrompt2 = written.indexOf('### [PROMPT-002]');
+      const idxOpt1 = written.indexOf('### [OPT-1]');
+      const idxOpt2 = written.indexOf('### [OPT-2]');
+
+      expect(idxPrompt1).toBeGreaterThanOrEqual(0);
+      expect(idxPrompt2).toBeGreaterThan(idxPrompt1);
+      expect(idxOpt1).toBeGreaterThan(idxPrompt2);
+      expect(idxOpt2).toBeGreaterThan(idxOpt1);
+      expect(written).toContain('\n\n---\n\n');
+    });
+
     it('should open Copilot Chat when user clicks the button', async () => {
       // Arrange
       vi.mocked(vscode.workspace).workspaceFolders = [

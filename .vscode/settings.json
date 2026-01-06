@@ -26,5 +26,6 @@
     "vibereport.defaultProjectType": "auto-detect",
     "vibereport.defaultQualityFocus": "development",
     "vibereport.previewBackgroundColor": "white",
-    "vibereport.reportOpenMode": "previewOnly"
+    "vibereport.reportOpenMode": "previewOnly",
+    "antigravity-auto-accept.enabled": true
 }

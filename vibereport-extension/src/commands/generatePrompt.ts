@@ -38,7 +38,8 @@ interface OptimizationItem {
  */
 type SelectableItem =
   | { type: 'prompt'; item: ExistingPrompt }
-  | { type: 'opt'; item: OptimizationItem };
+  | { type: 'opt'; item: OptimizationItem }
+  | { type: 'action'; action: 'copyAllPending' | 'copyAllPendingWithOpt' };
 
 /**
  * 프롬프트 선택 및 복사 명령
@@ -109,7 +110,7 @@ export class GeneratePromptCommand {
     promptPath: string
   ): Promise<void> {
     // QuickPick 아이템 생성
-    const quickPickItems: (vscode.QuickPickItem & { _item: SelectableItem })[] = [];
+    const quickPickItems: (vscode.QuickPickItem & { _item: SelectableItem | null })[] = [];
 
     // 프롬프트 항목 추가 (완료된 항목 제외, 미완료 항목만 표시)
     const pendingPrompts = prompts.filter(p => p.status !== 'done');
@@ -142,7 +143,7 @@ export class GeneratePromptCommand {
         description: '코드 품질 및 성능 최적화 제안',
         detail: '',
         kind: vscode.QuickPickItemKind.Separator,
-        _item: null as unknown as SelectableItem,
+        _item: null,
       });
     }
 
@@ -155,8 +156,39 @@ export class GeneratePromptCommand {
       });
     }
 
+    // 원클릭 액션: 전체 미완료 항목을 순서대로 복사
+    const actionItems: (vscode.QuickPickItem & { _item: SelectableItem | null })[] = [
+      {
+        label: '📋 Copy all pending prompts (in order)',
+        description: 'PROMPT-### only',
+        detail: 'Copies all non-done prompts ordered by PROMPT number.',
+        _item: { type: 'action', action: 'copyAllPending' },
+      },
+    ];
+
+    if (pendingOptItems.length > 0) {
+      actionItems.push({
+        label: '📋 Copy all pending prompts + OPT items (in order)',
+        description: 'PROMPT-### then OPT-#',
+        detail: 'Copies all non-done prompts ordered by PROMPT number, then OPT items ordered by OPT number.',
+        _item: { type: 'action', action: 'copyAllPendingWithOpt' },
+      });
+    }
+
+    if (quickPickItems.length > 0) {
+      actionItems.push({
+        label: '─────────────────────────────────',
+        description: '개별 항목 선택',
+        detail: '',
+        kind: vscode.QuickPickItemKind.Separator,
+        _item: null,
+      });
+    }
+
+    const allQuickPickItems = [...actionItems, ...quickPickItems];
+
     const selected = await vscode.window.showQuickPick(
-      quickPickItems.filter(item => item.kind !== vscode.QuickPickItemKind.Separator),
+      allQuickPickItems.filter(item => item.kind !== vscode.QuickPickItemKind.Separator),
       {
         canPickMany: true,
         placeHolder: '복사할 프롬프트 또는 OPT 항목을 선택하세요 (여러 개 선택 가능)',
@@ -166,13 +198,29 @@ export class GeneratePromptCommand {
 
     if (!selected || selected.length === 0) return;
 
+    const selectedItems = selected
+      .map((sel) => sel._item)
+      .filter((item): item is SelectableItem => item !== null);
+
+    const selectedActions = selectedItems.filter((item) => item.type === 'action') as Array<{
+      type: 'action';
+      action: 'copyAllPending' | 'copyAllPendingWithOpt';
+    }>;
+
+    const selectionForCopy: Array<{ type: 'prompt'; item: ExistingPrompt } | { type: 'opt'; item: OptimizationItem }> =
+      selectedActions.length > 0
+        ? this.buildAllPendingSelection(prompts, optItems, {
+            includeOptItems: selectedActions.some((action) => action.action === 'copyAllPendingWithOpt'),
+          })
+        : (selectedItems.filter((item) => item.type !== 'action') as Array<
+            { type: 'prompt'; item: ExistingPrompt } | { type: 'opt'; item: OptimizationItem }
+          >);
+
     // 선택된 모든 항목의 내용을 합침
     const contents: string[] = [];
     const itemIds: string[] = [];
 
-    for (const sel of selected) {
-      const selectedItem = sel._item;
-
+    for (const selectedItem of selectionForCopy) {
       if (selectedItem.type === 'prompt') {
         contents.push(selectedItem.item.fullContent);
         itemIds.push(selectedItem.item.promptId);
@@ -207,6 +255,39 @@ export class GeneratePromptCommand {
     }
 
     this.log(`항목 [${itemIds.join(', ')}] 클립보드에 복사됨`);
+  }
+
+  private buildAllPendingSelection(
+    prompts: ExistingPrompt[],
+    optItems: OptimizationItem[],
+    options: { includeOptItems: boolean }
+  ): Array<{ type: 'prompt'; item: ExistingPrompt } | { type: 'opt'; item: OptimizationItem }> {
+    const promptNumber = (promptId: string): number => {
+      const match = promptId.match(/PROMPT-(\d+)/i);
+      return match ? parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
+    };
+
+    const optNumber = (optId: string): number => {
+      const match = optId.match(/OPT-(\d+)/i);
+      return match ? parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
+    };
+
+    const pendingPrompts = prompts
+      .filter((p) => p.status !== 'done')
+      .sort((a, b) => promptNumber(a.promptId) - promptNumber(b.promptId));
+
+    const selection: Array<{ type: 'prompt'; item: ExistingPrompt } | { type: 'opt'; item: OptimizationItem }> =
+      pendingPrompts.map((prompt) => ({ type: 'prompt' as const, item: prompt }));
+
+    if (options.includeOptItems) {
+      const pendingOptItems = optItems
+        .filter((opt) => opt.status !== 'done')
+        .sort((a, b) => optNumber(a.optId) - optNumber(b.optId));
+
+      selection.push(...pendingOptItems.map((opt) => ({ type: 'opt' as const, item: opt })));
+    }
+
+    return selection;
   }
 
   /**

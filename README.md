@@ -52,7 +52,7 @@
 
 ### From VSIX
 ```bash
-code --install-extension vibereport-extension/vibereport-0.4.39.vsix
+code --install-extension vibereport-extension/vibereport-0.4.40.vsix
 ```
 
 ### Development
@@ -218,7 +218,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.39.vsix 생성
+# vibereport-0.4.40.vsix 생성
 ```
 
 ## 📝 License

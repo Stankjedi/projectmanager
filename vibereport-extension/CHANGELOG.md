@@ -4,6 +4,14 @@
 
 ---
 
+## [0.4.40] - 2026-01-05
+
+### 🛰️ Antigravity
+
+- **Auto-Accept 설정 추가**: Vibe Report Settings에서 `antigravity-auto-accept.enabled`를 온/오프 가능 (기본값: false)
+
+---
+
 ## [0.4.39] - 2026-01-05
 
 ### 📦 배포

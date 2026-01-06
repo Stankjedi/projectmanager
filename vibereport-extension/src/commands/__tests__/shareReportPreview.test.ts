@@ -143,8 +143,7 @@ describe('shareReportPreview', () => {
         '| 항목 | 점수 |',
         '| --- | --- |',
         '| 코드 품질 | 90 |',
-        '',
-        '### 점수-등급 기준표',
+        '<!-- AUTO-SCORE-END -->',
       ].join('\n');
 
       const { ShareReportCommand } = await import('../shareReport.js');
@@ -176,8 +175,7 @@ describe('shareReportPreview', () => {
         '| 항목 | 점수 |',
         '| --- | --- |',
         '| 코드 품질 | 90 |',
-        '',
-        '### 점수-등급 기준표',
+        '<!-- AUTO-SCORE-END -->',
       ].join('\n');
 
       const { ShareReportCommand } = await import('../shareReport.js');
@@ -189,6 +187,141 @@ describe('shareReportPreview', () => {
       expect(preview).toContain('command:vibereport.openFunctionInFile');
       expect(preview).toContain('session_abc123_def456');
       expect(preview).not.toContain('[REDACTED_PATH]');
+    });
+  });
+
+  describe('ShareReportCommand localization', () => {
+    it('renders an English preview when language is en', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-06-15T12:00:00.000Z'));
+
+      mockConfigGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === 'sharePreviewRedactionEnabled') return false;
+        if (key === 'language') return 'en';
+        return defaultValue;
+      });
+
+      const evalContent = [
+        '<!-- AUTO-TLDR-START -->',
+        '| Item | Value |',
+        '|------|------|',
+        '| **Current Version** | 0.4.28 |',
+        '| **Top Risk** | Regression tests missing |',
+        '<!-- AUTO-TLDR-END -->',
+        '',
+        '<!-- AUTO-SCORE-START -->',
+        '| Category | Score | Grade | Change |',
+        '| --- | --- | --- | --- |',
+        '| Code Quality | 90 | 🟢 A- | - |',
+        '| **Total Average** | **83** | 🔵 B | - |',
+        '<!-- AUTO-SCORE-END -->',
+      ].join('\n');
+
+      const { ShareReportCommand } = await import('../shareReport.js');
+      const command = new ShareReportCommand({ appendLine: vi.fn() } as any);
+
+      const preview = (command as any).generatePreviewReport(
+        evalContent,
+        '/workspace/demo',
+        'devplan/Project_Evaluation_Report.md'
+      );
+
+      expect(preview).toContain('Summary (TL;DR)');
+      expect(preview).toContain('Generated on');
+      expect(preview).toContain('Overall score');
+      expect(preview).toContain('> 📦 Version: 0.4.28');
+      expect(preview).toContain('> 🏆 Overall score: **83 (🔵 B)**');
+      expect(preview).not.toContain('점');
+      expect(preview).not.toMatch(/[가-힣]/);
+
+      vi.useRealTimers();
+    });
+
+    it('renders a Korean preview when language is ko', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-06-15T12:00:00.000Z'));
+
+      mockConfigGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === 'sharePreviewRedactionEnabled') return false;
+        if (key === 'language') return 'ko';
+        return defaultValue;
+      });
+
+      const evalContent = [
+        '<!-- AUTO-TLDR-START -->',
+        '| 항목 | 내용 |',
+        '|------|------|',
+        '| **현재 버전** | 0.4.28 |',
+        '| **최대 리스크** | 회귀 테스트 부족 |',
+        '<!-- AUTO-TLDR-END -->',
+        '',
+        '<!-- AUTO-SCORE-START -->',
+        '| 항목 | 점수 | 등급 | 변화 |',
+        '| --- | --- | --- | --- |',
+        '| 코드 품질 | 90 | 🟢 A- | - |',
+        '| **총점 평균** | **83** | 🔵 B | - |',
+        '<!-- AUTO-SCORE-END -->',
+      ].join('\n');
+
+      const { ShareReportCommand } = await import('../shareReport.js');
+      const command = new ShareReportCommand({ appendLine: vi.fn() } as any);
+
+      const preview = (command as any).generatePreviewReport(
+        evalContent,
+        '/workspace/demo',
+        'devplan/Project_Evaluation_Report.md'
+      );
+
+      expect(preview).toContain('요약 (TL;DR)');
+      expect(preview).toContain('생성일');
+      expect(preview).toContain('종합 점수');
+      expect(preview).toContain('> 📦 버전: 0.4.28');
+      expect(preview).toContain('> 🏆 종합 점수: **83점 (🔵 B)**');
+      expect(preview).toContain('점');
+      expect(preview).toMatch(/[가-힣]/);
+
+      vi.useRealTimers();
+    });
+
+    it('prefers marker-extracted metadata over unrelated occurrences elsewhere in the markdown', async () => {
+      mockConfigGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === 'sharePreviewRedactionEnabled') return false;
+        if (key === 'language') return 'en';
+        return defaultValue;
+      });
+
+      const evalContent = [
+        '# Heading that changes often',
+        '',
+        '**Current Version** | 9.9.9 |',
+        '**Total Average** | **99** | 🟢 A+ |',
+        '',
+        '<!-- AUTO-TLDR-START -->',
+        '| Item | Value |',
+        '|------|------|',
+        '| **Current Version** | 0.4.28 |',
+        '<!-- AUTO-TLDR-END -->',
+        '',
+        '<!-- AUTO-SCORE-START -->',
+        '| Category | Score | Grade | Change |',
+        '| --- | --- | --- | --- |',
+        '| **Total Average** | **83** | 🔵 B | - |',
+        '<!-- AUTO-SCORE-END -->',
+      ].join('\n');
+
+      const { ShareReportCommand } = await import('../shareReport.js');
+      const command = new ShareReportCommand({ appendLine: vi.fn() } as any);
+
+      const preview = (command as any).generatePreviewReport(
+        evalContent,
+        '/workspace/demo',
+        'devplan/Project_Evaluation_Report.md'
+      );
+
+      expect(preview).toContain('> 📦 Version: 0.4.28');
+      expect(preview).toContain('> 🏆 Overall score: **83 (🔵 B)**');
+      expect(preview).not.toContain('Version: 9.9.9');
+      expect(preview).not.toContain('**99 (🟢 A+)**');
     });
   });
 });

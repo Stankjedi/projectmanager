@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { loadConfig, selectWorkspaceRoot, resolveAnalysisRoot } from '../utils/index.js';
 import { redactForSharing } from '../utils/redactionUtils.js';
-import { extractScoreTable } from './shareReportPreview.js';
+import { buildSharePreviewMarkdown } from './shareReportPreview.js';
 import { SnapshotService } from '../services/snapshotService.js';
 
 type ExportMetadata = {
@@ -109,14 +109,21 @@ export class ExportReportBundleCommand {
       const previewRaw = this.generateSharePreviewMarkdown(
         evalContent,
         workspaceRoot,
-        reportRelativePath
+        reportRelativePath,
+        config.language
       );
       const preview = redactionEnabled ? redactForSharing(previewRaw) : previewRaw;
+
+      const evalOut = redactionEnabled ? redactForSharing(evalContent) : evalContent;
+      const improvementOut = redactionEnabled ? redactForSharing(improvementContent) : improvementContent;
+      const promptOut = redactionEnabled ? redactForSharing(promptContent) : promptContent;
+
+      const workspaceRootForMetadata = redactionEnabled ? path.basename(workspaceRoot) : workspaceRoot;
 
       const metadata: ExportMetadata = {
         version: readExtensionVersion(),
         timestamp: now.toISOString(),
-        workspaceRoot,
+        workspaceRoot: workspaceRootForMetadata || 'workspace',
         analysisRoot: config.analysisRoot,
         reportDirectory: config.reportDirectory,
         redactionEnabled,
@@ -125,12 +132,12 @@ export class ExportReportBundleCommand {
       await vscode.workspace.fs.createDirectory(vscode.Uri.file(bundleDir));
 
       await Promise.all([
-        writeTextFile(path.join(bundleDir, 'Project_Evaluation_Report.md'), evalContent),
+        writeTextFile(path.join(bundleDir, 'Project_Evaluation_Report.md'), evalOut),
         writeTextFile(
           path.join(bundleDir, 'Project_Improvement_Exploration_Report.md'),
-          improvementContent
+          improvementOut
         ),
-        writeTextFile(path.join(bundleDir, 'Prompt.md'), promptContent),
+        writeTextFile(path.join(bundleDir, 'Prompt.md'), promptOut),
         writeTextFile(path.join(bundleDir, 'Share_Preview.md'), preview),
         writeTextFile(
           path.join(bundleDir, 'evaluation-history.json'),
@@ -152,58 +159,15 @@ export class ExportReportBundleCommand {
   private generateSharePreviewMarkdown(
     evalContent: string,
     workspaceRootPath: string,
-    reportRelativePath: string
+    reportRelativePath: string,
+    language: 'ko' | 'en' | undefined
   ): string {
-    const projectName = path.basename(workspaceRootPath);
-    const now = new Date().toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    return buildSharePreviewMarkdown({
+      evalContent,
+      workspaceRootPath,
+      reportRelativePath,
+      language,
     });
-
-    // TL;DR 섹션 추출
-    const tldrMatch = evalContent.match(/<!-- TLDR-START -->([\s\S]*?)<!-- TLDR-END -->/);
-    const tldr = tldrMatch ? cleanMarkdownTable(tldrMatch[1]) : '';
-
-    // 종합 점수 테이블 추출
-    const scoreMatch = evalContent.match(/<!-- AUTO-SCORE-START -->([\s\S]*?)### 점수-등급 기준표/);
-    const scoreTable = scoreMatch ? extractScoreTable(scoreMatch[1]) : '';
-
-    // 버전 추출
-    const versionMatch = evalContent.match(/\*\*현재 버전\*\*\s*\|\s*([^\|]+)/);
-    const version = versionMatch ? versionMatch[1].trim() : '-';
-
-    // 종합 점수 추출
-    const totalScoreMatch = evalContent.match(/\*\*총점 평균\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|\s*([^\|]+)/);
-    const totalScore = totalScoreMatch ? totalScoreMatch[1] : '-';
-    const totalGrade = totalScoreMatch ? totalScoreMatch[2].trim() : '-';
-
-    return `# 📊 ${projectName} 프로젝트 평가 보고서
-
-> 🗓️ 생성일: ${now}
-> 📦 버전: ${version}
-> 🏆 종합 점수: **${totalScore}점 (${totalGrade})**
-
----
-
-## 📝 요약 (TL;DR)
-
-${tldr}
-
----
-
-## 📊 상세 점수
-
-${scoreTable}
-
----
-
-## 🔗 상세 정보
-
-이 보고서는 [Vibe Coding Report](https://marketplace.visualstudio.com/items?itemName=stankjedi.vibereport) VS Code 확장으로 자동 생성되었습니다.
-
-전체 보고서는 프로젝트의 \`${reportRelativePath}\` 파일에서 확인 할 수 있습니다.
-`;
   }
 
   private log(message: string): void {
@@ -217,14 +181,6 @@ function readExtensionVersion(): string {
   } catch {
     return 'unknown';
   }
-}
-
-function cleanMarkdownTable(content: string): string {
-  return content
-    .trim()
-    .split('\n')
-    .filter(line => line.trim().startsWith('|'))
-    .join('\n');
 }
 
 function pad2(value: number): string {

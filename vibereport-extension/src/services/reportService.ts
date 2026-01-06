@@ -26,6 +26,7 @@ import type {
 } from '../models/types.js';
 import { REPORT_FILE_NAMES, EVALUATION_CATEGORY_LABELS } from '../models/types.js';
 import type { SessionRecord } from '../models/types.js';
+import { DEFAULT_CONFIG } from '../utils/configUtils.js';
 import {
   MARKERS,
   appendBetweenMarkers,
@@ -59,6 +60,7 @@ import {
 } from './reportService/sessionHistoryUtils.js';
 import { writeFileIfChanged } from './reportService/writeFileIfChanged.js';
 import { OperationCancelledError } from '../models/errors.js';
+import { resolveWorkspaceSubpathPortable } from '../utils/workspaceSubpathUtils.js';
 
 const TODO_FIXME_SECTION_MARKERS = {
   START: '<!-- AUTO-TODO-FIXME-START -->',
@@ -76,6 +78,25 @@ export class ReportService {
     this.outputChannel = outputChannel;
   }
 
+  private resolveReportDirectory(rootPath: string, reportDirectory: string): string {
+    const trimmed = typeof reportDirectory === 'string' ? reportDirectory.trim() : '';
+    const candidate = trimmed || DEFAULT_CONFIG.reportDirectory;
+
+    const resolved = resolveWorkspaceSubpathPortable(rootPath, candidate, path);
+    if (resolved.ok) {
+      return resolved.resolved;
+    }
+
+    this.log(
+      `보안 정책: reportDirectory 값이 유효하지 않아 기본값으로 대체합니다 (value=${JSON.stringify(reportDirectory)})`
+    );
+
+    const fallbackResolved = resolveWorkspaceSubpathPortable(rootPath, DEFAULT_CONFIG.reportDirectory, path);
+    return fallbackResolved.ok
+      ? fallbackResolved.resolved
+      : path.join(rootPath, DEFAULT_CONFIG.reportDirectory);
+  }
+
   /**
    * 보고서 파일 경로 계산
    *
@@ -85,7 +106,7 @@ export class ReportService {
    * @returns 평가/개선 보고서의 절대 경로
    */
   getReportPaths(rootPath: string, config: VibeReportConfig): ReportPaths & { sessionHistory: string; prompt: string } {
-    const reportDir = path.join(rootPath, config.reportDirectory);
+    const reportDir = this.resolveReportDirectory(rootPath, config.reportDirectory);
     return {
       evaluation: path.join(reportDir, REPORT_FILE_NAMES.evaluation),
       improvement: path.join(reportDir, REPORT_FILE_NAMES.improvement),
@@ -356,7 +377,7 @@ export class ReportService {
    * @param config Vibe Report 설정
    */
   async ensureReportDirectory(rootPath: string, config: VibeReportConfig): Promise<void> {
-    const reportDir = path.join(rootPath, config.reportDirectory);
+    const reportDir = this.resolveReportDirectory(rootPath, config.reportDirectory);
     try {
       await fs.mkdir(reportDir, { recursive: true });
     } catch {

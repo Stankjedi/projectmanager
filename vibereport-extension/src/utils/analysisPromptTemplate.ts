@@ -7,7 +7,6 @@
  */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 import type {
   ProjectSnapshot,
   SnapshotDiff,
@@ -15,22 +14,8 @@ import type {
   VibeReportConfig,
   ProjectVision,
 } from '../models/types.js';
-
-function isSensitivePath(filePath: string): boolean {
-  const normalized = filePath.replace(/\\/g, '/').toLowerCase();
-  const baseName = path.posix.basename(normalized);
-
-  if (baseName === 'vsctoken.txt') return true;
-  if (baseName.startsWith('.env')) return true;
-
-  // Heuristic token match (intentionally conservative for safety).
-  if (normalized.includes('token')) return true;
-  if (normalized.includes('secret')) return true;
-  if (normalized.includes('credential')) return true;
-  if (normalized.includes('key')) return true;
-
-  return false;
-}
+import { redactSecretLikePatterns } from './redactionUtils.js';
+import { isSensitivePath } from './sensitiveFilesUtils.js';
 
 /**
  * 분석 프롬프트 생성
@@ -259,8 +244,12 @@ export function buildAnalysisPrompt(
     .trim();
 
   if (customInstructions) {
+    const redactedCustomInstructions = redactSecretLikePatterns(customInstructions);
     lines.push('[User Custom Instructions]');
-    lines.push(customInstructions);
+    if (redactedCustomInstructions !== customInstructions) {
+      lines.push('Note: Secret-like patterns were redacted from user custom instructions.');
+    }
+    lines.push(redactedCustomInstructions);
     lines.push('');
   }
 

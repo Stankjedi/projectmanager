@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { DEFAULT_CONFIG } from '../utils/configUtils.js';
+import { validateWorkspaceRelativeSubpathInput } from '../utils/workspaceSubpathUtils.js';
 import { buildSettingsHtml } from './settingsViewHtml.js';
 
 type SettingsKey =
@@ -24,6 +25,7 @@ type SettingsKey =
   | 'defaultQualityFocus'
   | 'enableAutoUpdateReports'
   | 'autoUpdateDebounceMs'
+  | 'antigravityAutoAcceptEnabled'
   | 'previewEnabled'
   | 'preferredMarkdownViewer'
   | 'previewBackgroundColor'
@@ -48,6 +50,7 @@ const SETTINGS_KEYS: ReadonlySet<SettingsKey> = new Set<SettingsKey>([
   'reportOpenMode',
   'enableAutoUpdateReports',
   'autoUpdateDebounceMs',
+  'antigravityAutoAcceptEnabled',
 ]);
 
 function isSettingsKey(key: string): key is SettingsKey {
@@ -64,11 +67,12 @@ function isDeepEqual(left: unknown, right: unknown): boolean {
 
 async function updateSettingIfChanged(
   config: vscode.WorkspaceConfiguration,
-  key: SettingsKey,
+  key: string,
+  defaultFactory: () => unknown,
   newValue: unknown,
   target: vscode.ConfigurationTarget
 ): Promise<boolean> {
-  const currentValue = config.get(key, SETTINGS_DEFAULT_FACTORIES[key]());
+  const currentValue = config.get(key, defaultFactory());
   if (isDeepEqual(currentValue, newValue)) {
     return false;
   }
@@ -92,11 +96,20 @@ const SETTINGS_DEFAULT_FACTORIES: Record<SettingsKey, () => unknown> = {
   defaultQualityFocus: () => DEFAULT_CONFIG.defaultQualityFocus,
   enableAutoUpdateReports: () => false,
   autoUpdateDebounceMs: () => 1500,
+  antigravityAutoAcceptEnabled: () => false,
   previewEnabled: () => true,
   preferredMarkdownViewer: () => 'mermaid',
   previewBackgroundColor: () => 'ide',
   reportOpenMode: () => 'previewOnly',
 };
+
+function resolveConfigurationKey(key: SettingsKey): { section: string | null; key: string } {
+  if (key === 'antigravityAutoAcceptEnabled') {
+    return { section: null, key: 'antigravity-auto-accept.enabled' };
+  }
+
+  return { section: 'vibereport', key };
+}
 
 type ValidationResult<T> =
   | { ok: true; value: T }
@@ -139,7 +152,12 @@ function validateSettingValue(key: SettingsKey, value: unknown): ValidationResul
     case 'reportDirectory': {
       const res = trimmedString(value);
       if (!res.ok) return res;
-      return { ok: true, value: res.value || DEFAULT_CONFIG.reportDirectory };
+      const nextValue = res.value || DEFAULT_CONFIG.reportDirectory;
+      const validation = validateWorkspaceRelativeSubpathInput(nextValue);
+      if (!validation.ok) {
+        return { ok: false, error: '절대 경로 및 ".."(상위 경로) 사용은 허용되지 않습니다.' };
+      }
+      return { ok: true, value: nextValue };
     }
     case 'analysisRoot': {
       const res = trimmedString(value);
@@ -150,7 +168,15 @@ function validateSettingValue(key: SettingsKey, value: unknown): ValidationResul
     case 'snapshotFile': {
       const res = trimmedString(value);
       if (!res.ok) return res;
-      return { ok: true, value: res.value || DEFAULT_CONFIG.snapshotFile };
+      const nextValue = res.value || DEFAULT_CONFIG.snapshotFile;
+      const validation = validateWorkspaceRelativeSubpathInput(nextValue);
+      if (!validation.ok) {
+        return { ok: false, error: '절대 경로 및 ".."(상위 경로) 사용은 허용되지 않습니다.' };
+      }
+      return { ok: true, value: nextValue };
+    }
+    case 'antigravityAutoAcceptEnabled': {
+      return booleanValue(value);
     }
     case 'enableGitDiff':
     case 'autoOpenReports':
@@ -348,16 +374,19 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
         validated.set(key, res.value);
       }
 
-      const config = vscode.workspace.getConfiguration('vibereport');
-
       let updatedCount = 0;
       for (const key of SETTINGS_KEYS) {
         if (!validated.has(key)) continue;
         const value = validated.get(key);
 
+        const resolved = resolveConfigurationKey(key);
+        const settingConfig = resolved.section
+          ? vscode.workspace.getConfiguration(resolved.section)
+          : vscode.workspace.getConfiguration();
         const wasUpdated = await updateSettingIfChanged(
-          config,
-          key,
+          settingConfig,
+          resolved.key,
+          SETTINGS_DEFAULT_FACTORIES[key],
           value,
           vscode.ConfigurationTarget.Workspace
         );
@@ -391,6 +420,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     if (!this._view) return;
 
     const config = vscode.workspace.getConfiguration('vibereport');       
+    const rootConfig = vscode.workspace.getConfiguration();
     const settings = {
       reportDirectory: config.get<string>('reportDirectory', DEFAULT_CONFIG.reportDirectory),
       analysisRoot: config.get<string>('analysisRoot', DEFAULT_CONFIG.analysisRoot),
@@ -410,6 +440,10 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       reportOpenMode: config.get<string>('reportOpenMode', 'previewOnly'),
       enableAutoUpdateReports: config.get<boolean>('enableAutoUpdateReports', false),
       autoUpdateDebounceMs: config.get<number>('autoUpdateDebounceMs', 1500),
+      antigravityAutoAcceptEnabled: rootConfig.get<boolean>(
+        'antigravity-auto-accept.enabled',
+        false
+      ),
     };
 
     await this._view.webview.postMessage({
@@ -423,6 +457,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
    */
   private async resetToDefaults(): Promise<void> {
     const config = vscode.workspace.getConfiguration('vibereport');       
+    const rootConfig = vscode.workspace.getConfiguration();
 
     const defaults = {
       reportDirectory: DEFAULT_CONFIG.reportDirectory,
@@ -443,14 +478,18 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
       reportOpenMode: 'previewOnly',
       enableAutoUpdateReports: false,
       autoUpdateDebounceMs: 1500,
+      antigravityAutoAcceptEnabled: false,
     };
 
     const entries = Object.entries(defaults) as Array<[SettingsKey, unknown]>;
     let updatedCount = 0;
     for (const [key, value] of entries) {
+      const resolved = resolveConfigurationKey(key);
+      const settingConfig = resolved.section ? config : rootConfig;
       const wasUpdated = await updateSettingIfChanged(
-        config,
-        key,
+        settingConfig,
+        resolved.key,
+        SETTINGS_DEFAULT_FACTORIES[key],
         value,
         vscode.ConfigurationTarget.Workspace
       );
@@ -496,4 +535,3 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     this.outputChannel.appendLine(`[SettingsView] ${message}`);
   }
 }
-

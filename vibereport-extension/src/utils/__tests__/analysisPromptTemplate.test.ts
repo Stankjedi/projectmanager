@@ -175,6 +175,47 @@ describe('analysisPromptTemplate', () => {
     expect(prompt).toContain('`vsctoken.txt` (sensitive)');
   });
 
+  it('does not treat false-positive filenames as sensitive (monkey.ts)', () => {
+    const diff: SnapshotDiff = {
+      ...baseDiff,
+      isInitial: false,
+      newFiles: ['src/monkey.ts', 'vsctoken.txt'],
+    };
+
+    const prompt = buildAnalysisPrompt(
+      snapshot,
+      diff,
+      [],
+      false,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('`src/monkey.ts`');
+    expect(prompt).not.toContain('`src/monkey.ts` (sensitive)');
+    expect(prompt).toContain('`vsctoken.txt` (sensitive)');
+  });
+
+  it('still detects .env files as sensitive', () => {
+    const diff: SnapshotDiff = {
+      ...baseDiff,
+      isInitial: false,
+      newFiles: ['.env', 'src/new-safe.ts'],
+    };
+
+    const prompt = buildAnalysisPrompt(
+      snapshot,
+      diff,
+      [],
+      false,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('`src/new-safe.ts`');
+    expect(prompt).toContain('`.env` (sensitive)');
+  });
+
   it('redacts TODO/FIXME findings from sensitive files', () => {
     const snapshotWithFindings: ProjectSnapshot = {
       ...snapshot,
@@ -262,6 +303,7 @@ describe('analysisPromptTemplate', () => {
 
     expect(prompt).toContain('[User Custom Instructions]');
     expect(prompt).toContain('Use clear headings and keep changes minimal.');
+    expect(prompt).not.toContain('Note: Secret-like patterns were redacted from user custom instructions.');
     expect(prompt).toContain('Recently added files');
     expect(prompt).toContain('... and 2 more');
     expect(prompt).toContain('Recently removed files:');
@@ -271,5 +313,24 @@ describe('analysisPromptTemplate', () => {
     );
     expect(prompt).toContain('Reflect the following User-Defined Project Vision:');
     expect(prompt).toContain(`- **Core Goals:** ${projectVision.coreGoals.join(', ')}`);
+  });
+
+  it('redacts secret-like patterns in custom instructions and adds a safety note', () => {
+    const token = 'sk-1234567890abcdefghijklmnopqrstuvwxyz';
+    vscodeMock.get.mockReturnValue(`Please use this token: ${token}`);
+
+    const prompt = buildAnalysisPrompt(
+      snapshot,
+      baseDiff,
+      [],
+      true,
+      config,
+      reportPaths
+    );
+
+    expect(prompt).toContain('[User Custom Instructions]');
+    expect(prompt).toContain('Note: Secret-like patterns were redacted from user custom instructions.');
+    expect(prompt).not.toContain(token);
+    expect(prompt).toContain('sk-[REDACTED_SECRET]');
   });
 });
