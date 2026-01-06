@@ -13,7 +13,7 @@
 | 항목 | 값 |
 |------|-----|
 | **프로젝트명** | projectmanager (Vibe Coding Report VS Code 확장) |
-| **버전** | v0.4.40 (`vibereport-extension/package.json`) |
+| **버전** | v0.4.41 (`vibereport-extension/package.json`) |
 | **분석 기준일** | 2026-01-06 |
 | **로컬 검증(본 환경)** | `pnpm -C vibereport-extension run compile` ✅ / `pnpm -C vibereport-extension run lint` ✅ / `pnpm -C vibereport-extension run test:run` ✅(테스트 417개) / `pnpm -C vibereport-extension run doctor:check` ✅ (2026-01-06) |
 | **테스트/커버리지** | CI: `.github/workflows/ci.yml`에서 `compile`/`lint`/`bundle`/`test:run`/`test:coverage` 실행 |

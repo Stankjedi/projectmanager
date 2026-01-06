@@ -4,6 +4,21 @@
 
 ---
 
+## [0.4.41] - 2026-01-06
+
+### 🔒 보안 / 품질
+
+- **경로 설정 검증 강화**: `vibereport.reportDirectory`, `vibereport.snapshotFile`에 대해 절대 경로 및 `..`(path traversal) 차단
+- **커스텀 지침 안전 처리**: `vibereport.ai.customInstructions`에 포함된 secret-like 패턴 자동 마스킹 및 안내 문구 추가
+- **민감 파일 탐지 일원화**: 분석 프롬프트 템플릿에서 `isSensitivePath(...)` 공용 유틸 사용 (false positive 감소)
+- **공유 프리뷰 메타데이터 파싱 강화**: TL;DR/Score 마커 기반 파싱으로 버전/총점 추출 안정화(취약한 전체 regex 스캔은 fallback)
+
+### 🧭 UX
+
+- **프롬프트 원클릭 워크플로우**: "미완료 프롬프트 전체(순서대로) 복사" 옵션 추가 (+OPT 포함 옵션)
+
+---
+
 ## [0.4.40] - 2026-01-05
 
 ### 🛰️ Antigravity

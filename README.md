@@ -38,10 +38,15 @@
 - 우선순위(P1/P2/P3)별 분류
 - 다음 보고서에서 중복 제안 방지
 
+### 🔒 보안/안전 가드
+- `vibereport.reportDirectory`, `vibereport.snapshotFile` 경로 설정에 대해 절대 경로 및 `..`(path traversal) 차단
+- 분석 프롬프트에 포함되는 사용자 커스텀 지침에서 secret-like 패턴 자동 마스킹
+
 ### 📋 AI 친화적 출력
 - 클립보드에 분석 프롬프트 자동 복사
 - Copilot Chat에 바로 붙여넣기 가능
 - 순차 실행 가능한 프롬프트 구조
+- 미완료 프롬프트 전체(순서대로) 원클릭 복사 지원
 
 ### 🖥️ 사이드바 UI
 - 프로젝트 요약 Webview (CSP 보안 적용)
@@ -52,7 +57,7 @@
 
 ### From VSIX
 ```bash
-code --install-extension vibereport-extension/vibereport-0.4.40.vsix
+code --install-extension vibereport-extension/vibereport-0.4.41.vsix
 ```
 
 ### Development
@@ -88,17 +93,21 @@ pnpm run compile
 | `VibeCoding: Open Session History` | 세션 히스토리 열기 |
 | `VibeCoding: Generate Improvement Prompt` | 개선 프롬프트 생성 |
 | `VibeCoding: Share Report Preview` | 보고서 프리뷰 공유 |
+| `VibeCoding: Export Report Bundle` | 보고서 번들 내보내기 |
 | `VibeCoding: Open Code Reference` | 코드 레퍼런스 열기 |
 | `VibeCoding: Open Report Preview (with Mermaid)` | Mermaid 지원 보고서 프리뷰 |
+| `VibeCoding: Set Analysis Root (Wizard)` | 분석 루트 설정(마법사) |
+| `VibeCoding: Open Troubleshooting Guide` | 문제 해결 가이드 열기 |
 | `VibeCoding: Report Doctor: Validate/Repair Reports` | 보고서 검증/복구 |
+| `Antigravity: Toggle Auto-Accept` | 승인(accept) 자동 실행 토글 |
 | `VibeCoding: Initialize Project Reports` | 보고서 초기화 |
 
 ## ⚙️ Configuration
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `vibereport.reportDirectory` | 보고서 저장 디렉토리 | `devplan` |
-| `vibereport.snapshotFile` | 스냅샷 상태 파일 경로 | `.vscode/vibereport-state.json` |
+| `vibereport.reportDirectory` | 보고서 저장 디렉토리 (보안: 워크스페이스 하위 상대 경로만 허용) | `devplan` |
+| `vibereport.snapshotFile` | 스냅샷 상태 파일 경로 (보안: 워크스페이스 하위 상대 경로만 허용) | `.vscode/vibereport-state.json` |
 | `vibereport.enableGitDiff` | Git 기반 변경 분석 활성화 | `true` |
 | `vibereport.excludePatterns` | 스캔 제외 패턴 | `["**/node_modules/**", ...]` |
 | `vibereport.maxFilesToScan` | 최대 스캔 파일 수 | `5000` |
@@ -218,7 +227,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.40.vsix 생성
+# vibereport-0.4.41.vsix 생성
 ```
 
 ## 📝 License

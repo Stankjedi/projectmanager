@@ -15,14 +15,14 @@
   <a href="https://github.com/Stankjedi/projectmanager/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   </a>
-  <img src="https://img.shields.io/badge/version-0.4.40-brightgreen" alt="Current Version">
+  <img src="https://img.shields.io/badge/version-0.4.41-brightgreen" alt="Current Version">
 </p>
 
 ---
 
 바이브 코딩(AI 페어 프로그래밍)을 통해 프로그램을 제작할 때, 프로젝트 상태를 분석하고 AI 에이전트에게 전달할 개선 프롬프트를 자동으로 생성하는 확장 프로그램입니다.
 
-> **🚀 v0.4.40 안내**: 설치/릴리즈 예시 및 문서 버전 정합성을 최신 버전에 맞춰 유지합니다(CHANGELOG/README/테스트로 드리프트 조기 탐지).
+> **🚀 v0.4.41 안내**: 설치/릴리즈 예시 및 문서 버전 정합성을 최신 버전에 맞춰 유지합니다(CHANGELOG/README/테스트로 드리프트 조기 탐지).
 
 ## ✨ Features
 
@@ -84,20 +84,20 @@ GitHub Releases에서 최신 `.vsix` 파일을 다운로드하여 설치합니�
 #### 방법 2: 명령줄에서 설치
 ```bash
 # VSIX 파일 다운로드 후
-code --install-extension vibereport-0.4.40.vsix
+code --install-extension vibereport-0.4.41.vsix
 ```
 
 #### 방법 3: PowerShell/터미널에서 직접 다운로드 및 설치
 ```powershell
 # GitHub에서 직접 다운로드 (PowerShell)
-Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.40/vibereport-0.4.40.vsix" -OutFile "vibereport-0.4.40.vsix"
-code --install-extension vibereport-0.4.40.vsix
+Invoke-WebRequest -Uri "https://github.com/Stankjedi/projectmanager/releases/download/v0.4.41/vibereport-0.4.41.vsix" -OutFile "vibereport-0.4.41.vsix"
+code --install-extension vibereport-0.4.41.vsix
 ```
 
 ```bash
 # Linux/Mac
-curl -L -o vibereport-0.4.40.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.40/vibereport-0.4.40.vsix
-code --install-extension vibereport-0.4.40.vsix
+curl -L -o vibereport-0.4.41.vsix https://github.com/Stankjedi/projectmanager/releases/download/v0.4.41/vibereport-0.4.41.vsix
+code --install-extension vibereport-0.4.41.vsix
 ```
 
 ### Development (개발자용)
@@ -136,14 +136,18 @@ pnpm run compile
 | `VibeCoding: Open Code Reference` | 코드 레퍼런스 열기 | - |
 | `VibeCoding: Open Report Preview` | Mermaid 지원 보고서 프리뷰 | `Ctrl+K M` |
 | `VibeCoding: Share Report Preview` | 보고서 공유 | - |
+| `VibeCoding: Export Report Bundle` | 보고서 번들 내보내기 | - |
+| `VibeCoding: Set Analysis Root (Wizard)` | 분석 루트 설정(마법사) | - |
+| `VibeCoding: Open Troubleshooting Guide` | 문제 해결 가이드 열기 | - |
 | `VibeCoding: Report Doctor: Validate/Repair Reports` | 보고서 검증/복구 | - |
+| `Antigravity: Toggle Auto-Accept` | 승인(accept) 자동 실행 토글 | - |
 
 ## ⚙️ Configuration
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `vibereport.reportDirectory` | 보고서 저장 디렉토리 | `devplan` |
-| `vibereport.snapshotFile` | 스냅샷 상태 파일 경로 | `.vscode/vibereport-state.json` |
+| `vibereport.reportDirectory` | 보고서 저장 디렉토리 (보안: 워크스페이스 하위 상대 경로만 허용) | `devplan` |
+| `vibereport.snapshotFile` | 스냅샷 상태 파일 경로 (보안: 워크스페이스 하위 상대 경로만 허용) | `.vscode/vibereport-state.json` |
 | `vibereport.enableGitDiff` | Git 기반 변경 분석 활성화 | `true` |
 | `vibereport.excludePatterns` | 스캔 제외 패턴 | `["**/node_modules/**", ...]` |
 | `vibereport.maxFilesToScan` | 최대 스캔 파일 수 | `5000` |
@@ -252,7 +256,7 @@ pnpm run compile
 ### Packaging
 ```bash
 pnpm run package
-# vibereport-0.4.40.vsix 생성
+# vibereport-0.4.41.vsix 생성
 ```
 
 ## 📝 Changelog
